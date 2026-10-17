@@ -122,7 +122,7 @@ superjson.stringify(new Map([["k", 1n]]));
 const back = superjson.parse(sameString); // Map with 1n — bit-for-bit
 ```
 
-Handlers cover numeric edge cases (`NaN`/`±Infinity`/`-0`, bigint, symbols via `Symbol.for`, boxed primitives, invalid dates, `Date`, `Map`, `Set`, `Buffer`, all typed arrays, `DataView`, `ArrayBuffer`, `Error` (+ `cause`), `RegExp`, `URL`, `URLSearchParams`, `Headers`). Build your own registry with `new Json().addHandler(type, { isApplicable, stringify, parse })`.
+Handlers cover numeric edge cases (`NaN`/`±Infinity`/`-0`, bigint, symbols via `Symbol.for`, boxed primitives, invalid dates, `Date`, `Map`, `Set`, `Buffer`, all typed arrays, `DataView`, `ArrayBuffer`, `Error` (+ `cause`), `RegExp`, `URL`, `URLSearchParams`, `Headers`). Invalid-date detection is strict (`Number.isNaN(getTime())` — no coercion), so a `Date` whose `getTime` was overridden to a non-number still round-trips as a valid date. Build your own registry with `new Json().addHandler(type, { isApplicable, stringify, parse })`.
 
 ### Node streams
 

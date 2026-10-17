@@ -487,6 +487,11 @@ order is kept, but a later `stringify` sees the replaced handler).
   simply absent, so plain JSON flows through untouched.
 - Return values are branded: `stringify` yields `JsonStringified<T>`,
   a compile-time proof of what it serializes.
+- Invalid-date detection is strict: the `invaliddate` handler claims a `Date`
+  only when `Number.isNaN(v.getTime())` — no coercion. A `Date` whose
+  `getTime` was overridden to return a non-number keeps the plain `date` path
+  and its internal time slot round-trips (the old global `isNaN` coerced such
+  values to `NaN` and degraded them).
 
 ### Quirks
 

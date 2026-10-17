@@ -268,7 +268,7 @@ export const superjson = new Json()
     parse: (_, v) => new Boolean(v),
   })
   .addHandler("invaliddate", {
-    isApplicable: (_, v): v is Date => v instanceof Date && isNaN(v.getTime()),
+    isApplicable: (_, v): v is Date => v instanceof Date && Number.isNaN(v.getTime()),
     stringify: () => null,
     parse: () => new Date(NaN),
   })

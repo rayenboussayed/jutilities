@@ -212,6 +212,23 @@ describe("superjson: number (non-finite and -0)", () => {
     assert.ok(Object.is(rt(-0), -0));
   });
 
+  it("claims ±Infinity nested, as Map keys, and as Set members", () => {
+    const back = rt({
+      pos: Infinity,
+      neg: -Infinity,
+      map: new Map<number, string>([
+        [Infinity, "pos"],
+        [-Infinity, "neg"],
+      ]),
+      set: new Set<number>([-Infinity]),
+    });
+    assert.strictEqual(back.pos, Infinity);
+    assert.strictEqual(back.neg, -Infinity);
+    assert.strictEqual(back.map.get(Infinity), "pos");
+    assert.strictEqual(back.map.get(-Infinity), "neg");
+    assert.ok([...back.set][0] === -Infinity);
+  });
+
   it("leaves finite numbers (incl. 0) untouched", () => {
     assert.strictEqual(superjson.stringify(0), "0");
     assert.strictEqual(superjson.stringify(1.5), "1.5");
@@ -309,6 +326,22 @@ describe("superjson: date", () => {
     const back = rt(new Date(NaN));
     assert.ok(back instanceof Date);
     assert.ok(Number.isNaN(back.getTime()));
+  });
+
+  it("invaliddate claims only Number.isNaN(getTime()) (no coercion)", () => {
+    // A getTime override returning a non-number is NOT coerced to invalid
+    // (global isNaN would claim it, degrading a valid date to NaN on
+    // restore). Number.isNaN is strict, so the plain date handler claims it
+    // and the internal time slot round-trips.
+    const lying = new Date(iso);
+    Object.defineProperty(lying, "getTime", { value: () => "abc" });
+    assert.strictEqual(
+      superjson.stringify(lying),
+      `{"__type":"date","value":"${iso}"}`,
+    );
+    const back = rt(lying);
+    assert.ok(back instanceof Date);
+    assert.strictEqual(back.getTime(), new Date(iso).getTime());
   });
 });
 

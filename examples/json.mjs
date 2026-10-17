@@ -12,9 +12,12 @@ const value = {
   map: new Map([["k", "v"]]),
   set: new Set([1, 2, 3]),
   date: new Date(0),
+  invalidDate: new Date(Number.NaN),
   big: 9007199254740993n, // exceeds Number.MAX_SAFE_INTEGER
   notANumber: Number.NaN,
   minusZero: -0,
+  inf: Infinity,
+  negInf: -Infinity,
   re: /jutilities/g,
   url: new URL("https://example.com/p?a=1"),
   bytes: Uint8Array.from([1, 2, 3, 4]),
@@ -27,6 +30,16 @@ const back = superjson.parse(text);
 console.log("Map survives:", back.map instanceof Map, back.map.get("k"));
 console.log("Set survives:", back.set instanceof Set, back.set.size);
 console.log("Date survives:", back.date.getTime() === 0);
+console.log(
+  "±Infinity survive:",
+  back.inf === Infinity,
+  back.negInf === -Infinity,
+);
+console.log(
+  "invalid date survives as NaN:",
+  back.invalidDate instanceof Date,
+  Number.isNaN(back.invalidDate.getTime()),
+);
 console.log("bigint survives:", back.big === 9007199254740993n);
 console.log("typed array survives:", back.bytes instanceof Uint8Array);
 
