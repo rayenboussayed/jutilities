@@ -4,7 +4,7 @@
  * Demonstrates `abort`: register/remove an abort listener, the no-retro-fire
  * rule for already-aborted signals, and the no-signal no-op.
  */
-import { abort } from "../dist/signal.js";
+import { abort } from "jutilities/signal";
 
 // ---- register + fire + remove --------------------------------------------------
 const controller = new AbortController();

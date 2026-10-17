@@ -5,7 +5,7 @@
  * Date, bigint, errors with causes, typed arrays, and how to add custom
  * handlers.
  */
-import { Json, superjson } from "../dist/json.js";
+import { Json, superjson } from "jutilities/json";
 
 // ---- value families native JSON cannot carry ---------------------------------
 const value = {

@@ -13,7 +13,7 @@ import {
   isPromise,
   isRecord,
   isThenable,
-} from "../dist/is.js";
+} from "jutilities/is";
 
 console.log("isNil(null)        :", isNil(null));
 console.log("isNil(undefined)   :", isNil(undefined));

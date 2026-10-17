@@ -9,7 +9,7 @@ Every statement below is pinned by an executable test in `src/*.test.ts` — if 
 - `signal` — every async helper accepts the `WithSignal<T>` shape: `{ signal?: AbortSignal } & T`.
 - `this` — all higher-order wrappers forward the receiver and arguments unchanged.
 - "resolve(s)" and "reject(s)" refer to the returned promise of a wrapped call.
-- Deep imports are the only supported import style: `jutilities/dist/<module>.js`.
+- Subpath imports are the only supported import style: `jutilities/<module>` (the package `exports` pattern routes it to the compiled `dist/<module>.js`).
 
 ---
 
@@ -35,7 +35,7 @@ Every statement below is pinned by an executable test in `src/*.test.ts` — if 
 ## cache
 
 ```ts
-import { withCacheSync, withCacheAsync } from "jutilities/dist/cache.js";
+import { withCacheSync, withCacheAsync } from "jutilities/cache";
 
 function withCacheSync<T extends AnyFunction>(
   fn: AnySyncFunction<T>,
@@ -108,7 +108,7 @@ retried — reversely, caching outside means retries stay invisible to the cache
 ## retry
 
 ```ts
-import { withRetryAsync, withRetrySync } from "jutilities/dist/retry.js";
+import { withRetryAsync, withRetrySync } from "jutilities/retry";
 
 function withRetryAsync<T extends AnyAsyncFunction>(
   fn: T,
@@ -175,7 +175,7 @@ the cache dedups in-flight identical requests at the outer layer.
 ## timeout
 
 ```ts
-import { withTimeoutAsync } from "jutilities/dist/timeout.js";
+import { withTimeoutAsync } from "jutilities/timeout";
 
 function withTimeoutAsync<T extends AnyAsyncFunction>(
   fn: T,
@@ -225,7 +225,7 @@ Place the timeout **outermost** so the delay also counts against the budget.
 ## delay
 
 ```ts
-import { withDelayAsync, withDelaySync } from "jutilities/dist/delay.js";
+import { withDelayAsync, withDelaySync } from "jutilities/delay";
 
 function withDelayAsync<T extends AnyAsyncFunction>(
   fn: T,
@@ -277,7 +277,7 @@ const throttledSave = withDelaySync(withCacheSync(save), { delay: 50 });
 ## sleep
 
 ```ts
-import { sleepAsync, sleepSync } from "jutilities/dist/sleep.js";
+import { sleepAsync, sleepSync } from "jutilities/sleep";
 
 function sleepAsync(options?: { signal?: AbortSignal; sleep?: number }): Promise<void>;
 function sleepSync(options?: { signal?: AbortSignal; sleep?: number }): void;
@@ -326,7 +326,7 @@ async function poll(signal: AbortSignal) {
 ## signal
 
 ```ts
-import { abort } from "jutilities/dist/signal.js";
+import { abort } from "jutilities/signal";
 
 function abort(options: { signal?: AbortSignal; onAbort: () => void }): () => void;
 ```
@@ -354,7 +354,7 @@ function abort(options: { signal?: AbortSignal; onAbort: () => void }): () => vo
 ## lazy
 
 ```ts
-import { lazy } from "jutilities/dist/lazy.js";
+import { lazy } from "jutilities/lazy";
 
 function lazy<T extends AnyFunction>(fn: T): T;
 ```
@@ -393,7 +393,7 @@ const memoGetRegion = withCacheSync(getRegion, { extraKeys: [env.API_VERSION] })
 ## logger
 
 ```ts
-import { withLogger } from "jutilities/dist/logger.js";
+import { withLogger } from "jutilities/logger";
 
 function withLogger<T extends AnyFunction>(name: string, fn: T): T;  // explicit
 function withLogger<T extends AnyFunction>(fn: T): T;                // infers name
@@ -433,7 +433,7 @@ const traced = withLogger("queue:send", withRetryAsync(send));
 ## json (`Json`, `superjson`)
 
 ```ts
-import { Json, superjson } from "jutilities/dist/json.js";
+import { Json, superjson } from "jutilities/json";
 
 class Json {
   addHandler<TA, TS>(type: string, handler: {
@@ -517,7 +517,7 @@ const sessionCache = withCacheAsync(processState, {
 ```ts
 import {
   tee, stream2buffer, buffer2stream, streamSizeTransform, streamSize,
-} from "jutilities/dist/node-stream.js";
+} from "jutilities/node-stream";
 
 function tee(o: { source: Readable; signal?: AbortSignal }): [PassThrough, PassThrough];
 
@@ -594,7 +594,7 @@ for await (const chunk of streamSize(counter, { onSize: report })) void chunk;
 ## hash
 
 ```ts
-import { djb2, sdbm, fnv1a64 } from "jutilities/dist/hash.js";
+import { djb2, sdbm, fnv1a64 } from "jutilities/hash";
 
 function djb2(string: string, hash?: number): number;  // uint32, seed 5381
 function sdbm(string: string, hash?: number): number;  // uint32
@@ -634,7 +634,7 @@ import {
   isObject, isRecord, isEmptyRecord, isEmpty,
   isThenable, isPromise,
   isAsyncFunction, isGeneratorFunction, isAsyncGeneratorFunction,
-} from "jutilities/dist/is.js";
+} from "jutilities/is";
 ```
 
 ### Behavior contract — the exact rules
@@ -674,7 +674,7 @@ if (isObject(raw) && isRecord(raw)) cacheableEnvelope(raw);
 ## to
 
 ```ts
-import { toArray, toBase64 } from "jutilities/dist/to.js";
+import { toArray, toBase64 } from "jutilities/to";
 
 function toArray<T>(value: T | T[]): T[];
 function toBase64(bytes: Uint8Array): string;
@@ -706,7 +706,7 @@ function toBase64(bytes: Uint8Array): string;
 ## from
 
 ```ts
-import { fromBase64 } from "jutilities/dist/from.js";
+import { fromBase64 } from "jutilities/from";
 
 function fromBase64(b64: string): Buffer | Uint8Array;
 ```
@@ -735,8 +735,8 @@ import {
   AnyFunction, AnyAsyncFunction, AnySyncFunction,
   AnyGeneratorFunction, AnyAsyncGeneratorFunction,
   MaybePromise, Prettier, StrictOmit,
-} from "jutilities/dist/types/type.js";
-import { WithSignal } from "jutilities/dist/types/with.js";
+} from "jutilities/types/type";
+import { WithSignal } from "jutilities/types/with";
 ```
 
 - `AnyFunction` — any callable (sync or async, generator or not).

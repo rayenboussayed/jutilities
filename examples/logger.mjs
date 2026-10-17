@@ -4,7 +4,7 @@
  * Demonstrates `withLogger`: explicit and inferred names, awaited async
  * results, and the node/browser timing split.
  */
-import { withLogger } from "../dist/logger.js";
+import { withLogger } from "jutilities/logger";
 
 /**
  * Sync adder logged under an explicit label.

@@ -4,7 +4,7 @@
  * Demonstrates `withCacheSync` and `withCacheAsync`: default TTL-backed store,
  * argument-keyed memoization, `extraKeys` scoping, and in-flight deduplication.
  */
-import { withCacheAsync, withCacheSync } from "../dist/cache.js";
+import { withCacheAsync, withCacheSync } from "jutilities/cache";
 
 /**
  * Expensive-to-compute sync function used as the cache subject.

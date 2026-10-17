@@ -13,7 +13,7 @@ import {
   streamSize,
   streamSizeTransform,
   tee,
-} from "../dist/node-stream.js";
+} from "jutilities/node-stream";
 
 /**
  * A tiny readable emitting the given words as buffer chunks.

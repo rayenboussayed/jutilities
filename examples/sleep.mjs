@@ -4,7 +4,7 @@
  * Demonstrates `sleepAsync` / `sleepSync`: the pre-aborted sync throw, a
  * mid-sleep abort resolving with `signal.reason`, and the blocking variant.
  */
-import { sleepAsync, sleepSync } from "../dist/sleep.js";
+import { sleepAsync, sleepSync } from "jutilities/sleep";
 
 // ---- mid-sleep abort (resolves with the reason, does not reject) ------------
 const controller = new AbortController();

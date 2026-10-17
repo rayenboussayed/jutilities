@@ -4,7 +4,7 @@
  * Demonstrates the non-cryptographic hash family: `djb2`, `sdbm`, and
  * `fnv1a64`, including seed chaining for namespace separation.
  */
-import { djb2, fnv1a64, sdbm } from "../dist/hash.js";
+import { djb2, fnv1a64, sdbm } from "jutilities/hash";
 
 console.log("djb2('hello')    :", djb2("hello"));
 console.log("sdbm('hello')    :", sdbm("hello"));

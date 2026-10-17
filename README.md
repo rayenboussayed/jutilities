@@ -19,42 +19,42 @@ ESM only. The package ships compiled `dist/` output — no barrel, no `main`.
 `examples/` (runnable demos), `README.md`, `package.json`. Sources (`src/`),
 tests, and all dev tooling stay in the repository only.
 
-### Deep imports (the only supported style)
+### Subpath imports (the only supported style)
 
-jutilities intentionally exposes **no index barrel**: every module is imported by its full path, so bundlers and runtimes only pull the code you use.
+jutilities intentionally exposes **no index barrel**: every module is imported by its own subpath — `jutilities/<module>`. A single `exports` pattern routes each subpath onto the compiled file (`jutilities/cache` resolves to `dist/cache.js`, typings sit next to it), so bundlers and runtimes only pull the code you use.
 
 ```ts
 // TypeScript
-import { withCacheAsync } from "jutilities/dist/cache.js";
-import { sleepAsync } from "jutilities/dist/sleep.js";
+import { withCacheAsync } from "jutilities/cache";
+import { sleepAsync } from "jutilities/sleep";
 ```
 
 ```js
 // JavaScript
-import { withRetryAsync } from "jutilities/dist/retry.js";
-import { superjson } from "jutilities/dist/json.js";
+import { withRetryAsync } from "jutilities/retry";
+import { superjson } from "jutilities/json";
 ```
 
 ## Modules
 
-| Deep import | Exports | One-line summary |
+| Subpath import | Exports | One-line summary |
 | --- | --- | --- |
-| `jutilities/dist/cache.js` | `withCacheSync`, `withCacheAsync` | Memoize with a pluggable (TTL-aware default) store |
-| `jutilities/dist/retry.js` | `withRetryAsync`, `withRetrySync` | Policy-driven retries (`onError` decides) |
-| `jutilities/dist/timeout.js` | `withTimeoutAsync` | Race an async call against a deadline / signal |
-| `jutilities/dist/delay.js` | `withDelayAsync`, `withDelaySync` | Sleep before each invocation |
-| `jutilities/dist/sleep.js` | `sleepAsync`, `sleepSync` | Promisified (and blocking) waits, abort-aware |
-| `jutilities/dist/signal.js` | `abort` | Flatten `AbortSignal` add/remove into two callables |
-| `jutilities/dist/lazy.js` | `lazy` | Memoize by (source + args) hash, retry failures |
-| `jutilities/dist/logger.js` | `withLogger` | Log invocation args + awaited result + duration |
-| `jutilities/dist/json.js` | `Json`, `superjson` | Round-trip Map/Set/Date/bigint/typed arrays/Errors… |
-| `jutilities/dist/node-stream.js` | `tee`, `stream2buffer`, `buffer2stream`, `streamSizeTransform`, `streamSize` | Bandwidth-aware stream plumbing |
-| `jutilities/dist/hash.js` | `djb2`, `sdbm`, `fnv1a64` | Fast 32-bit seeds + BigInt (unmasked) hashing |
-| `jutilities/dist/is.js` | 14 type guards | `isRecord`, `isEmpty`, `isThenable`, … |
-| `jutilities/dist/to.js` | `toArray`, `toBase64` | Normalize wrappers / encode bytes |
-| `jutilities/dist/from.js` | `fromBase64` | Decode bytes (Node `Buffer` / browser `atob`) |
-| `jutilities/dist/types/type.js` | `AnyFunction`, `AnySyncFunction`, … | Shared callable/utility types |
-| `jutilities/dist/types/with.js` | `WithSignal` | `{ signal?: AbortSignal } & T` convention |
+| `jutilities/cache` | `withCacheSync`, `withCacheAsync` | Memoize with a pluggable (TTL-aware default) store |
+| `jutilities/retry` | `withRetryAsync`, `withRetrySync` | Policy-driven retries (`onError` decides) |
+| `jutilities/timeout` | `withTimeoutAsync` | Race an async call against a deadline / signal |
+| `jutilities/delay` | `withDelayAsync`, `withDelaySync` | Sleep before each invocation |
+| `jutilities/sleep` | `sleepAsync`, `sleepSync` | Promisified (and blocking) waits, abort-aware |
+| `jutilities/signal` | `abort` | Flatten `AbortSignal` add/remove into two callables |
+| `jutilities/lazy` | `lazy` | Memoize by (source + args) hash, retry failures |
+| `jutilities/logger` | `withLogger` | Log invocation args + awaited result + duration |
+| `jutilities/json` | `Json`, `superjson` | Round-trip Map/Set/Date/bigint/typed arrays/Errors… |
+| `jutilities/node-stream` | `tee`, `stream2buffer`, `buffer2stream`, `streamSizeTransform`, `streamSize` | Bandwidth-aware stream plumbing |
+| `jutilities/hash` | `djb2`, `sdbm`, `fnv1a64` | Fast 32-bit seeds + BigInt (unmasked) hashing |
+| `jutilities/is` | 14 type guards | `isRecord`, `isEmpty`, `isThenable`, … |
+| `jutilities/to` | `toArray`, `toBase64` | Normalize wrappers / encode bytes |
+| `jutilities/from` | `fromBase64` | Decode bytes (Node `Buffer` / browser `atob`) |
+| `jutilities/types/type` | `AnyFunction`, `AnySyncFunction`, … | Shared callable/utility types |
+| `jutilities/types/with` | `WithSignal` | `{ signal?: AbortSignal } & T` convention |
 
 `AsyncFunction`, `MaybePromise`, `Generator`, and friends are all re-exportable straight from `dist/types/type.js`.
 
@@ -63,7 +63,7 @@ import { superjson } from "jutilities/dist/json.js";
 ### Cache (memoize anything)
 
 ```ts
-import { withCacheAsync } from "jutilities/dist/cache.js";
+import { withCacheAsync } from "jutilities/cache";
 
 const getUser = withCacheAsync(async (id: string) => fetchUser(id));
 
@@ -78,7 +78,7 @@ await getUser("u1"); // hit — served from the store
 ### Retry (policy in your hands)
 
 ```ts
-import { withRetryAsync } from "jutilities/dist/retry.js";
+import { withRetryAsync } from "jutilities/retry";
 
 const flaky = withRetryAsync(callThirdPartyApi, ({ retries, error }) => {
   if (retries >= 5) throw error; // stop and surface
@@ -91,7 +91,7 @@ Default policy: ≤ 3 retries (4 attempts) and a per-execution 60 s ceiling; **n
 ### Timeout + signal
 
 ```ts
-import { withTimeoutAsync } from "jutilities/dist/timeout.js";
+import { withTimeoutAsync } from "jutilities/timeout";
 
 const deadline = withTimeoutAsync(loadRemote, { timeoutMs: 2500 });
 ```
@@ -101,7 +101,7 @@ The rejection value is always `signal?.reason` — including the wall-clock time
 ### Sleep (abort-aware)
 
 ```ts
-import { sleepAsync } from "jutilities/dist/sleep.js";
+import { sleepAsync } from "jutilities/sleep";
 
 await sleepAsync({ sleep: 1500, signal: controller.signal });
 // aborted mid-sleep? resolves with signal.reason instead of hanging
@@ -112,7 +112,7 @@ await sleepAsync({ sleep: 1500, signal: controller.signal });
 ### superjson — JSON that round-trips your values
 
 ```ts
-import { superjson } from "jutilities/dist/json.js";
+import { superjson } from "jutilities/json";
 
 superjson.stringify(new Map([["k", 1n]]));
 // '{"__type":"map","value":[["k",{"__type":"bigint","value":"1"}]]}'
@@ -125,8 +125,8 @@ Handlers cover numeric edge cases (`NaN`/`±Infinity`/`-0`, bigint, symbols via 
 ### Node streams
 
 ```ts
-import { tee } from "jutilities/dist/node-stream.js";
-import { streamSize } from "jutilities/dist/node-stream.js";
+import { tee } from "jutilities/node-stream";
+import { streamSize } from "jutilities/node-stream";
 
 const [memory, disk] = tee({ source: upload }); // backpressure-aware duplication
 
@@ -164,6 +164,8 @@ npm test            # 289 tests
 npm run build       # tsc → dist (tests excluded)
 npm run examples    # run every example in examples/
 ```
+
+The examples import through the same `jutilities/<module>` style as every snippet on this page. Published installs resolve them through the consumer's `node_modules`; fresh checkouts get the `node_modules/jutilities` self-link wired automatically by the `prepare` hook on `npm install` (`scripts/link-self.mjs`).
 
 ### Lint policy
 

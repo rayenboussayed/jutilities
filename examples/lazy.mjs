@@ -4,7 +4,7 @@
  * Demonstrates `lazy`: source+args-keyed memoization, falsy results never
  * cached, and rejected promises evicted so the next call retries.
  */
-import { lazy } from "../dist/lazy.js";
+import { lazy } from "jutilities/lazy";
 
 // ---- memoization by source + args -------------------------------------------
 /**

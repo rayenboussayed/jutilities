@@ -4,8 +4,8 @@
  * Demonstrates `fromBase64`: the lenient Node behavior against the strict
  * browser `atob` branch, plus empty-input handling.
  */
-import { fromBase64 } from "../dist/from.js";
-import { toBase64 } from "../dist/to.js";
+import { fromBase64 } from "jutilities/from";
+import { toBase64 } from "jutilities/to";
 
 // ---- Node branch: lenient, invalid characters skipped -------------------------
 console.log("valid decode:", Buffer.from(fromBase64("aGVsbG8=")).toString());

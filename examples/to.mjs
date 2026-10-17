@@ -4,8 +4,8 @@
  * Demonstrates `toBase64` / `toArray` and their `fromBase64` counterpart
  * (round-trips, viewed-slice handling, and reference semantics).
  */
-import { toBase64, toArray } from "../dist/to.js";
-import { fromBase64 } from "../dist/from.js";
+import { toBase64, toArray } from "jutilities/to";
+import { fromBase64 } from "jutilities/from";
 
 // ---- toBase64 / fromBase64 round-trip ----------------------------------------
 const payload = new TextEncoder().encode("jutilities");

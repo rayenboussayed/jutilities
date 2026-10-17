@@ -4,8 +4,8 @@
  * Demonstrates `withRetryAsync`: caller-owned retry policy, backoff via
  * `sleepAsync`, and the documented `withRetrySync` args-spreading bug.
  */
-import { withRetryAsync, withRetrySync } from "../dist/retry.js";
-import { sleepAsync } from "../dist/sleep.js";
+import { withRetryAsync, withRetrySync } from "jutilities/retry";
+import { sleepAsync } from "jutilities/sleep";
 
 /**
  * Flaky "third party" that fails the first two attempts, then succeeds.

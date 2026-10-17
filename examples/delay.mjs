@@ -5,7 +5,7 @@
  * `delay <= 0`, delayed execution, and the documented "abort mid-delay still
  * runs the function" behavior.
  */
-import { withDelayAsync, withDelaySync } from "../dist/delay.js";
+import { withDelayAsync, withDelaySync } from "jutilities/delay";
 
 /**
  * Identity function used with the zero/negative-delay unwrap shortcut.
