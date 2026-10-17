@@ -4,7 +4,7 @@ Small, typed, heavily documented TypeScript utilities for Node.js — caching, r
 
 Everything is an independent module with a locked, test-verified behavior contract (289 tests). Every non-obvious quirk is documented at the call site.
 
-> **Status:** early — APIs are stable in practice but not yet frozen with semver guarantees. Requires **Node ≥ 22** (uses `Buffer` pool semantics, `Symbol.for` round-trips, shared timers).
+> **Status:** v1.0.0 — published on npm. APIs are stable in practice, but semver guarantees are not yet frozen. Requires **Node ≥ 22** (uses `Buffer` pool semantics, `Symbol.for` round-trips, shared timers).
 
 ## Install
 
