@@ -39,7 +39,7 @@ import { superjson } from "jutilities/json";
 
 | Subpath import | Exports | One-line summary |
 | --- | --- | --- |
-| `jutilities/cache` | `withCacheSync`, `withCacheAsync` | Memoize with a pluggable (TTL-aware default) store |
+| `jutilities/cache` | `withCacheSync`, `withCacheAsync` + `Key`/`CacheStore`/`Options`/`CacheKeyParams`/`ShouldCacheParams` types | Memoize with a pluggable (TTL-aware default) store |
 | `jutilities/retry` | `withRetryAsync`, `withRetrySync` | Policy-driven retries (`onError` decides) |
 | `jutilities/timeout` | `withTimeoutAsync` | Race an async call against a deadline / signal |
 | `jutilities/delay` | `withDelayAsync`, `withDelaySync` | Sleep before each invocation |
@@ -72,7 +72,9 @@ await getUser("u1"); // hit — served from the store
 ```
 
 - Default store: a process-wide TTL-aware `ExpiredMap` (from `expired-map`).
-- Default key: `JSON.stringify({ parameters, function source, extraKeys })` — argument objects are **key-order sensitive**, matching native JSON semantics.
+- Default key: `djb2(superjson.stringify({ parameters, function source, extraKeys }))` — a stable unsigned 32-bit integer; `superjson` keeps types bare JSON loses distinct (`NaN` vs `null`, `BigInt`, `Map`/`Set`) and object arguments stay **key-order sensitive**.
+- Custom `generateCacheKey` factories may return a `string` **or** a `number` — whatever your store prefers as identity.
+- The contract types are exported too: `import type { CacheStore, Options, Key, CacheKeyParams, ShouldCacheParams } from "jutilities/cache"` to annotate custom stores and hooks.
 - Results cached only when `shouldCache` (default: non-empty results) says so — empty/`undefined` results are never cached.
 
 ### Retry (policy in your hands)
@@ -145,7 +147,7 @@ for await (const chunk of streamSize(fetchStream, { onSize: console.log })) {
 
 ## Known quirks (documented, intentional)
 
-- `withCacheSync/Async` skip caching for empty/falsy results; JSON keys are order-sensitive for object args.
+- `withCacheSync/Async` skip caching for empty/falsy results; default keys are 32-bit `djb2` hashes (theoretically collidable) and object-arg keys are order-sensitive.
 - `withRetrySync` has a documented args-spreading bug: exactly one array argument gets spread, other arities throw — known and pinned by a test until fixed.
 - `withDelayAsync/withDelaySync`: abort **mid-delay still runs the wrapped function** (the delay is checked, not the call).
 - `withTimeoutAsync` rejects with `signal.reason` even for wall-clock timeouts.

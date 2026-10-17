@@ -1,4 +1,6 @@
+import { djb2 } from "./hash.js";
 import { isEmpty } from "./is.js";
+import { superjson } from "./json.js";
 import type {
   AnyAsyncFunction,
   AnyFunction,
@@ -7,42 +9,47 @@ import type {
 } from "./types/type.js";
 import { ExpiredMap } from "expired-map";
 
-const globalCache = new ExpiredMap<string, any>().start();
+export type Key = string | number;
 
-type CacheKeyParams<T extends AnyFunction> = {
+const globalCache = new ExpiredMap<Key, any>().start();
+
+const defaultGenerateCacheKey = (options: CacheKeyParams<AnyFunction>) =>
+  djb2(superjson.stringify(options));
+
+export type CacheKeyParams<T extends AnyFunction> = {
   parameters: Parameters<T>[];
   function: string;
   extraKeys?: unknown[];
 };
 
-type ShouldCacheParams<T extends AnyFunction> = {
+export type ShouldCacheParams<T extends AnyFunction> = {
   parameters: Parameters<T>[];
   result: Awaited<ReturnType<T>>;
 };
 
-type CacheStore<T extends AnyFunction> = {
+export type CacheStore<T extends AnyFunction> = {
   get: (
-    key: string,
+    key: Key,
   ) => T extends AnyAsyncFunction
     ? MaybePromise<Awaited<ReturnType<T>> | undefined>
     : ReturnType<T> | undefined;
   set: (
-    key: string,
+    key: Key,
     value: ReturnType<T>,
   ) => T extends AnyAsyncFunction ? MaybePromise<unknown> : unknown;
   delete: (
-    key: string,
+    key: Key,
   ) => T extends AnyAsyncFunction ? MaybePromise<unknown> : unknown;
 };
 
-type Options<T extends AnyFunction> = {
+export type Options<T extends AnyFunction> = {
   cacheStore?: CacheStore<T>;
   shouldCache?: (
     options: ShouldCacheParams<T>,
   ) => T extends AnyAsyncFunction ? MaybePromise<boolean> : boolean;
   generateCacheKey?: (
     options: CacheKeyParams<T>,
-  ) => T extends AnyAsyncFunction ? MaybePromise<string> : string;
+  ) => T extends AnyAsyncFunction ? MaybePromise<Key> : Key;
   extraKeys?: unknown[];
 };
 
@@ -50,9 +57,11 @@ type Options<T extends AnyFunction> = {
  * Higher-order memoization helpers backed by a pluggable cache store.
  *
  * The default store is a process-wide `ExpiredMap` (TTL-aware Map), and the
- * default cache key is `JSON.stringify` of `{ parameters, function source,
- * extraKeys }` — so key collisions depend on stable argument serialization,
- * and object keys are order-sensitive by nature of `JSON.stringify`.
+ * default cache key is the unsigned 32-bit `djb2` hash of a `superjson`
+ * serialization of `{ parameters, function source, extraKeys }` — so keys are
+ * stable plain numbers, types that bare JSON loses (`NaN`, `BigInt`, `Map`,
+ * `Set`) stay distinct, and object keys remain order-sensitive by nature of
+ * the serialization.
  */
 
 /**
@@ -73,7 +82,8 @@ type Options<T extends AnyFunction> = {
  * @param root0.cacheStore - Object with `get`/`set`/`delete` (defaults to a
  * process-wide TTL-backed `ExpiredMap`).
  * @param root0.generateCacheKey - Custom key factory over
- * `{ parameters, function, extraKeys }` (defaults to JSON keygen).
+ * `{ parameters, function, extraKeys }` (defaults to the hashed keygen
+ * `djb2(superjson.stringify(...))`); may return a string or a number.
  * @param root0.shouldCache - Predicate over `{ parameters, result }` deciding
  * whether a computed value may be stored (defaults to always `true`).
  * @param root0.extraKeys - Extra lexical keys mixed into the cache
@@ -85,7 +95,7 @@ export function withCacheSync<T extends AnyFunction>(
   fn: AnySyncFunction<T>,
   {
     cacheStore = globalCache,
-    generateCacheKey = JSON.stringify,
+    generateCacheKey = defaultGenerateCacheKey,
     shouldCache = () => true,
     extraKeys,
   }: Options<AnySyncFunction<T>> = {},
@@ -129,7 +139,8 @@ export function withCacheSync<T extends AnyFunction>(
  * @param root0.cacheStore - Object with `get`/`set`/`delete` (defaults to a
  * process-wide TTL-backed `ExpiredMap`).
  * @param root0.generateCacheKey - Custom (optionally async) key factory over
- * `{ parameters, function, extraKeys }` (defaults to JSON keygen).
+ * `{ parameters, function, extraKeys }` (defaults to the hashed keygen
+ * `djb2(superjson.stringify(...))`); may return a string or a number.
  * @param root0.shouldCache - (Optionally async) predicate over
  * `{ parameters, result }` deciding whether a computed value may be stored.
  * @param root0.extraKeys - Extra lexical keys mixed into the cache identity
@@ -141,13 +152,13 @@ export function withCacheAsync<T extends AnyAsyncFunction>(
   fn: T,
   {
     cacheStore = globalCache,
-    generateCacheKey = JSON.stringify,
+    generateCacheKey = defaultGenerateCacheKey,
     shouldCache = () => true,
     extraKeys,
   }: Options<T> = {},
 ) {
   const functionString = fn.toString();
-  const inFlight = new Map<string, ReturnType<T>>();
+  const inFlight = new Map<Key, ReturnType<T>>();
 
   return async function (this: ThisParameterType<T>, ...args: Parameters<T>) {
     const cacheKey = await generateCacheKey({

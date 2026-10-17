@@ -1,8 +1,10 @@
 /* eslint-disable deslint/no-prod-console -- examples are demo scripts; printing is their purpose */
 
 /**
- * Demonstrates `withCacheSync` and `withCacheAsync`: default TTL-backed store,
- * argument-keyed memoization, `extraKeys` scoping, and in-flight deduplication.
+ * Demonstrates `withCacheSync` and `withCacheAsync`: TTL-backed default store,
+ * hashed argument-keyed memoization (default keys are 32-bit `djb2` numbers),
+ * `extraKeys` scoping, custom numeric key factories, and in-flight
+ * deduplication.
  */
 import { withCacheAsync, withCacheSync } from "jutilities/cache";
 
@@ -27,6 +29,15 @@ console.log("sync third :", cached("u2")); // different key -> recomputed
 // ---- extraKeys scoping -----------------------------------------------------
 const tenanted = withCacheSync(computeSync, { extraKeys: ["tenant-A"] });
 console.log("tenant-A   :", tenanted("u1")); // separate identity from `cached`
+
+// ---- custom key factory (numeric keys are first-class) ---------------------
+// Keys may be `string` OR `number`: the default keygen already returns a
+// number (the 32-bit hash), and custom factories may do the same — here the
+// factory keys each cache entry by a small numeric id instead of a string.
+const byNumericId = withCacheSync(computeSync, {
+  generateCacheKey: ({ parameters }) => Number(parameters[0]),
+});
+console.log("key 7 once:", byNumericId(7), "==", byNumericId(7));
 
 // ---- async memoization with in-flight deduplication ------------------------
 const loadUser = withCacheAsync(async (id) => {

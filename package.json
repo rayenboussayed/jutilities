@@ -1,6 +1,6 @@
 {
   "name": "jutilities",
-  "version": "1.0.1",
+  "version": "1.1.0",
   "description": "Small, typed, extensively documented TypeScript utilities for Node.js and Browser: caching, retries, timeouts, delays, abort-aware sleeps, streams, super-JSON serialization, hashing, and type guards. Subpath imports: no barrel, every utility is jutilities/<module>.",
   "keywords": [
     "utilities",

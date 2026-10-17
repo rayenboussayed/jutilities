@@ -41,7 +41,7 @@ function withCacheSync<T extends AnyFunction>(
   fn: AnySyncFunction<T>,
   options?: {
     cacheStore?: CacheStore<T>;                  // get/set/delete object
-    generateCacheKey?: (o: CacheKeyParams<T>) => string | Promise<string>;
+    generateCacheKey?: (o: CacheKeyParams<T>) => string | number | Promise<string | number>;
     shouldCache?: (o: ShouldCacheParams<T>) => boolean | Promise<boolean>;
     extraKeys?: unknown[];
   },
@@ -53,7 +53,9 @@ function withCacheAsync<T extends AnyAsyncFunction>(
 ): T;
 ```
 
-Defaults: `cacheStore` = process-wide TTL-backed `ExpiredMap` (from `expired-map`); `generateCacheKey` = `JSON.stringify({ parameters, function: fn.toString(), extraKeys })`; `shouldCache` = always allow.
+Defaults: `cacheStore` = process-wide TTL-backed `ExpiredMap` (from `expired-map`); `generateCacheKey` = `djb2(superjson.stringify({ parameters, function: fn.toString(), extraKeys }))` — an unsigned 32-bit integer; `shouldCache` = always allow. Custom key factories may return a `string` or a `number`.
+
+Also exported (types): `Key`, `CacheStore<T>`, `Options<T>`, `CacheKeyParams<T>`, and `ShouldCacheParams<T>` — `import type { ... } from "jutilities/cache"` to annotate custom stores and hooks against the exact contract.
 
 ### Behavior contract
 
@@ -71,9 +73,15 @@ Defaults: `cacheStore` = process-wide TTL-backed `ExpiredMap` (from `expired-map
 
 ### Quirks
 
-- JSON default keygen makes object-argument keys **key-order sensitive**
-  (`{a:1,b:2}` ≠ `{b:2,a:1}` as strings but they hash differently — by design,
-  matching native JSON semantics).
+- The default keygen hashes a `superjson` serialization with `djb2` (unsigned
+  32-bit): object-argument keys stay **order-sensitive** (`{a:1,b:2}` ≠
+  `{b:2,a:1}` — keyed by serialization order), and the finite 32-bit space
+  means distinct inputs can theoretically collide; pass a custom
+  `generateCacheKey` when strict identity matters.
+- `superjson` (vs. the old bare-`JSON.stringify` default) serializes types JSON
+  collapses or rejects: `NaN` no longer becomes the same key as `null`,
+  `Map`/`Set` no longer stringify to `{}`, and `BigInt` arguments no longer
+  throw under the default keygen.
 - Two different functions with *byte-identical source text* share cache identity —
   inline duplicate helpers can cross-pollinate entries; pass `generateCacheKey` or
   distinct sources to avoid it.

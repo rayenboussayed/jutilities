@@ -1,20 +1,27 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { withCacheAsync, withCacheSync } from "./cache.js";
+import type {
+  CacheKeyParams,
+  CacheStore,
+  Key,
+  Options,
+  ShouldCacheParams,
+} from "./cache.js";
 
 /**
  * Tiny Map-backed cache store used as `cacheStore` in these tests.
  * @returns The store object (with its internal Map exposed for assertions).
  */
 function memoryStore() {
-  const m = new Map<string, unknown>();
+  const m = new Map<string | number, unknown>();
   return {
     map: m,
-    get: (key: string) => m.get(key) as never,
-    set: (key: string, value: unknown) => {
+    get: (key: string | number) => m.get(key) as never,
+    set: (key: string | number, value: unknown) => {
       m.set(key, value);
     },
-    delete: (key: string) => {
+    delete: (key: string | number) => {
       m.delete(key);
     },
   };
@@ -65,6 +72,54 @@ describe("withCacheSync", () => {
     );
     wrapped(1);
     wrapped(2);
+    assert.strictEqual(count, 2);
+  });
+
+  it("default cache keys are unsigned 32-bit numbers (djb2 over superjson)", () => {
+    const store = memoryStore();
+    const wrapped = withCacheSync((x: number) => x, {
+      cacheStore: store as never,
+    });
+    wrapped(1);
+    assert.strictEqual(store.map.size, 1);
+    for (const key of store.map.keys()) {
+      if (typeof key !== "number") {
+        assert.fail(`key ${String(key)} is not a number`);
+      }
+      assert.ok(
+        Number.isInteger(key) && key >= 0 && key <= 4294967295,
+        `key ${key} is not an uint32`,
+      );
+    }
+  });
+
+  it("default keygen keeps NaN and null distinct (JSON.stringify collapsed them)", () => {
+    let count = 0;
+    const store = memoryStore();
+    const wrapped = withCacheSync((x: number | null) => {
+      count++;
+      return x === null ? "null-shot" : "nan-shot";
+    }, { cacheStore: store as never });
+    assert.strictEqual(wrapped(null), "null-shot");
+    assert.strictEqual(wrapped(NaN), "nan-shot");
+    assert.strictEqual(count, 2);
+    // both already cached under their distinct keys
+    assert.strictEqual(wrapped(null), "null-shot");
+    assert.strictEqual(wrapped(NaN), "nan-shot");
+    assert.strictEqual(count, 2);
+  });
+
+  it("caches BigInt arguments (JSON.stringify keygen would throw on them)", () => {
+    let count = 0;
+    const store = memoryStore();
+    const wrapped = withCacheSync((x: bigint) => {
+      count++;
+      return Number(x) * 2;
+    }, { cacheStore: store as never });
+    assert.strictEqual(wrapped(10n), 20);
+    assert.strictEqual(wrapped(10n), 20);
+    assert.strictEqual(count, 1);
+    assert.strictEqual(wrapped(11n), 22);
     assert.strictEqual(count, 2);
   });
 
@@ -178,6 +233,44 @@ describe("withCacheSync", () => {
     ]);
   });
 
+  it("custom key factory may return a number (keys are string | number)", () => {
+    let count = 0;
+    const store = memoryStore();
+    const wrapped = withCacheSync(
+      (x: number) => {
+        count++;
+        return x;
+      },
+      {
+        cacheStore: store as never,
+        generateCacheKey: ({ parameters }) => Number(parameters[0]),
+      },
+    );
+    assert.strictEqual(wrapped(5), 5);
+    assert.strictEqual(wrapped(5), 5);
+    assert.strictEqual(count, 1);
+    assert.strictEqual(wrapped(6), 6);
+    assert.strictEqual(count, 2);
+    assert.strictEqual(store.map.size, 2);
+  });
+
+  it("the exported contract types (CacheStore/Options/Key/params) typecheck", () => {
+    const double = (x: number): number => x * 2;
+    const store = memoryStore();
+    const contractStore: CacheStore<typeof double> = store;
+    const opts: Options<typeof double> = {
+      cacheStore: contractStore,
+      generateCacheKey: (o: CacheKeyParams<typeof double>): Key =>
+        Number(o.parameters[0]),
+      shouldCache: (o: ShouldCacheParams<typeof double>): boolean =>
+        o.result >= 0,
+    };
+    const wrapped = withCacheSync(double, opts);
+    assert.strictEqual(wrapped(4), 8);
+    assert.strictEqual(wrapped(4), 8);
+    assert.strictEqual(store.map.size, 1);
+  });
+
   it("generateCacheKey throw propagates", () => {
     const store = memoryStore();
     const wrapped = withCacheSync(() => 1, {
@@ -189,7 +282,7 @@ describe("withCacheSync", () => {
     assert.throws(() => wrapped(), /key boom/);
   });
 
-  it("different functions do not collide with default JSON key (function string in key)", () => {
+  it("different functions do not collide with default hashed key (function string in key)", () => {
     const store = memoryStore();
     let c1 = 0;
     let c2 = 0;
@@ -229,7 +322,7 @@ describe("withCacheSync", () => {
     assert.strictEqual(count, 1);
   });
 
-  it("extraKeys participate in the default JSON key", () => {
+  it("extraKeys participate in the default hashed key", () => {
     let count = 0;
     const store = memoryStore();
     const fn = (x: number) => {
@@ -342,6 +435,43 @@ describe("withCacheAsync", () => {
     assert.strictEqual(count, 1);
   });
 
+  it("custom numeric keys work in the async wrapper too", async () => {
+    let count = 0;
+    const store = memoryStore();
+    const wrapped = withCacheAsync(
+      async (x: number) => {
+        count++;
+        return x;
+      },
+      {
+        cacheStore: store as never,
+        generateCacheKey: async ({ parameters }) => Number(parameters[0]),
+      },
+    );
+    assert.strictEqual(await wrapped(5), 5);
+    assert.strictEqual(await wrapped(5), 5);
+    assert.strictEqual(count, 1);
+    assert.strictEqual(await wrapped(6), 6);
+    assert.strictEqual(count, 2);
+  });
+
+  it("the exported contract types typecheck in the async wrapper too", async () => {
+    const load = async (x: number): Promise<number> => x + 1;
+    const store = memoryStore();
+    const contractStore: CacheStore<typeof load> = store;
+    const opts: Options<typeof load> = {
+      cacheStore: contractStore,
+      generateCacheKey: (o: CacheKeyParams<typeof load>): Key =>
+        Number(o.parameters[0]),
+      shouldCache: (o: ShouldCacheParams<typeof load>): boolean =>
+        o.result >= 0,
+    };
+    const wrapped = withCacheAsync(load, opts);
+    assert.strictEqual(await wrapped(4), 5);
+    assert.strictEqual(await wrapped(4), 5);
+    assert.strictEqual(store.map.size, 1);
+  });
+
   it("coalesces concurrent same-key calls (inFlight)", async () => {
     let count = 0;
     const store = memoryStore();
@@ -401,7 +531,7 @@ describe("withCacheAsync", () => {
     await assert.rejects(wrapped(), /get boom/);
   });
 
-  it("extraKeys participate in the default JSON key", async () => {
+  it("extraKeys participate in the default hashed key", async () => {
     let count = 0;
     const store = memoryStore();
     const fn = async (x: number) => {
