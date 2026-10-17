@@ -53,9 +53,10 @@ describe("lazy", () => {
   it("preserves this and ignores it in key (documents behavior)", () => {
     let count = 0;
     /**
-     *
-     * @param this
-     * @param this.x
+     * `this`-reader demonstrating that the memo key omits the receiver.
+     * @param this - Receiver whose `x` is returned (but never keyed).
+     * @param this.x - The value returned through `this` forwarding.
+     * @returns The receiver's `x` on the first run, then the cached copy.
      */
     function get(this: { x: number }) {
       count++;

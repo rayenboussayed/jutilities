@@ -2,6 +2,8 @@
   // Visit https://aka.ms/tsconfig to read more about this file
   "compilerOptions": {
     // File Layout
+    // Only src is considered project source (eslint.config.ts is executed by
+    // its own tooling via jiti, not part of the TS program).
     "rootDir": "./src",
     "outDir": "./dist",
 
@@ -38,10 +40,9 @@
     "isolatedModules": true,
     "noUncheckedSideEffectImports": true,
     "moduleDetection": "force",
-    "skipLibCheck": true,
+    "skipLibCheck": true
+  },
 
-    "paths": {
-      "@/*": ["./src/*"]
-    }
-  }
+  // Project sources; tests are type-checked too on purpose.
+  "include": ["src"]
 }

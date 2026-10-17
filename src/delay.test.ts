@@ -5,8 +5,9 @@ import { withDelayAsync, withDelaySync } from "./delay.js";
 describe("withDelayAsync", () => {
   it("returns identical fn when delay <= 0", async () => {
     /**
-     *
-     * @param x
+     * Identity function under the zero/negative-delay shortcut.
+     * @param x - Value echoed back.
+     * @returns `x`, unchanged.
      */
     async function fn(x: number) {
       return x;
@@ -17,7 +18,8 @@ describe("withDelayAsync", () => {
 
   it("options omitted defaults to no delay (returns identical fn)", async () => {
     /**
-     *
+     * Constant producer under the no-options shortcut.
+     * @returns Always `1`.
      */
     async function fn() {
       return 1;
@@ -28,8 +30,9 @@ describe("withDelayAsync", () => {
 
   it("wraps when delay > 0 and delays execution", async () => {
     /**
-     *
-     * @param x
+     * Doubler whose call timing is measured around the pre-call delay.
+     * @param x - Value to double.
+     * @returns `x * 2`.
      */
     async function fn(x: number) {
       return x * 2;
@@ -45,11 +48,12 @@ describe("withDelayAsync", () => {
 
   it("forwards args, return, this, and propagates rejection", async () => {
     /**
-     *
-     * @param this
-     * @param this.m
-     * @param a
-     * @param b
+     * `this`-aware adder whose result depends on the receiver.
+     * @param this - Receiver carrying the addition basis `m`.
+     * @param this.m - Stored base added to the operands.
+     * @param a - First addend.
+     * @param b - Second addend.
+     * @returns A promise resolving to `this.m + a + b`.
      */
     async function fn(this: { m: number }, a: number, b: number) {
       return this.m + a + b;
@@ -69,7 +73,8 @@ describe("withDelayAsync", () => {
   it("pre-aborted signal throws before fn is called", async () => {
     let called = 0;
     /**
-     *
+     * Counter incrementing on every actual invocation (sync throw check body).
+     * @returns Always `1`, after counting the invocation.
      */
     async function fn() {
       called++;
@@ -87,7 +92,8 @@ describe("withDelayAsync", () => {
 
   it("NaN delay takes delay path (NaN <= 0 is false)", async () => {
     /**
-     *
+     * Constant producer used to probe NaN delay handling.
+     * @returns Always `1`.
      */
     async function fn() {
       return 1;
@@ -98,8 +104,9 @@ describe("withDelayAsync", () => {
 
   it("parallel calls each sleep independently (~delay not 3*delay)", async () => {
     /**
-     *
-     * @param x
+     * Identity function called three times concurrently under one delay.
+     * @param x - Value echoed back.
+     * @returns `x`, unchanged.
      */
     async function fn(x: number) {
       return x;
@@ -115,7 +122,8 @@ describe("withDelayAsync", () => {
   it("abort mid-delay resolves early and fn still runs (sleepAsync resolves on abort)", async () => {
     let called = 0;
     /**
-     *
+     * Counter verifying that abort mid-delay still reaches the wrapped fn.
+     * @returns Always `1`, after counting the invocation.
      */
     async function fn() {
       called++;
@@ -138,8 +146,9 @@ describe("withDelayAsync", () => {
 describe("withDelaySync", () => {
   it("returns identical fn when delay <= 0", () => {
     /**
-     *
-     * @param x
+     * Identity function under the zero/negative-delay shortcut (sync side).
+     * @param x - Value echoed back.
+     * @returns `x`, unchanged.
      */
     function fn(x: number) {
       return x;
@@ -150,7 +159,8 @@ describe("withDelaySync", () => {
 
   it("options omitted defaults to no delay (returns identical fn)", () => {
     /**
-     *
+     * Constant producer under the no-options shortcut (sync side).
+     * @returns Always `1`.
      */
     function fn() {
       return 1;
@@ -161,8 +171,9 @@ describe("withDelaySync", () => {
 
   it("wraps and blocks for delay", () => {
     /**
-     *
-     * @param x
+     * Incrementer whose call timing is measured around the blocking delay.
+     * @param x - Value to add 1 to.
+     * @returns `x + 1`.
      */
     function fn(x: number) {
       return x + 1;
@@ -176,9 +187,10 @@ describe("withDelaySync", () => {
 
   it("forwards this and throws propagate after delay", () => {
     /**
-     *
-     * @param this
-     * @param this.x
+     * `this`-reader verifying receiver forwarding after the blocking delay.
+     * @param this - Receiver carrying the value to read.
+     * @param this.x - The stored value returned through `this` forwarding.
+     * @returns The receiver's `x`.
      */
     function fn(this: { x: number }) {
       return this.x;
@@ -198,7 +210,8 @@ describe("withDelaySync", () => {
   it("pre-aborted signal throws before fn", () => {
     let called = 0;
     /**
-     *
+     * Counter verifying the pre-aborted signal prevents invocation.
+     * @returns Always `1`, after counting the invocation.
      */
     function fn() {
       called++;
@@ -216,7 +229,8 @@ describe("withDelaySync", () => {
 
   it("NaN delay takes delay path but returns immediately (NaN <= 0 is false)", () => {
     /**
-     *
+     * Constant producer used to probe NaN delay (blocks zero time on return).
+     * @returns Always `1`.
      */
     function fn() {
       return 1;

@@ -11,8 +11,9 @@ import {
 } from "./node-stream.js";
 
 /**
- *
- * @param stream
+ * Consumes a stream via `stream2buffer`, the underlying helper under test.
+ * @param stream - Any readable stream.
+ * @returns The concatenated bytes of everything the stream emitted.
  */
 async function collect(stream: Readable): Promise<Buffer> {
   return stream2buffer(stream);

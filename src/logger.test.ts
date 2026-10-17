@@ -15,7 +15,7 @@ describe("withLogger", () => {
   });
 
   /**
-   *
+   * Swaps `console.log` for a capturing stub and resets the log buffer.
    */
   function capture() {
     logs = [];
@@ -27,9 +27,10 @@ describe("withLogger", () => {
   it("logs sync execution with explicit name and returns value", () => {
     capture();
     /**
-     *
-     * @param a
-     * @param b
+     * Sync adder logged under the explicit name `myAdd`.
+     * @param a - First addend.
+     * @param b - Second addend.
+     * @returns `a + b`.
      */
     function add(a: number, b: number) {
       return a + b;
@@ -48,7 +49,8 @@ describe("withLogger", () => {
   it("infers name from fn.name with single-arg overload", () => {
     capture();
     /**
-     *
+     * Named function whose `fn.name` should appear in log labels.
+     * @returns Always `1`.
      */
     function foo() {
       return 1;
@@ -70,7 +72,8 @@ describe("withLogger", () => {
   it("explicit name wins over fn.name", () => {
     capture();
     /**
-     *
+     * Named function whose real name must NOT appear when a custom one is set.
+     * @returns Always `1`.
      */
     function realName() {
       return 1;
@@ -83,10 +86,12 @@ describe("withLogger", () => {
   it("preserves this and forwards args", () => {
     capture();
     /**
-     *
-     * @param this
-     * @param this.x
-     * @param inc
+     * `this`-aware getter demonstrating receiver + arg forwarding through
+     * the logger wrapper.
+     * @param this - Receiver carrying the base value.
+     * @param this.x - The base value added to the increment.
+     * @param inc - Increment amount (also visible in the args log line).
+     * @returns `this.x + inc`.
      */
     function get(this: { x: number }, inc: number) {
       return this.x + inc;

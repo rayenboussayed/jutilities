@@ -110,9 +110,10 @@ describe("withRetryAsync", () => {
 
   it("preserves this and forwards non-Error thrown values", async () => {
     /**
-     *
-     * @param this
-     * @param this.v
+     * Async `this`-thrower asserting non-Error rejection forwarding.
+     * @param this - Receiver whose `v` is embedded in the thrown string.
+     * @param this.v - The numeric suffix of the thrown non-Error value.
+     * @returns Never resolves: always throws a bare string.
      */
     async function fn(this: { v: number }) {
       throw `string-fail-${this.v}`;
@@ -202,9 +203,10 @@ describe("withRetrySync", () => {
 
   it("TODO: documents sync signature bug (args vs ...args throws TypeError)", () => {
     /**
-     *
-     * @param a
-     * @param b
+     * Two-argument adder exercised through the buggy sync wrapper.
+     * @param a - First addend.
+     * @param b - Second addend.
+     * @returns `a + b` (never reached in this test due to the wrapper bug).
      */
     function add(a: number, b: number) {
       return a + b;

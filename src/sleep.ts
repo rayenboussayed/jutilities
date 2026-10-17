@@ -1,4 +1,4 @@
-import type { WithSignal } from "@/types/with.js";
+import type { WithSignal } from "./types/with.js";
 import { abort } from "./signal.js";
 
 type Options = WithSignal<{
@@ -6,10 +6,21 @@ type Options = WithSignal<{
 }>;
 
 /**
+ * Promisified sleep helpers.
+ */
+
+/**
+ * Waits asynchronously for `sleep` milliseconds.
  *
- * @param root0
- * @param root0.signal
- * @param root0.sleep
+ * Behavior notes:
+ * - `sleep <= 0` (and `undefined`/`NaN`) resolves immediately.
+ * - Throws synchronously when the signal is already aborted.
+ * - Resolves (does NOT reject) with `signal.reason` when aborted mid-sleep.
+ * @param root0 - Options object.
+ * @param root0.signal - Optional abort signal to cancel the wait early.
+ * @param root0.sleep - Milliseconds to wait (default `0`).
+ * @returns A promise resolving to `undefined`, or to `signal.reason` when the
+ * signal aborted during the wait.
  */
 export function sleepAsync({ signal, sleep = 0 }: Options = {}) {
   signal?.throwIfAborted();
@@ -27,10 +38,18 @@ export function sleepAsync({ signal, sleep = 0 }: Options = {}) {
 }
 
 /**
+ * Waits synchronously by busy-waiting the event loop.
  *
- * @param root0
- * @param root0.signal
- * @param root0.sleep
+ * Behavior notes:
+ * - Blocks the thread: timers and signals CANNOT fire during the wait, so an
+ *   abort is only detected when the signal was already aborted before the
+ *   call (throws synchronously, like `sleepAsync`).
+ * - `sleep <= 0` (and `undefined`/`NaN`) returns immediately.
+ * - Prefer `sleepAsync` unless a truly synchronous pause is required.
+ * @param root0 - Options object.
+ * @param root0.signal - Optional abort signal (checked up-front and on each
+ * busy-wait iteration).
+ * @param root0.sleep - Milliseconds to block (default `0`).
  */
 export function sleepSync({ signal, sleep = 0 }: Options = {}) {
   signal?.throwIfAborted();

@@ -21,7 +21,7 @@ describe("isUndefined", () => {
   it("returns true for undefined and void 0", () => {
     assert.strictEqual(isUndefined(undefined), true);
     assert.strictEqual(isUndefined(void 0), true);
-    let x: unknown;
+    const x: unknown = undefined;
     assert.strictEqual(isUndefined(x), true);
   });
 

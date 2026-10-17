@@ -2,8 +2,8 @@ import type {
   AnyAsyncFunction,
   AnyFunction,
   AnySyncFunction,
-} from "@/types/type.js";
-import type { WithSignal } from "@/types/with.js";
+} from "./types/type.js";
+import type { WithSignal } from "./types/with.js";
 import { sleepAsync, sleepSync } from "./sleep.js";
 
 export type Options = WithSignal<{
@@ -11,11 +11,22 @@ export type Options = WithSignal<{
 }>;
 
 /**
+ * Higher-order wrappers that sleep before invoking a function.
+ */
+
+/**
+ * Wraps an async function so every invocation waits `delay` milliseconds first.
  *
- * @param fn
- * @param root0
- * @param root0.signal
- * @param root0.delay
+ * Behavior notes:
+ * - `delay <= 0` (and `undefined`/`NaN`) returns the original function itself.
+ * - Aborting mid-delay cuts the wait short but the wrapped function still runs
+ *   (it reuses `sleepAsync`, which resolves on abort rather than rejecting).
+ * @param fn - The async function to wrap.
+ * @param root0 - Options object.
+ * @param root0.signal - Optional abort signal for the pre-call wait.
+ * @param root0.delay - Milliseconds to wait before each call (default `0`).
+ * @returns The wrapped function (typeof `fn`), or `fn` itself when there is
+ * nothing to delay.
  */
 export async function withDelayAsync<T extends AnyAsyncFunction>(
   fn: T,
@@ -29,11 +40,18 @@ export async function withDelayAsync<T extends AnyAsyncFunction>(
 }
 
 /**
+ * Wraps a sync function so every invocation busy-blocks `delay` milliseconds
+ * first (see {@link sleepSync} for the blocking caveats).
  *
- * @param fn
- * @param root0
- * @param root0.signal
- * @param root0.delay
+ * Behavior notes:
+ * - `delay <= 0` (and `undefined`/`NaN`) returns the original function itself.
+ * - The event loop is blocked during the pre-call wait.
+ * @param fn - The sync function to wrap.
+ * @param root0 - Options object.
+ * @param root0.signal - Optional abort signal for the pre-call wait.
+ * @param root0.delay - Milliseconds to block before each call (default `0`).
+ * @returns The wrapped function, or `fn` itself when there is nothing to
+ * delay.
  */
 export function withDelaySync<T extends AnyFunction>(
   fn: AnySyncFunction<T>,

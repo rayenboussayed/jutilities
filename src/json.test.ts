@@ -3,16 +3,18 @@ import assert from "node:assert/strict";
 import { Json, superjson } from "./json.js";
 
 /**
- * Locks the CURRENT implementation:
- * - `stringify` matches handlers against the raw (pre-toJSON) value, so
+ * Locks the CURRENT implementation contract:
+ * - `stringify` matches handlers against the raw (pre-`toJSON`) value, so
  *   Date/Buffer/URL produce envelopes.
  * - `parse` applies `handler.parse` to envelope payloads and restores
- *   `undefined` keys afterwards (reviver returning undefined would delete
- *   them), so every handler round-trips — except the TypedArray family,
- *   whose parse reads from the shared Buffer pool (see documents test).
+ *   `undefined` keys afterwards (a reviver returning `undefined` would delete
+ *   them), so every handler round-trips — except the TypedArray family, whose
+ *   parse reads from the shared Buffer pool (see the dedicated pool test).
  * - The user reviver is NOT called for envelope keys (only for envelope
  *   children and plain values).
- * @param value
+ * @template T - The value type round-tripped by the helper.
+ * @param value - The value to stringify and parse back.
+ * @returns The rebuilt value, typed as `T`.
  */
 function rt<T>(value: T): T {
   return superjson.parse<T>(superjson.stringify(value));
@@ -80,9 +82,10 @@ describe("Json without handlers matches native JSON", () => {
   it("addHandler/removeHandler are chainable; remove of unknown key is a no-op", () => {
     const json = new Json();
     const noop = {
-      isApplicable: (_k: string, v: any): v is unknown => false,
-      stringify: (_k: string, v: unknown) => v,
-      parse: (_k: string, v: unknown) => v,
+      isApplicable: (key: string, v: any): v is null =>
+        key.startsWith("!") && v === null,
+      stringify: (key: string, v: unknown) => v,
+      parse: (key: string, v: unknown) => v,
     };
     assert.strictEqual(json.addHandler("a", noop), json);
     assert.strictEqual(json.removeHandler("missing"), json);
@@ -111,7 +114,8 @@ describe("custom handlers", () => {
   }
 
   /**
-   *
+   * Builds a `Json` instance with a custom `Upper` string handler.
+   * @returns The configured `Json` instance.
    */
   function upperJson() {
     return new Json().addHandler("upper", {
@@ -518,11 +522,13 @@ describe("superjson: error", () => {
 
   it("documents AggregateError loss (errors array is non-enumerable, dropped)", () => {
     const back = rt(new AggregateError([new Error("a"), "b"], "agg"));
+    // read the assertions' targets before the negative instanceof narrowing
+    const { name, message, errors } = back;
     assert.ok(back instanceof Error);
     assert.ok(!(back instanceof AggregateError));
-    assert.strictEqual(back.name, "AggregateError");
-    assert.strictEqual(back.message, "agg");
-    assert.strictEqual(back.errors, undefined);
+    assert.strictEqual(name, "AggregateError");
+    assert.strictEqual(message, "agg");
+    assert.strictEqual(errors, undefined);
   });
 });
 

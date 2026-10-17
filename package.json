@@ -1,19 +1,55 @@
 {
   "name": "jutilities",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "description": "Small, typed, extensively documented TypeScript utilities for Node.js and Browser: caching, retries, timeouts, delays, abort-aware sleeps, streams, super-JSON serialization, hashing, and type guards. Deep-import style: no barrel entry point, specify the full module path.",
+  "keywords": [
+    "utilities",
+    "utils",
+    "typescript",
+    "nodejs",
+    "cache",
+    "memoize",
+    "retry",
+    "timeout",
+    "sleep",
+    "abort-signal",
+    "json",
+    "superjson",
+    "serialization",
+    "streams",
+    "base64",
+    "hash",
+    "type-guards"
+  ],
+  "homepage": "https://github.com/rayenboussayed/jutilities#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/rayenboussayed/jutilities.git"
+  },
+  "bugs": {
+    "url": "https://github.com/rayenboussayed/jutilities/issues"
+  },
+  "files": [
+    "dist",
+    "docs",
+    "examples",
+    "README.md"
+  ],
   "scripts": {
+    "check": "npm run typecheck && npm run lint && npm run test && npm run build",
     "test": "tsx --test src/**/*.test.ts",
     "typecheck": "tsc --noEmit",
-    "lint": "eslint . --fix"
+    "lint": "eslint . --fix --max-warnings 0",
+    "build": "tsc -p tsconfig.build.json",
+    "examples": "npm run build && node examples/run-all.mjs",
+    "prepare": "husky"
   },
   "engines": {
     "node": ">=22"
   },
-  "keywords": [],
   "type": "module",
   "devDependencies": {
+    "@deslint/eslint-plugin": "^0.10.0",
     "@eslint/js": "^10.0.1",
     "@types/node": "^26.6.5",
     "eslint": "^10.13.0",

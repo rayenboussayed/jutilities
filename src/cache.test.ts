@@ -3,7 +3,8 @@ import assert from "node:assert/strict";
 import { withCacheAsync, withCacheSync } from "./cache.js";
 
 /**
- *
+ * Tiny Map-backed cache store used as `cacheStore` in these tests.
+ * @returns The store object (with its internal Map exposed for assertions).
  */
 function memoryStore() {
   const m = new Map<string, unknown>();
@@ -22,11 +23,12 @@ function memoryStore() {
 describe("withCacheSync", () => {
   it("passes through args, this, and return value", () => {
     /**
-     *
-     * @param this
-     * @param this.base
-     * @param a
-     * @param b
+     * Sync adder asserting `this` forwarding through the cache wrapper.
+     * @param this - Holder object carrying the additive `base`.
+     * @param this.base - The base value added to the other operands.
+     * @param a - First addend.
+     * @param b - Second addend.
+     * @returns `this.base + a + b`.
      */
     function sum(this: { base: number }, a: number, b: number) {
       return this.base + a + b;
@@ -144,8 +146,10 @@ describe("withCacheSync", () => {
     let seen: unknown;
     const store = memoryStore();
     /**
-     *
-     * @param x
+     * Stand-in function whose source text is inspected by the custom key
+     * factory.
+     * @param x - Value to echo.
+     * @returns `x`, unchanged.
      */
     function myFn(x: number) {
       return x;
@@ -260,11 +264,12 @@ describe("withCacheSync", () => {
 describe("withCacheAsync", () => {
   it("passes through args, this, and resolves value", async () => {
     /**
-     *
-     * @param this
-     * @param this.base
-     * @param a
-     * @param b
+     * Async adder asserting `this` forwarding through the async cache wrapper.
+     * @param this - Holder object carrying the additive `base`.
+     * @param this.base - The base value added to the other operands.
+     * @param a - First addend.
+     * @param b - Second addend.
+     * @returns A promise resolving to `this.base + a + b`.
      */
     async function sum(this: { base: number }, a: number, b: number) {
       return this.base + a + b;

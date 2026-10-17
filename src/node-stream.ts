@@ -1,11 +1,24 @@
 import { PassThrough, Readable, Transform } from "node:stream";
-import type { WithSignal } from "@/types/with.js";
+import type { WithSignal } from "./types/with.js";
 
 /**
- * Splits a readable into two backpressure-aware branches.
- * @param options - Stream to duplicate, with an optional abort signal.
- * @param options.signal
- * @param options.source
+ * Node.js stream utilities: duplication, buffering, and byte counting.
+ */
+
+/**
+ * Duplicates a readable stream into two backpressure-aware branches.
+ *
+ * The source is paused as soon as either branch is full and resumed only when
+ * neither needs to drain, in both orders. Source `end` ends both branches and
+ * source `error` destroys both. Closing one branch (destroying it) does not
+ * affect the other.
+ *
+ * Throws synchronously when the signal is already aborted.
+ * @param root0 - Options object.
+ * @param root0.source - The readable stream to duplicate.
+ * @param root0.signal - Optional signal: pre-aborted throws immediately;
+ * aborting mid-flight destroys both branches via the internal `PassThrough`.
+ * @returns Exactly two `PassThrough` branches, each receiving every chunk.
  */
 export function tee({
   signal,
@@ -72,9 +85,15 @@ export function tee({
 }
 
 /**
+ * Consumes a readable stream into one `Buffer`.
  *
- * @param readable
- * @param options
+ * Non-Buffer chunks (strings, Uint8Array) are converted per-chunk. The signal
+ * is checked up-front and on every chunk, so aborting mid-stream rejects the
+ * returned promise with `signal.reason`.
+ * @param readable - Stream to consume fully.
+ * @param options - Optionally `{ signal }` for mid-stream abort checks.
+ * @returns The concatenated contents as a single `Buffer` (empty input yields
+ * an empty Buffer).
  */
 export async function stream2buffer(readable: Readable, options?: WithSignal) {
   options?.signal?.throwIfAborted();
@@ -90,11 +109,18 @@ export async function stream2buffer(readable: Readable, options?: WithSignal) {
 }
 
 /**
+ * Converts a `Buffer` into a readable stream of chunked views.
  *
- * @param buffer
- * @param root0
- * @param root0.signal
- * @param root0.chunkSize
+ * Chunks are zero-copy `buffer.subarray` slices of `chunkSize` bytes (default
+ * 16 KiB), so writing to a chunk mutates the source buffer. An empty buffer
+ * produces an immediately-ending stream. Throws synchronously when the signal
+ * is already aborted; aborting mid-read propagates via the Readable's
+ * internal `signal` option.
+ * @param buffer - The bytes to emit.
+ * @param root0 - Options object.
+ * @param root0.signal - Optional signal wired into the returned Readable.
+ * @param root0.chunkSize - Maximum bytes per emitted chunk (default `16384`).
+ * @returns A `Readable` yielding the buffer's bytes in order.
  */
 export function buffer2stream(
   buffer: Buffer,
@@ -104,7 +130,8 @@ export function buffer2stream(
   if (buffer.byteLength === 0) return Readable.from([], { signal });
 
   /**
-   *
+   * Async generator emitting successive `subarray` views of the buffer.
+   * @yields A zero-copy view of the next `chunkSize` bytes.
    */
   function* gen() {
     signal?.throwIfAborted();
@@ -124,10 +151,17 @@ export function buffer2stream(
 }
 
 /**
+ * Creates a passthrough `Transform` that reports cumulative byte size.
  *
- * @param root0
- * @param root0.signal
- * @param root0.onSize
+ * Every chunk is counted (converting strings via the given encoding), the
+ * running size is reported after each chunk with `done: false`, and the final
+ * total is reported with `done: true` on flush. Data passes through unchanged.
+ * @param root0 - Options object.
+ * @param root0.signal - Optional signal wired into the returned Transform.
+ * @param root0.onSize - Callback receiving `{ size, done }` per chunk and at
+ * flush.
+ * @returns A `Transform` stream: feed it a readable, pipe onward, observe
+ * sizes.
  */
 export function streamSizeTransform({
   signal,
@@ -154,11 +188,18 @@ export function streamSizeTransform({
 }
 
 /**
+ * Async generator that passes chunks through while reporting cumulative size.
  *
- * @param readable
- * @param root0
- * @param root0.signal
- * @param root0.onSize
+ * Unlike {@link streamSizeTransform} this is not a pipeline stage: you iterate
+ * the generator directly. The signal is checked per chunk, so aborting
+ * mid-iteration throws `signal.reason` (in that case the final `done: true`
+ * report never fires; the underlying stream error also skips it).
+ * @param readable - The source stream to read through.
+ * @param root0 - Options object.
+ * @param root0.signal - Optional per-chunk abort check.
+ * @param root0.onSize - Callback receiving `{ size, done: false }` per chunk
+ * and `{ size, done: true }` after the stream ends.
+ * @yields The original chunks, in order.
  */
 export async function* streamSize(
   readable: Readable,
