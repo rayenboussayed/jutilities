@@ -40,8 +40,10 @@ export function sdbm(string: string, hash = 0) {
   return hash >>> 0; // Unsigned 32-bit
 }
 
-const FNV_OFFSET = 14695981039346656037n;
-const FNV_PRIME = 1099511628211n;
+/** FNV-1a 64-bit offset basis (as `BigInt`); see {@link fnv1a}. */
+export const FNV_OFFSET = 14695981039346656037n;
+/** FNV-1a 64-bit prime (as `BigInt`); see {@link fnv1a}. */
+export const FNV_PRIME = 1099511628211n;
 
 /**
  * FNV-1a-style string hash implemented with `BigInt`.

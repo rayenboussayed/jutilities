@@ -2,7 +2,7 @@ import type { AnyAsyncFunction } from "./types/type.js";
 import type { WithSignal } from "./types/with.js";
 import { abort } from "./signal.js";
 
-type Options = WithSignal<{ timeoutMs?: number }>;
+export type Options = WithSignal<{ timeoutMs?: number }>;
 
 /**
  * Higher-order wrapper that races an async function against a deadline or an

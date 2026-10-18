@@ -13,7 +13,7 @@ import type {
  * Tiny Map-backed cache store used as `cacheStore` in these tests.
  * @returns The store object (with its internal Map exposed for assertions).
  */
-function memoryStore() {
+export function memoryStore() {
   const m = new Map<string | number, unknown>();
   return {
     map: m,

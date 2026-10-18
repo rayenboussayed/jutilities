@@ -16,7 +16,7 @@ import { Json, superjson } from "./json.js";
  * @param value - The value to stringify and parse back.
  * @returns The rebuilt value, typed as `T`.
  */
-function rt<T>(value: T): T {
+export function rt<T>(value: T): T {
   return superjson.parse<T>(superjson.stringify(value));
 }
 

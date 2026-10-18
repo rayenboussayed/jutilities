@@ -28,7 +28,7 @@ import { toBase64 } from "./to.js";
  * @template TS - The (JSON-safe) shape produced by `stringify` and consumed
  * by `parse`.
  */
-type JsonHandler<TA = any, TS = any> = {
+export type JsonHandler<TA = any, TS = any> = {
   /** Type guard deciding whether the raw value belongs to this handler. */
   isApplicable: (key: string, value: any) => value is TA;
   /** Converts the tagged value into a JSON-safe form. */
@@ -41,7 +41,7 @@ type JsonHandler<TA = any, TS = any> = {
  * The universal envelope shape stored for every handler match.
  * @template T - The handler's stringified payload type.
  */
-type Tagged<T = unknown> = { __type: string; value: T };
+export type Tagged<T = unknown> = { __type: string; value: T };
 
 /**
  * Type guard for the `{ __type, value }` envelope of a given handler key.
@@ -50,7 +50,7 @@ type Tagged<T = unknown> = { __type: string; value: T };
  * @returns `true` when `v` is a record with this `__type` and a `value`
  * property.
  */
-function isTagged(v: any, type: string): v is Tagged {
+export function isTagged(v: any, type: string): v is Tagged {
   return isRecord(v) && v.__type === type && "value" in v;
 }
 
@@ -59,7 +59,7 @@ function isTagged(v: any, type: string): v is Tagged {
  * serialize a value of type `T`.
  * @template T - The type of the original value.
  */
-type JsonStringified<T> = string & { __source: T };
+export type JsonStringified<T> = string & { __source: T };
 
 /**
  * Configurable JSON-like (de)serializer with a registry of typed handlers.
@@ -71,7 +71,13 @@ type JsonStringified<T> = string & { __source: T };
  * `undefined` are re-assigned afterwards.
  */
 export class Json {
-  private readonly handlers = new Map<string, JsonHandler>();
+  /**
+   * The handler registry keyed by `__type` license plate. Managed through
+   * {@link addHandler} / {@link removeHandler}; exposed for inspection and
+   * advanced use (enumerating registered handlers, reordering match
+   * priority — the first matching handler wins).
+   */
+  readonly handlers = new Map<string, JsonHandler>();
 
   /**
    * Registers (or replaces) the handler for a `__type` key.
@@ -175,7 +181,7 @@ export class Json {
  * Constructor shape required by the generic typed-array handler factory.
  * @template T - The typed array / view type the constructor builds.
  */
-type TypedArrayCtor<T> = {
+export type TypedArrayCtor<T> = {
   new (buffer: ArrayBuffer, byteOffset: number, length: number): T;
   BYTES_PER_ELEMENT: number;
 };
@@ -192,7 +198,7 @@ type TypedArrayCtor<T> = {
  * @param Ctor - The typed array constructor (e.g. `Uint8Array`).
  * @returns A handler tagging values as that typed array.
  */
-const typedArray = <T extends ArrayBufferView>(
+export const typedArray = <T extends ArrayBufferView>(
   Ctor: TypedArrayCtor<T>,
 ): JsonHandler<T, string> => ({
   isApplicable: (_, v): v is T => v instanceof (Ctor as any),

@@ -15,7 +15,7 @@ import {
  * @param stream - Any readable stream.
  * @returns The concatenated bytes of everything the stream emitted.
  */
-async function collect(stream: Readable): Promise<Buffer> {
+export async function collect(stream: Readable): Promise<Buffer> {
   return stream2buffer(stream);
 }
 

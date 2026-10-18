@@ -1,7 +1,7 @@
 import type { WithSignal } from "./types/with.js";
 import { abort } from "./signal.js";
 
-type Options = WithSignal<{
+export type Options = WithSignal<{
   sleep?: number;
 }>;
 

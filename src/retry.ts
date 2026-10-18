@@ -6,7 +6,18 @@ import type {
   MaybePromise,
 } from "./types/type.js";
 
-const defaultOnError: OnErrorFn = ({
+/**
+ * The default `onError` policy: exponential back-off (2^retries × the last
+ * attempt's duration) with jitter, bounded by a 60s budget; rethrows past
+ * 10 retries or once the budget is exhausted.
+ * @param root0 - The retry bookkeeping provided by the wrapper.
+ * @param root0.totalRetryExecution - Milliseconds spent retrying so far.
+ * @param root0.startFnExecution - When the last attempt started.
+ * @param root0.endFnExecution - When the last attempt ended.
+ * @param root0.error - The last attempt's error.
+ * @param root0.retries - How many retries have run so far.
+ */
+export const defaultOnError: OnErrorFn = ({
   totalRetryExecution,
   startFnExecution,
   endFnExecution,
@@ -24,7 +35,7 @@ const defaultOnError: OnErrorFn = ({
   sleepSync({ sleep: jitteredDelay });
 };
 
-type OnErrorFn<T extends AnyFunction = AnyFunction> = (options: {
+export type OnErrorFn<T extends AnyFunction = AnyFunction> = (options: {
   parameters: Parameters<T>;
   startRetryExecution: number;
   totalRetryExecution: number;

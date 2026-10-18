@@ -104,7 +104,7 @@ export function assertNever(
  * (`assert`, `assertNotNil`).
  * @template T - The wrapped function being gated.
  */
-type OnResultFn<T extends AnyFunction = AnyFunction> = (options: {
+export type OnResultFn<T extends AnyFunction = AnyFunction> = (options: {
   parameters: Parameters<T>;
   result: Awaited<ReturnType<T>>;
 }) => T extends AnyAsyncFunction ? MaybePromise<void> : void;

@@ -11,10 +11,10 @@ import { decorateMethod } from "./method.js";
 // Hoisted converters: TS rejects inline chained calls (`@f(h)(opts)`)
 // without parentheses, so the supported shapes are (1) hoisted factory +
 // single call and (2) fully parenthesized inline chains.
-const memoizeSync = decorateMethod(withCacheSync);
-const retryAsync = decorateMethod(withRetryAsync);
-const timebox = decorateMethod(withTimeoutAsync);
-const delayIt = decorateMethod(withDelayAsync);
+export const memoizeSync = decorateMethod(withCacheSync);
+export const retryAsync = decorateMethod(withRetryAsync);
+export const timebox = decorateMethod(withTimeoutAsync);
+export const delayIt = decorateMethod(withDelayAsync);
 
 describe("decorateMethod", () => {
   it("wraps a sync method through withCacheSync and memoizes per args", () => {

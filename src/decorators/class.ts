@@ -134,7 +134,7 @@ export function decorateClass(
  * @param name - The member's name, for error messages.
  * @returns The HOF to apply.
  */
-function resolveEnhancer(
+export function resolveEnhancer(
   enhancers: unknown,
   pick: ClassPick,
   fn: (...args: any[]) => unknown,

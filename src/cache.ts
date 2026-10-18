@@ -11,9 +11,20 @@ import { ExpiredMap } from "expired-map";
 
 export type Key = string | number;
 
-const globalCache = new ExpiredMap<Key, any>().start();
+/**
+ * The process-wide `ExpiredMap` singleton backing every cache wrapper in this
+ * module. Exposed so consumers can inspect or clear the shared store (e.g.
+ * between tests); wrappers share entries through it.
+ */
+export const globalCache = new ExpiredMap<Key, any>().start();
 
-const defaultGenerateCacheKey = (options: CacheKeyParams<AnyFunction>) =>
+/**
+ * The default cache-key function: `djb2` over the superjson-stringified
+ * parameters (`function` name, `parameters`, `extraKeys`).
+ * @param options - The key inputs provided by the wrapper.
+ * @returns The hashed cache key.
+ */
+export const defaultGenerateCacheKey = (options: CacheKeyParams<AnyFunction>) =>
   djb2(superjson.stringify(options));
 
 export type CacheKeyParams<T extends AnyFunction> = {
