@@ -2,7 +2,7 @@
 
 Behavior contracts, quirks, use cases, and composition patterns for every module.
 
-Every statement below is pinned by an executable test in `src/*.test.ts` — if this document and the code ever disagree, the test is the source of truth.
+Every statement below is pinned by an executable test in `src/**/*.test.ts` — if this document and the code ever disagree, the test is the source of truth.
 
 **Reading conventions**
 
@@ -23,12 +23,14 @@ Every statement below is pinned by an executable test in `src/*.test.ts` — if 
 6. [signal](#signal) — `abort`
 7. [lazy](#lazy) — `lazy`
 8. [logger](#logger) — `withLogger`
-9. [json](#json) — `Json`, `superjson`
-10. [node-stream](#node-stream) — `tee`, `stream2buffer`, `buffer2stream`, `streamSizeTransform`, `streamSize`
-11. [hash](#hash) — `djb2`, `sdbm`, `fnv1a64`
-12. [is](#is) — 14 type guards
-13. [to](#to) / [from](#from) — `toArray`, `toBase64`, `fromBase64`
-14. [types](#types) — shared type utilities
+9. [decorators](#decorators) — `decorateMethod`, `decorateClass`, `decorateProperty`, `decorateGetter`
+10. [json](#json) — `Json`, `superjson`
+11. [node-stream](#node-stream) — `tee`, `stream2buffer`, `buffer2stream`, `streamSizeTransform`, `streamSize`
+12. [hash](#hash) — `djb2`, `sdbm`, `fnv1a64`
+13. [is](#is) — 16 type guards
+14. [assert](#assert) — `assert`, `assertNotNil`, `assertNever`, `withAssertSync`/`withAssertAsync` + decorator contract guards
+15. [to](#to) / [from](#from) — `toArray`, `toBase64`, `fromBase64`
+16. [types](#types) — shared type utilities
 
 ---
 
@@ -121,45 +123,52 @@ import { withRetryAsync, withRetrySync } from "jutilities/retry";
 function withRetryAsync<T extends AnyAsyncFunction>(
   fn: T,
   onError?: (o: {
-    parameters: Parameters<T>;
-    startExecution: number;   // performance.now (Node) — per attempt start
-    endExecution: number;     // per attempt end
-    retries: number;          // attempt index, starting at 0
-    error: unknown;           // whatever the attempt threw (not always Error)
+    parameters: Parameters<T>; // the call arguments, forwarded verbatim
+    startRetryExecution: number; // performance.now (Node) — retry-loop start
+    totalRetryExecution: number; // elapsed since startRetryExecution
+    startFnExecution: number; // per attempt start
+    endFnExecution: number; // per attempt end
+    retries: number; // attempt index, starting at 0
+    error: unknown; // whatever the attempt threw (not always Error)
   }) => void | Promise<void>,
 ): T;
 
 function withRetrySync<T extends AnyFunction>(fn: AnySyncFunction<T>, onError?): T;
 ```
 
-Default `onError`: throw when `retries >= 3` (i.e. at most **4 attempts**: 0, 1, 2, 3)
-or when one execution took `>= 60_000` ms.
+Default `onError`: throw when `retries >= 10` (i.e. at most **11 attempts** — the
+policy throws on the 11th failure) or when the retry tour has taken
+`>= 60_000` ms **cumulative**. The default policy also backs off on its own,
+sleeping an exponential, jittered `2^retries * last-attempt-duration` between
+attempts.
 
 ### Behavior contract
 
 - `onError` runs **after every failed attempt** — return (nothing) to retry,
   **throw to stop** (that thrown value replaces the original error and is the
   rejection value).
-- No built-in backoff: sleeps belong inside `onError` (combine with
-  [sleep](#sleep) or `withDelayAsync`-style patterns).
+- Built-in backoff in the **default** policy: between attempts it sleeps an
+  exponential, jittered `2^retries * last-attempt-duration` wait, capped by the
+  remaining 60 s budget. A custom `onError` replaces it entirely — then sleeps
+  belong inside `onError` (combine with [sleep](#sleep)).
 - Non-`Error` thrown values (strings, objects, DOMExceptions) are forwarded
   untouched into `error`.
 - `this` is forwarded to every attempt.
-- Timings are per-attempt, so `endExecution - startExecution` measures the failing
-  attempt's own duration, not the total elapsed time.
+- Timings are per-attempt (`endFnExecution - startFnExecution`) measuring the
+  failing attempt's own duration, not the total elapsed time; the tour-wide
+  clock is `totalRetryExecution` (started at `startRetryExecution`).
 
-### Quirks (locked by tests)
+### Quirks
 
-- **`withRetrySync` args-spreading bug**: the implementation is
-  `function (this, args: Parameters<T>) { fn.apply(this, args) }`. Consequences:
-  `wrapped()` (zero args) works; `wrapped([1,2])` (exactly one array argument)
-  passes the array as the *spread list*; any other call shape throws
-  `TypeError: CreateListFromArrayLike called on non-object`. The test suite
-  documents this until the wrapper is fixed to `(...args)`.
+- Call arguments are forwarded verbatim: `withRetrySync(add)(1, 2)` runs
+  `add(1, 2)` and reports `[1, 2]` as `parameters` to `onError` (multi-arg
+  forwarding is pinned by tests).
 
 ### Use cases
 
-1. **Exponential backoff with jitter** — in `onError`, `await sleepAsync({ sleep: base * 2 ** retries + jitter })` and give up at your own budget.
+1. **Exponential backoff with jitter** — the default policy already does this
+   (`2^retries * last-attempt-duration`, jittered, 60 s budget); for custom
+   pacing, write it inside `onError` with `sleepAsync`.
 2. **Bounded retries for job queues** — `if (retries >= 5) throw error;` so the
    queue framework sees a clean failure after 6 attempts.
 3. **Slow-call circuit break** — the default 60 s ceiling turns an infinite hang
@@ -238,7 +247,7 @@ import { withDelayAsync, withDelaySync } from "jutilities/delay";
 function withDelayAsync<T extends AnyAsyncFunction>(
   fn: T,
   options?: { signal?: AbortSignal; delay?: number },
-): Promise<T>;                                            // note: awaited wrap
+): T; // the factory itself is synchronous
 
 function withDelaySync<T extends AnyFunction>(
   fn: AnySyncFunction<T>,
@@ -249,20 +258,23 @@ function withDelaySync<T extends AnyFunction>(
 ### Behavior contract
 
 - `delay <= 0` (including missing options) returns **the original `fn`**
-  (identity) — in both sync and async flavors.
+  (identity) — in both sync and async flavors, and the factory returns
+  synchronously (there is no `Promise<T>` to await).
 - Every invocation sleeps the full `delay` first (per-call, no shared state) and
   then executes; concurrency is unlimited (three calls delayed 20 ms share one
   timer window, as the tests assert).
 - Abort semantics: a **pre-aborted signal** prevents the wrapped call
-  (never invoked); aborting **mid-delay does not cancel the run** — the wrapped
-  function still executes after the sleep window (documented + tested).
+  (never invoked, sync-ish rejection); aborting **mid-delay rejects the wrapped
+  call with `signal.reason`** — the sleep window shrinks to the abort point and
+  the wrapped function never runs.
 - NaN delay: wraps, and the sleep resolves immediately (no meaningful wait).
-- Sync variant blocks via a busy-wait (`sleepSync` semantics) — see [sleep](#sleep).
+- Sync variant blocks via a busy-wait (`sleepSync` semantics) — see [sleep](#sleep),
+  so mid-loop aborts are not observable there.
 
 ### Quirks
 
-- Because wrap is async (`Promise<T>`), don't forget `await`:
-  `const wrapped = await withDelayAsync(fn, { delay: 100 })`.
+- The factory is synchronous, but every wrapped call is still async:
+  `const wrapped = withDelayAsync(fn, { delay: 100 });` — no `await` on the wrap.
 - `delay` is checked with `<= 0`, so `-500` behaves like `0` (fast path).
 
 ### Use cases
@@ -296,8 +308,8 @@ function sleepSync(options?: { signal?: AbortSignal; sleep?: number }): void;
 - `sleep <= 0` (`0`, negative, `NaN`, missing) resolves **immediately**.
 - Pre-aborted signal: throws **synchronously** (`signal.reason`) before any timer
   is created — a sync throw is the only early-exit surface.
-- Aborted **mid-sleep**: resolves (does *not* reject) with `signal.reason` — treat
-  a truthy awaited value as "we woke early because we were asked to stop".
+- Aborted **mid-sleep**: rejects with `signal.reason` once the abort fires —
+  the wait is cut short and the rejection carries the abort reason.
 - Natural expiry resolves `undefined`.
 
 ### Behavior contract (`sleepSync`)
@@ -323,8 +335,11 @@ async function poll(signal: AbortSignal) {
   do {
     const found = await check();
     if (found) return found;
-    const woke = await sleepAsync({ sleep: 1_000, signal }); // waits next tick
-    if (woke !== undefined) throw woke;                       // aborted → reason
+    try {
+      await sleepAsync({ sleep: 1_000, signal }); // waits next tick
+    } catch (abortReason) {
+      return abortReason;                          // aborted → reason surfaced
+    }
   } while (true);
 }
 ```
@@ -647,6 +662,7 @@ import {
   isObject, isRecord, isEmptyRecord, isEmpty,
   isThenable, isPromise,
   isAsyncFunction, isGeneratorFunction, isAsyncGeneratorFunction,
+  isDecorationContext, isRawMemberApplication,
 } from "jutilities/is";
 ```
 
@@ -668,6 +684,8 @@ import {
 | `isAsyncFunction` | declared with `async` (constructor name) | transpiled/minified sources that lower async functions |
 | `isGeneratorFunction` | `function*` declarations | — |
 | `isAsyncGeneratorFunction` | `async function*` declarations | — |
+| `isDecorationContext` | objects exposing a string `kind` slot (Stage 3 decorator contexts) | content beyond `kind` is not validated |
+| `isRawMemberApplication` | raw `(member, context)` pairs handed to a decorator factory | option bags / callback rests cannot mimic both stripes (length must be 2, leading function, context-shaped second slot) |
 
 ### Use cases
 
@@ -681,6 +699,86 @@ import {
 ```ts
 if (isObject(raw) && isRecord(raw)) cacheableEnvelope(raw);
 ```
+
+---
+
+## assert
+
+```ts
+import {
+  assert, assertNotNil, assertNever,
+  withAssertSync, withAssertAsync,
+  assertNotRawApplication, assertNotRawMemberApplication, assertGuardConsistency,
+} from "jutilities/assert";
+
+function withAssertSync<T extends AnyFunction>(
+  fn: AnySyncFunction<T>,
+  onResult: (options: { parameters: Parameters<T>; result: ReturnType<T> }) => void,
+): T;
+
+function withAssertAsync<T extends AnyAsyncFunction>(
+  fn: T,
+  onResult: (options: { parameters: Parameters<T>; result: Awaited<ReturnType<T>> }) => void | Promise<void>,
+): T;
+```
+
+Throw-first counterparts of the `is` guards: violated preconditions throw
+immediately with a readable message instead of corrupting downstream state.
+All six guards throw `TypeError`. The `withAssert*` wrappers do not throw on
+their own — they gate a wrapped call's result on a caller-provided validator
+(usually one of the guards above) before it escapes to the caller.
+
+### Behavior contract
+
+- `assert(condition, message?, name?)` — throws for **every** falsy value
+  (`false`, `0`, `""`, `null`, `undefined`, `NaN`); emptiness checks belong to
+  `isEmpty`, truthiness here. `name` prefixes `` `${name}: ${message}` `` so
+  subsystems can sign their violations. Signature: `asserts condition`.
+- `assertNotNil(value, name = "value")` — throws only on `null`/`undefined`;
+  falsy-but-not-nil values (`0`, `""`, `false`, `NaN`) pass. Signature:
+  `asserts value is NonNullable<T>`.
+- `assertNever(value, message = "Non-exhaustive value reached")` — call on a
+  `never`-typed leftover (e.g. a discriminated-union `switch`'s `default`) so
+  adding a case without handling it fails at compile time, and impossible
+  leftovers fail loudly here. The message carries a rendered preview:
+  `JSON.stringify`, falling back to `String(value)`, then `typeof` when both
+  throw. Returns `never` — always throws.
+- `assertNotRawApplication(options, factoryName)` — decorator guard: throws
+  `` `<name>: applied without parentheses — decorate with <name>(...options)
+  instead` `` when the factory's second argument is decoration-context shaped
+  (`isDecorationContext`).
+- `assertNotRawMemberApplication(rest, factoryName)` — decorator guard:
+  throws `` `<name>: applied without parentheses — call the factory with its
+  options first, then decorate` `` when the rest looks like a raw
+  `(member, context)` invocation (`isRawMemberApplication`).
+- `assertGuardConsistency(guard, isAsync, factoryName, memberName)` —
+  decorator guard: throws a `TypeError` naming the member when the
+  `require: "sync" | "async"` knob disagrees with the member's async-ness
+  (compared at decorate time for method/class/getter kinds, and per
+  construction for function-valued fields).
+- `withAssertSync(fn, onResult)` — wraps a sync function: every call's result
+  is checked by `onResult` over `parameters` and `result` before it is
+  returned. `this` and arguments are forwarded unchanged. Throwing inside
+  `onResult` surfaces that error instead of the checked result — the invalid
+  result never escapes.
+- `withAssertAsync(fn, onResult)` — the same gate for async functions: the
+  awaited result is checked after the call resolves, and the validator may be
+  sync or async (its return is awaited before the checked result is returned).
+  Wrapped rejections propagate untouched — the validator is never invoked for
+  a rejected call.
+
+### Use cases
+
+1. **Early bailout at boundaries** — `assertNotNil(env.DATABASE_URL, "config")`
+   before building the pool.
+2. **Compile-time exhaustiveness** — `switch` over a union kind with
+   `default: return assertNever(kind)`.
+3. **Readable decorator misfires** — all four `decorators/<kind>` converters
+   route paren-less applications and guard violations through the decorator
+   trio above instead of corrupting members silently.
+4. **Result-shape guarantees** — `withAssertAsync(loadUser, ({ result }) =>
+   assertNotNil(result, "user"))` turns a silent `null` into a readable, named
+   failure at the boundary instead of propagating an unvalidated result.
 
 ---
 
@@ -770,6 +868,174 @@ import { WithSignal } from "jutilities/types/with";
    takes an AbortSignal.
 3. **Ergonomic monorepo types** — `MaybePromise` for adapter boundaries that may
    or may not await.
+
+---
+
+## decorators
+
+```ts
+import { decorateMethod } from "jutilities/decorators/method";
+import { decorateClass } from "jutilities/decorators/class";
+import { decorateProperty } from "jutilities/decorators/property";
+import { decorateGetter } from "jutilities/decorators/getter";
+```
+
+Four converters that turn any fn-first HOF from this package (`withCacheSync`,
+`withRetryAsync`, `withLogger`, `lazy`, `withDelayAsync`, …) into a reusable
+**Stage 3 decorator factory** — one per member kind:
+
+| Converter | Decorates | Enhancement moment | Scope of HOF state |
+| --- | --- | --- | --- |
+| `decorateMethod` | prototype methods (incl. `async`) | class definition | per method |
+| `decorateClass` | every **own prototype method** at once | class definition | per method |
+| `decorateProperty` | function-valued fields | field initialization | per instance |
+| `decorateGetter` | getters | class definition | prototype-wide |
+
+### Behavior contract
+
+- **The conversion contract.** A converter takes `hof` (whose first parameter
+  is the wrapped function) and returns a decorator factory. Everything after
+  the first HOF parameter is an *option slot* declared once at decorate time
+  and forwarded verbatim: `(value, context) => hof(value, ...rest)`.
+- **The recommended usage grammar.** Hoist the factory to a const, then apply
+  it with a single options call per member. A HOF with zero extra parameters
+  still needs the empty call `@f()`:
+
+  ```ts
+  const cached = decorateMethod(withCacheSync);   // hoist once
+  const logged = decorateMethod(withLogger);      // zero-rest HOF
+  class Repo {
+    @cached({ cacheStore: store, extraKeys: ["repo"] })
+    load(id: string) { return id; }
+
+    @logged()                                     // zero-rest HOF: empty call
+    ping() { return "pong"; }
+  }
+  ```
+
+- **Decorate-time guards.** Passing `{ require: "sync" }` (or `"async"`) to the
+  converter asserts the member's async-ness at decoration time and throws a
+  `TypeError` on mismatch:
+  - `decorateMethod: member "m" is an async function, but require: "sync" was requested`
+  - `decorateMethod: member "m" is not an async function, but require: "async" was requested`
+  (the converter name and member name vary per kind).
+- **Where the guard fires.** `decorateMethod`, `decorateGetter` (and
+  `decorateClass` via its pair slots) assert when the class is *defined*;
+  `decorateProperty` asserts when the field is *initialized*
+  (i.e. construction), because field values only exist then.
+- **Type-layer discipline.** For converters typed against a precise HOF
+  (e.g. `withCacheSync`), decorating a member whose declared sync/async-ness
+  contradicts the HOF's slot is a compile error. The runtime guard is
+  therefore primarily reachable through permissive first-parameter HOFs
+  (`withLogger` accepts any callable) — it exists to protect transpiled code
+  where the declared `async` is invisible to types.
+- **Runtime misfire protection.** Both paren-less misfire shapes throw a
+  `TypeError` naming the converter at runtime where they *can* occur:
+  - **Factory-level**: the factory called with `(member, context)` as its
+    option rest (the parenless decoration fingerprint:
+    `rest.length === 2 && typeof rest[0] === "function" && rest[1]` looks like
+    a decoration context) — pinned for all four kinds.
+  - **Converter-level**: the converter called with `(hof, context)` — the
+    options slot received a decoration context. (Property/getter converters
+    run this assert inside the returned factory, so the probe must call
+    `raw(hof, context)()`.)
+- **Class fan-out specifics.**
+  - Only *own prototype methods* are wrapped: the constructor, static
+    members, getters/setters, and non-function prototype members are left
+    untouched (pinned).
+  - Either a single HOF (every method through it; `pick` is ignored) or a
+    `{ sync?: hof, async?: hof }` pair resolved per method.
+  - `pick`: `"detect"` (default; uses `isAsyncFunction` per member),
+    `"sync"`, or `"async"` (forces every member through one slot; the
+    enhancer's own sync/async capability is not checked).
+  - A missing slot fails fast at decorate time naming the member and slot:
+    `"hop" needs a async enhancer`.
+  - Options are declared once for the whole class and forwarded to every
+    method; memoizing caches keyed by fn source + args keep methods separate,
+    but the store is shared and entries are prototype-wide (a second instance
+    hits the first instance's cached entry).
+- **Property specifics.**
+  - The HOF runs **once per instance**, at field initialization: each
+    instance receives a freshly enhanced function (`a.add !== b.add`) and
+    arrow-function fields keep their lexical `this`.
+  - A field whose initial value is not a function throws at construction:
+    `decorateProperty: field "f" must be a function-value initializer, got string`.
+- **Getter specifics.**
+  - The access function is wrapped once at class definition; every access is
+    `hof`-wrapped with the instance as `this`.
+  - Caching a getter memoizes **prototype-wide** (all instances share the
+    entry).
+  - Setters are untouched: an accessor pair keeps its original setter while
+    only the getter side goes through the HOF.
+  - Getters are always sync — `require: "async"` always throws at decorate
+    time; `require: "sync"` is safe.
+
+### Usage grammar (probe-verified)
+
+| Shape | Verdict |
+| --- | --- |
+| `const f = conv(hof)` hoisted + `@f(...opts)` | ✅ the pattern |
+| zero-rest HOF: `@f()` (empty call) | ✅ required — bare `@f` misfires |
+| inline `(f(h)(opts))` with surrounding parens | ✅ compiles (discouraged) |
+| inline `@f(h)(opts)` without parens | 🚫 **parse error** (TS1497) — nothing suppresses it |
+| paren-less `@f(...)` bare application, zero-rest | 🚫 type-rejected (TS1241/TS1270) |
+| paren-less `@f` with option-rest HOF, on method/class/getter | 🚫 type-rejected **and** runtime `TypeError` |
+| paren-less `@f` on a **field** | 🚫 type-rejected but runtime-silent — the field ends up holding the internal transformer instead of wrapping it (fields hand `undefined`, not the member, to the decorator, so the runtime fingerprint cannot see this) — hence the compile pin |
+
+### Quirks
+
+- `@ts-expect-error` cannot suppress the no-parens chained shape — it is a
+  *parse* error; nothing but structural avoidance (hoisting or parenthesizing)
+  works.
+- `withCacheSync` forced onto a declared-`async` member (class
+  `pick: "sync"`) does **not** memoize: promises count as "empty" under
+  `isEmpty` (an object without own keys), so every call recomputes. Use the
+  async slot (`withCacheAsync`) for async members.
+- Async detection uses `fn.constructor.name === "AsyncFunction"` (the native
+  identity). It survives esbuild/tsx and native Node, but transpilers that
+  *lower* `async` functions into plain functions returning promises (legacy
+  decorator transforms, some downlevel-async presets) defeat it. In such
+  toolchains, declare intent explicitly: `pick: "sync"` / `"async"` or
+  `require: "sync"` / `"async"`.
+- Guard failures are `TypeError`s at decorate (or construction) time, not
+  silent no-ops: a wrong slot never silently wraps.
+
+### Use cases
+
+1. **Repository-wide memoization** — `decorateClass(withCacheSync)` + one
+   shared `cacheStore`: every own method memoizes per args; constructor and
+   accessors stay hot.
+2. **Whole-class tracing** — `decorateClass(withLogger)` with a captured
+   console: one invocation line per method without touching bodies.
+3. **Injected strategies as fields** — `decorateProperty(withCacheSync)` on
+   closure/strategy fields keeps per-instance enhancements and lexical
+   `this`.
+4. **Heavy computed reports** — `decorateGetter(lazy)()` memoizes expensive
+   getters prototype-wide; `@cached` getters key by the getter source.
+5. **Sync/async discipline in mixed codebases** — the `require` guard plus
+   `EnhancerPair` keeps declared-async methods on async-only HOFs
+   (`withRetryAsync`) and sync methods on sync-only ones (`withCacheSync`),
+   failing at decorate time instead of first call.
+
+### Composition
+
+```ts
+// Hand-composed stacks convert exactly like single HOFs — the decorator
+// pattern is orthogonal to wrapper stacking:
+const resilient = (fn: AnyFunction) => withCacheAsync(withRetryAsync(fn));
+const cachedResilient = decorateMethod(resilient);
+
+class Service {
+  @cachedResilient({ extraKeys: ["svc"] })   // rest goes to the OUTER HOF
+  async load(id: string) { return id; }
+}
+```
+
+Guidelines:
+
+- The converter forwards its rest options to whatever HOF you hand it — when
+  composing a stack, configure *inner* layers inline (or via closures) and
+  pass only the outermost layer's options to the annotation call.
 
 ---
 

@@ -15,19 +15,19 @@ type Options = WithSignal<{
  * Behavior notes:
  * - `sleep <= 0` (and `undefined`/`NaN`) resolves immediately.
  * - Throws synchronously when the signal is already aborted.
- * - Resolves (does NOT reject) with `signal.reason` when aborted mid-sleep.
+ * - Aborting mid-sleep cuts the wait short and rejects with `signal.reason`.
  * @param root0 - Options object.
  * @param root0.signal - Optional abort signal to cancel the wait early.
  * @param root0.sleep - Milliseconds to wait (default `0`).
- * @returns A promise resolving to `undefined`, or to `signal.reason` when the
- * signal aborted during the wait.
+ * @returns A promise resolving to `undefined` once the wait completes; rejects
+ * with `signal.reason` if the signal aborts during the wait.
  */
 export function sleepAsync({ signal, sleep = 0 }: Options = {}) {
   signal?.throwIfAborted();
   if (sleep <= 0) return Promise.resolve();
 
-  return new Promise<void>((resolve) => {
-    const onAbort = () => resolve(signal?.reason);
+  return new Promise<void>((resolve, reject) => {
+    const onAbort = () => reject(signal?.reason);
     const removeAbort = abort({ signal, onAbort });
     const timeout = setTimeout(() => {
       removeAbort();
@@ -54,7 +54,7 @@ export function sleepAsync({ signal, sleep = 0 }: Options = {}) {
 export function sleepSync({ signal, sleep = 0 }: Options = {}) {
   signal?.throwIfAborted();
   if (sleep <= 0) return;
-  const finish = Date.now() + sleep;
+  const finish = Math.round(Date.now() + sleep);
   while (Date.now() < finish) {
     signal?.throwIfAborted();
   }

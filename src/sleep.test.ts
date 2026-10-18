@@ -32,25 +32,27 @@ describe("sleepAsync", () => {
     assert.throws(() => sleepAsync({ signal: controller.signal }));
   });
 
-  it("abort during sleep resolves (not rejects) with signal.reason", async () => {
+  it("abort during sleep rejects with signal.reason, early", async () => {
     const controller = new AbortController();
     const reason = new Error("custom-stop");
     const p = sleepAsync({ signal: controller.signal, sleep: 1000 });
     const start = performance.now();
     setTimeout(() => controller.abort(reason), 10);
-    const value = await p;
-    const elapsed = performance.now() - start;
-    assert.strictEqual(value, reason);
-    assert.ok(elapsed < 800, `should resolve early, took ${elapsed}ms`);
+    await assert.rejects(p, (e) => e === reason);
+    assert.ok(
+      performance.now() - start < 800,
+      "should reject early on abort",
+    );
   });
 
-  it("abort with default reason resolves with AbortError DOMException", async () => {
+  it("abort with default reason rejects with AbortError DOMException", async () => {
     const controller = new AbortController();
     const p = sleepAsync({ signal: controller.signal, sleep: 1000 });
     setTimeout(() => controller.abort(), 10);
-    const value: unknown = await p;
-    assert.ok(value instanceof DOMException);
-    assert.strictEqual((value as DOMException).name, "AbortError");
+    await assert.rejects(
+      p,
+      (e) => e instanceof DOMException && e.name === "AbortError",
+    );
   });
 
   it("resolves undefined without signal", async () => {

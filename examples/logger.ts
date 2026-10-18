@@ -8,11 +8,11 @@ import { withLogger } from "jutilities/logger";
 
 /**
  * Sync adder logged under an explicit label.
- * @param {number} a - First addend.
- * @param {number} b - Second addend.
- * @returns {number} `a + b`.
+ * @param a - First addend.
+ * @param b - Second addend.
+ * @returns `a + b`.
  */
-function add(a, b) {
+function add(a: number, b: number): number {
   return a + b;
 }
 
@@ -22,9 +22,9 @@ console.log("sync result:", tracedAdd(1, 2)); // two console.log lines above
 // ---- name inferred from the function itself ----------------------------------
 /**
  * Named generator used to show name inference via the single-arg overload.
- * @returns {string} The literal `"greeted"`.
+ * @returns The literal `"greeted"`.
  */
-function greet() {
+function greet(): string {
   return "greeted";
 }
 
@@ -34,10 +34,9 @@ console.log("inferred-name result:", tracedGreet());
 // ---- async wrapper logs the awaited value -------------------------------------
 /**
  * Async producer whose resolution value is logged after the await completes.
- * @returns {Promise<string>} The literal `"resolved"` after a short simulated
- * delay.
+ * @returns The literal `"resolved"` after a short simulated delay.
  */
-async function job() {
+async function job(): Promise<string> {
   await new Promise((r) => setTimeout(r, 10));
   return "resolved";
 }

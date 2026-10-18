@@ -34,7 +34,7 @@ export type AnyFunction = (...args: any) => any;
 /**
  * Any callable type producing a promise.
  */
-export type AnyAsyncFunction = (...args: any) => Promise<any>;
+export type AnyAsyncFunction = (...args: any) => MaybePromise<any>;
 
 /**
  * Callback type that must NOT return a promise, generator, or async

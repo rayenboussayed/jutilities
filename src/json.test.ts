@@ -84,8 +84,8 @@ describe("Json without handlers matches native JSON", () => {
     const noop = {
       isApplicable: (key: string, v: any): v is null =>
         key.startsWith("!") && v === null,
-      stringify: (key: string, v: unknown) => v,
-      parse: (key: string, v: unknown) => v,
+      stringify: (_key: string, v: unknown) => v,
+      parse: (_key: string, v: unknown) => v,
     };
     assert.strictEqual(json.addHandler("a", noop), json);
     assert.strictEqual(json.removeHandler("missing"), json);

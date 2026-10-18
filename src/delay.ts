@@ -19,8 +19,10 @@ export type Options = WithSignal<{
  *
  * Behavior notes:
  * - `delay <= 0` (and `undefined`/`NaN`) returns the original function itself.
- * - Aborting mid-delay cuts the wait short but the wrapped function still runs
- *   (it reuses `sleepAsync`, which resolves on abort rather than rejecting).
+ * - The wrapper itself is not `async` — the factory returns synchronously
+ *   (`withDelayAsync(fn)` is `fn` when there is nothing to do).
+ * - Aborting mid-delay cuts the wait short and the wrapped call rejects with
+ *   `signal.reason` — the wrapped function never runs mid-wait.
  * @param fn - The async function to wrap.
  * @param root0 - Options object.
  * @param root0.signal - Optional abort signal for the pre-call wait.
@@ -28,7 +30,7 @@ export type Options = WithSignal<{
  * @returns The wrapped function (typeof `fn`), or `fn` itself when there is
  * nothing to delay.
  */
-export async function withDelayAsync<T extends AnyAsyncFunction>(
+export function withDelayAsync<T extends AnyAsyncFunction>(
   fn: T,
   { signal, delay = 0 }: Options = {},
 ) {

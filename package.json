@@ -41,11 +41,11 @@
   ],
   "scripts": {
     "check": "npm run typecheck && npm run lint && npm run test && npm run build && npm run examples",
-    "test": "tsx --test src/**/*.test.ts",
+    "test": "tsx --test \"src/**/*.test.ts\"",
     "typecheck": "tsc --noEmit",
     "lint": "eslint . --fix --max-warnings 0",
     "build": "tsc -p tsconfig.build.json",
-    "examples": "npm run build && node examples/run-all.mjs",
+    "examples": "npm run build && node --import tsx examples/run-all.ts",
     "prepare": "husky && node scripts/link-self.mjs"
   },
   "engines": {

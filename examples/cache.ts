@@ -8,15 +8,18 @@
  */
 import { withCacheAsync, withCacheSync } from "jutilities/cache";
 
+let computeCalls = 0;
+
 /**
- * Expensive-to-compute sync function used as the cache subject.
- * @param {string} id - Arbitrary identifier (part of the cache key).
- * @returns {{ id: string, marker: string }} A payload recording how many times
- * the real computation ran.
+ * Expensive-to-compute sync function used as the cache subject. The `string |
+ * number` parameter also lets the custom numeric-key factory below pass raw
+ * ids straight through.
+ * @param id - Arbitrary identifier (part of the cache key).
+ * @returns A payload recording how many times the real computation ran.
  */
-function computeSync(id) {
-  computeSync.calls = (computeSync.calls ?? 0) + 1;
-  return { id, marker: `compute-${computeSync.calls}` };
+function computeSync(id: string | number): { id: string | number; marker: string } {
+  computeCalls += 1;
+  return { id, marker: `compute-${computeCalls}` };
 }
 
 // ---- sync memoization ------------------------------------------------------
@@ -40,8 +43,10 @@ const byNumericId = withCacheSync(computeSync, {
 console.log("key 7 once:", byNumericId(7), "==", byNumericId(7));
 
 // ---- async memoization with in-flight deduplication ------------------------
-const loadUser = withCacheAsync(async (id) => {
-  loadUser.calls = ((loadUser.calls ?? 0) + 1);
+let loadUserCalls = 0;
+
+const loadUser = withCacheAsync(async (id: string) => {
+  loadUserCalls += 1;
   await new Promise((r) => setTimeout(r, 20));
   return { id, phone: "+1-555-0000" };
 });
@@ -52,4 +57,4 @@ const results = await Promise.all([
   loadUser("u8"),
 ]);
 console.log("async merged:", results);
-console.log("upstream ran", loadUser.calls, "times for 3 requests");
+console.log("upstream ran", loadUserCalls, "times for 3 requests");

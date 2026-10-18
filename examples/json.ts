@@ -26,7 +26,22 @@ const value = {
 const text = superjson.stringify(value);
 console.log("envelopes in flight:", text.slice(0, 72) + "…");
 
-const back = superjson.parse(text);
+/**
+ * The expected shape of `value` after a full round-trip. `superjson.parse`
+ * defaults its payload to `unknown`, so the demo pins the type explicitly.
+ */
+type ValueShape = {
+  map: Map<string, string>;
+  set: Set<number>;
+  date: Date;
+  invalidDate: Date;
+  big: bigint;
+  inf: number;
+  negInf: number;
+  bytes: Uint8Array;
+};
+
+const back = superjson.parse<ValueShape>(text);
 console.log("Map survives:", back.map instanceof Map, back.map.get("k"));
 console.log("Set survives:", back.set instanceof Set, back.set.size);
 console.log("Date survives:", back.date.getTime() === 0);
@@ -44,9 +59,9 @@ console.log("bigint survives:", back.big === 9007199254740993n);
 console.log("typed array survives:", back.bytes instanceof Uint8Array);
 
 // ---- errors keep cause chains (but subclass identity is lost) ----------------
-const err = superjson.parse(superjson.stringify(
-  new Error("outer", { cause: new Error("inner") }),
-));
+const err = superjson.parse<{ message: string; cause: { message: string } }>(
+  superjson.stringify(new Error("outer", { cause: new Error("inner") })),
+);
 console.log("error round-trip:", err.message, "->", err.cause.message);
 
 // ---- custom handlers with the builder API ------------------------------------
@@ -56,24 +71,22 @@ console.log("error round-trip:", err.message, "->", err.cause.message);
 class Upper {
   /**
    * Creates an `Upper`.
-   * @param {string} text - The stored text.
+   * @param text - The stored text.
    */
-  constructor(text) {
-    this.text = text;
-  }
+  constructor(public readonly text: string) {}
 }
 
 /**
  * Builds a `Json` with a custom `Upper` handler registered.
- * @returns {Json} The configured instance.
+ * @returns The configured instance.
  */
-function upperJson() {
+function upperJson(): Json {
   return new Json().addHandler("upper", {
-    isApplicable: (key, value2) => value2 instanceof Upper,
-    stringify: (key, up) => up.text,
-    parse: (key, text2) => new Upper(text2),
+    isApplicable: (_key, value2): value2 is Upper => value2 instanceof Upper,
+    stringify: (_key, up) => up.text,
+    parse: (_key, text2) => new Upper(text2),
   });
 }
 
-const roundTripped = upperJson().parse(upperJson().stringify(new Upper("hi")));
+const roundTripped = upperJson().parse<Upper>(upperJson().stringify(new Upper("hi")));
 console.log("custom handler:", roundTripped instanceof Upper, roundTripped.text);

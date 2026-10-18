@@ -9,9 +9,9 @@ import { withTimeoutAsync } from "jutilities/timeout";
 
 /**
  * Fast noop used to show the zero-overhead unwrap shortcut.
- * @returns {Promise<string>} The literal `"fast"`.
+ * @returns The literal `"fast"`.
  */
-async function fast() {
+async function fast(): Promise<string> {
   return "fast";
 }
 
@@ -20,13 +20,12 @@ console.log("unwrap shortcut returns the original fn:", unwrapped === fast);
 
 /**
  * Slow producer that (importantly) keeps running even after the caller stops
- * waiting — losing the timeout race does not stop the underlying work.
- * @returns {Promise<string>} `"done"` after a full second (never observed when
- * the deadline wins).
+ * waiting — losing the timeout race does not stop the underlying work, so its
+ * `"done"` result is simply never observed by the caller that walked away.
+ * @returns `"done"` after a full second.
  */
-async function slow() {
+async function slow(): Promise<string> {
   await new Promise((r) => setTimeout(r, 1000));
-  slow.finished = true;
   return "done";
 }
 
@@ -47,5 +46,5 @@ setTimeout(() => controller.abort(new Error("shutting down")), 20);
 try {
   await watched();
 } catch (error) {
-  console.log("abort rejected with:", error?.message);
+  console.log("abort rejected with:", (error as Error).message);
 }

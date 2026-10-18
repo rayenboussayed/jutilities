@@ -39,16 +39,23 @@ describe("withRetryAsync", () => {
       assert.ok(s.error instanceof Error);
     }
     for (const s of seen as {
-      startExecution: number;
-      endExecution: number;
+      startFnExecution: number;
+      endFnExecution: number;
     }[]) {
-      assert.strictEqual(typeof s.startExecution, "number");
-      assert.strictEqual(typeof s.endExecution, "number");
-      assert.ok(s.startExecution <= s.endExecution);
+      assert.strictEqual(typeof s.startFnExecution, "number");
+      assert.strictEqual(typeof s.endFnExecution, "number");
+      assert.ok(s.startFnExecution <= s.endFnExecution);
+    }
+    for (const s of seen as {
+      startRetryExecution: number;
+      totalRetryExecution: number;
+    }[]) {
+      assert.strictEqual(typeof s.startRetryExecution, "number");
+      assert.strictEqual(typeof s.totalRetryExecution, "number");
     }
   });
 
-  it("default exhaustion: 4 attempts then rethrows original", async () => {
+  it("default exhaustion: 11 attempts (gives up at retries = 10), rethrows original", async () => {
     let count = 0;
     const original = new Error("always");
     const wrapped = withRetryAsync(async () => {
@@ -56,7 +63,7 @@ describe("withRetryAsync", () => {
       throw original;
     });
     await assert.rejects(wrapped(), (err: unknown) => err === original);
-    assert.strictEqual(count, 4);
+    assert.strictEqual(count, 11);
   });
 
   it("default retries sequence is [0,1,2,3]", async () => {
@@ -201,36 +208,36 @@ describe("withRetrySync", () => {
     assert.strictEqual(onErrorCalls, 0);
   });
 
-  it("TODO: documents sync signature bug (args vs ...args throws TypeError)", () => {
+  it("forwards multi-arg calls through success and failure", () => {
+    let calls = 0;
+    const seen: number[][] = [];
     /**
-     * Two-argument adder exercised through the buggy sync wrapper.
+     * Two-argument adder that fails its first attempt.
      * @param a - First addend.
      * @param b - Second addend.
-     * @returns `a + b` (never reached in this test due to the wrapper bug).
+     * @returns `a + b` (second attempt, after `onError` allows the retry).
      */
-    function add(a: number, b: number) {
+    function add(a: number, b: number): number {
+      calls++;
+      if (calls === 1) throw new Error("first");
       return a + b;
     }
-    const wrapped = withRetrySync(add);
-    // Current impl: function(this, args: Parameters<T>) then fn.apply(this, args)
-    // Calling wrapped(1, 2) sets args=1, then fn.apply(this, 1) throws
-    // TypeError: CreateListFromArrayLike called on non-object (Node 24 strict).
-    // Older Node silently called with no args -> NaN. Either way this is a bug:
-    // wrapper should be (...args: Parameters<T>).
-    assert.throws(
-      () => (wrapped as unknown as (a: number, b: number) => unknown)(1, 2),
-      TypeError,
-    );
+    const wrapped = withRetrySync(add, ({ parameters }) => {
+      seen.push([...parameters]);
+    });
+    assert.strictEqual(wrapped(3, 4), 7);
+    assert.strictEqual(calls, 2);
+    assert.deepStrictEqual(seen, [[3, 4]]);
   });
 
-  it("default exhaustion rethrows after 4 attempts (no-arg fn to avoid signature bug)", () => {
+  it("default exhaustion: 11 attempts (gives up at retries = 10), rethrows original", () => {
     let count = 0;
     const wrapped = withRetrySync((): number => {
       count++;
       throw new Error("sync always");
     });
     assert.throws(() => (wrapped as () => void)(), /sync always/);
-    assert.strictEqual(count, 4);
+    assert.strictEqual(count, 11);
   });
 
   it("custom onError receives payload and can stop", () => {

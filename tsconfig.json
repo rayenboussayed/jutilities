@@ -2,9 +2,9 @@
   // Visit https://aka.ms/tsconfig to read more about this file
   "compilerOptions": {
     // File Layout
-    // Only src is considered project source (eslint.config.ts is executed by
-    // its own tooling via jiti, not part of the TS program).
-    "rootDir": "./src",
+    // src is the emit source; examples/ is type-checked alongside it but never
+    // built (tsconfig.build.json pins rootDir back to src). eslint.config.ts is
+    // executed by its own tooling via jiti, not part of the TS program.
     "outDir": "./dist",
 
     // Environment Settings
@@ -23,18 +23,21 @@
 
     // Stricter Typechecking Options
     "noUncheckedIndexedAccess": true,
+    "useUnknownInCatchVariables": true,
     "exactOptionalPropertyTypes": false,
-
+    
     // Style Options
     // "noImplicitReturns": true,
     // "noImplicitOverride": true,
-    // "noUnusedLocals": true,
-    // "noUnusedParameters": true,
+    "noImplicitAny": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
     // "noFallthroughCasesInSwitch": true,
     // "noPropertyAccessFromIndexSignature": true,
 
     // Recommended Options
     "strict": true,
+    "strictNullChecks": true,
     "jsx": "react-jsx",
     "verbatimModuleSyntax": true,
     "isolatedModules": true,
@@ -43,6 +46,6 @@
     "skipLibCheck": true
   },
 
-  // Project sources; tests are type-checked too on purpose.
-  "include": ["src"]
+  // Project sources; tests and examples are type-checked too on purpose.
+  "include": ["src", "examples"]
 }

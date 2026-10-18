@@ -12,8 +12,8 @@ describe("withDelayAsync", () => {
     async function fn(x: number) {
       return x;
     }
-    assert.strictEqual(await withDelayAsync(fn, { delay: 0 }), fn);
-    assert.strictEqual(await withDelayAsync(fn, { delay: -5 }), fn);
+    assert.strictEqual(withDelayAsync(fn, { delay: 0 }), fn);
+    assert.strictEqual(withDelayAsync(fn, { delay: -5 }), fn);
   });
 
   it("options omitted defaults to no delay (returns identical fn)", async () => {
@@ -24,8 +24,8 @@ describe("withDelayAsync", () => {
     async function fn() {
       return 1;
     }
-    assert.strictEqual(await withDelayAsync(fn), fn);
-    assert.strictEqual(await withDelayAsync(fn, undefined), fn);
+    assert.strictEqual(withDelayAsync(fn), fn);
+    assert.strictEqual(withDelayAsync(fn, undefined), fn);
   });
 
   it("wraps when delay > 0 and delays execution", async () => {
@@ -98,7 +98,7 @@ describe("withDelayAsync", () => {
     async function fn() {
       return 1;
     }
-    const wrapped = await withDelayAsync(fn, { delay: NaN });
+    const wrapped = withDelayAsync(fn, { delay: NaN });
     assert.notStrictEqual(wrapped, fn);
   });
 
@@ -111,7 +111,7 @@ describe("withDelayAsync", () => {
     async function fn(x: number) {
       return x;
     }
-    const wrapped = (await withDelayAsync(fn, { delay: 20 })) as typeof fn;
+    const wrapped = withDelayAsync(fn, { delay: 20 }) as typeof fn;
     const start = performance.now();
     const results = await Promise.all([wrapped(1), wrapped(2), wrapped(3)]);
     const elapsed = performance.now() - start;
@@ -119,10 +119,10 @@ describe("withDelayAsync", () => {
     assert.ok(elapsed < 200, `parallel should be ~20ms, took ${elapsed}`);
   });
 
-  it("abort mid-delay resolves early and fn still runs (sleepAsync resolves on abort)", async () => {
+  it("abort mid-delay rejects with signal.reason and fn never runs", async () => {
     let called = 0;
     /**
-     * Counter verifying that abort mid-delay still reaches the wrapped fn.
+     * Counter verifying that a mid-delay abort prevents the wrapped invocation.
      * @returns Always `1`, after counting the invocation.
      */
     async function fn() {
@@ -130,15 +130,15 @@ describe("withDelayAsync", () => {
       return 1;
     }
     const controller = new AbortController();
-    const wrapped = (await withDelayAsync(fn, {
+    const wrapped = withDelayAsync(fn, {
       delay: 1000,
       signal: controller.signal,
-    })) as typeof fn;
+    }) as typeof fn;
     const start = performance.now();
     const p = wrapped();
     setTimeout(() => controller.abort(), 10);
-    assert.strictEqual(await p, 1);
-    assert.strictEqual(called, 1);
+    await assert.rejects(p, (e) => e === controller.signal.reason);
+    assert.strictEqual(called, 0);
     assert.ok(performance.now() - start < 500, "delay cut short by abort");
   });
 });

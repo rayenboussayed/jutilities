@@ -1,18 +1,21 @@
 /* eslint-disable deslint/no-prod-console -- examples are demo scripts; printing is their purpose */
 
 /**
- * Demonstrates `sleepAsync` / `sleepSync`: the pre-aborted sync throw, a
- * mid-sleep abort resolving with `signal.reason`, and the blocking variant.
+ * Demonstrates `sleepAsync` / `sleepSync`: a mid-sleep abort rejecting with
+ * `signal.reason`, the pre-aborted sync throw, and the blocking variant.
  */
 import { sleepAsync, sleepSync } from "jutilities/sleep";
 
-// ---- mid-sleep abort (resolves with the reason, does not reject) ------------
+// ---- mid-sleep abort (rejects with the reason) --------------------------------
 const controller = new AbortController();
 const started = performance.now();
 setTimeout(() => controller.abort(), 30);
-const woke = await sleepAsync({ sleep: 1000, signal: controller.signal });
-console.log("woke early after ~ms:", Math.round(performance.now() - started));
-console.log("abort wakes you with the reason itself:", woke !== undefined);
+try {
+  await sleepAsync({ sleep: 1000, signal: controller.signal });
+} catch (reason) {
+  console.log("woke early after ~ms:", Math.round(performance.now() - started));
+  console.log("abort rejects with the reason itself:", (reason as Error).name === "AbortError");
+}
 
 // ---- natural expiry ----------------------------------------------------------
 await sleepAsync({ sleep: 20 });
@@ -24,7 +27,7 @@ alreadyAborted.abort();
 try {
   sleepAsync({ signal: alreadyAborted.signal, sleep: 1000 });
 } catch (error) {
-  console.log("pre-aborted sleepAsync throws sync:", error.name);
+  console.log("pre-aborted sleepAsync throws sync:", (error as Error).name);
 }
 
 // ---- blocking variant --------------------------------------------------------

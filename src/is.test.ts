@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import {
   isAsyncFunction,
   isAsyncGeneratorFunction,
+  isDecorationContext,
   isEmpty,
   isEmptyArray,
   isEmptyRecord,
@@ -14,6 +15,7 @@ import {
   isPromise,
   isRecord,
   isThenable,
+  isRawMemberApplication,
   isUndefined,
 } from "./is.js";
 
@@ -359,5 +361,46 @@ describe("isAsyncGeneratorFunction", () => {
     assert.strictEqual(isAsyncGeneratorFunction(sync), false);
     assert.strictEqual(isAsyncGeneratorFunction(af), false);
     assert.strictEqual(isAsyncGeneratorFunction(gen), false);
+  });
+});
+
+describe("isDecorationContext", () => {
+  it("returns true for objects carrying a string kind", () => {
+    assert.strictEqual(isDecorationContext({ kind: "method" }), true);
+    // A synthesized (partial) Stage 3 decoration context:
+    assert.strictEqual(
+      isDecorationContext({ kind: "field", name: "f", addInitializer() {} }),
+      true,
+    );
+  });
+
+  it("returns false for non-contexts", () => {
+    assert.strictEqual(isDecorationContext({}), false);
+    assert.strictEqual(isDecorationContext({ kind: 1 }), false);
+    assert.strictEqual(isDecorationContext(null), false);
+    assert.strictEqual(isDecorationContext(undefined), false);
+    assert.strictEqual(isDecorationContext("method"), false);
+    assert.strictEqual(isDecorationContext(() => {}), false);
+  });
+});
+
+describe("isRawMemberApplication", () => {
+  it("returns true for the (member, context) fingerprint", () => {
+    const wrap = (x: unknown): unknown => x;
+    assert.strictEqual(isRawMemberApplication([wrap, { kind: "method" }]), true);
+  });
+
+  it("returns false for rests that are not raw decoration invocations", () => {
+    const wrap = (x: unknown): unknown => x;
+    assert.strictEqual(isRawMemberApplication([]), false);
+    assert.strictEqual(isRawMemberApplication([wrap]), false);
+    assert.strictEqual(isRawMemberApplication([{}]), false);
+    assert.strictEqual(
+      isRawMemberApplication([wrap, { kind: "method" }, 1]),
+      false,
+    );
+    assert.strictEqual(isRawMemberApplication([wrap, {}]), false);
+    assert.strictEqual(isRawMemberApplication([{}, { kind: "method" }]), false);
+    assert.strictEqual(isRawMemberApplication([1, { kind: "method" }]), false);
   });
 });

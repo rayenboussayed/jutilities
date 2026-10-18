@@ -1,3 +1,4 @@
+import { sleepSync } from "./sleep.js";
 import type {
   AnyAsyncFunction,
   AnyFunction,
@@ -6,19 +7,29 @@ import type {
 } from "./types/type.js";
 
 const defaultOnError: OnErrorFn = ({
-  startExecution,
-  endExecution,
+  totalRetryExecution,
+  startFnExecution,
+  endFnExecution,
   error,
   retries,
 }) => {
-  if (retries >= 3) throw error;
-  if (endExecution - startExecution >= 60_000) throw error;
+  if (retries >= 10) throw error;
+  if (totalRetryExecution >= 60_000) throw error;
+
+  const lastAttemptDuration = endFnExecution - startFnExecution;
+  const exponentialDelay = 2 ** retries * lastAttemptDuration;
+  const remainingBudget = 60_000 - totalRetryExecution;
+  const maxDelay = Math.min(exponentialDelay, remainingBudget);
+  const jitteredDelay = Math.random() * maxDelay;
+  sleepSync({ sleep: jitteredDelay });
 };
 
 type OnErrorFn<T extends AnyFunction = AnyFunction> = (options: {
   parameters: Parameters<T>;
-  startExecution: number;
-  endExecution: number;
+  startRetryExecution: number;
+  totalRetryExecution: number;
+  startFnExecution: number;
+  endFnExecution: number;
   retries: number;
   error: unknown;
 }) => T extends AnyAsyncFunction ? MaybePromise<void> : void;
@@ -35,12 +46,15 @@ type OnErrorFn<T extends AnyFunction = AnyFunction> = (options: {
 /**
  * Wraps an async function in a policy-driven retry loop.
  *
- * The default policy (see above) gives up after `retries >= 3` (four attempts:
- * 0, 1, 2, 3) or when a single execution took >= 60 seconds. There is no
- * built-in backoff — implement delays/backoff inside `onError`.
+ * The default policy (see above) gives up after 10 retries (11 attempts; the
+ * policy throws at `retries === 10`) or once the retry tour has taken
+ * `>= 60_000` ms cumulative. It also backs off: between attempts it sleeps an
+ * exponential, jittered `2^retries * lastAttemptDuration` wait, capped by the
+ * remaining time budget. Pass `onError` to own the whole policy instead.
  * @param fn - The async function to wrap with retries.
  * @param onError - Retry policy callback invoked after each failure; return to
- * retry, throw to stop (defaults to the ≤3-retries / 60s policy).
+ * retry, throw to stop (defaults to the 10-retry / 60s policy with built-in
+ * exponential jittered backoff).
  * @returns The wrapped function (typeof `fn`) that runs until it succeeds or
  * the policy throws.
  */
@@ -50,19 +64,23 @@ export function withRetryAsync<T extends AnyAsyncFunction>(
 ) {
   return async function (this: ThisParameterType<T>, ...args: Parameters<T>) {
     let retries = 0;
+    const startRetryExecution =
+      typeof window === "undefined" ? performance.now() : Date.now();
     while (true) {
-      const startExecution =
+      const startFnExecution =
         typeof window === "undefined" ? performance.now() : Date.now();
       try {
         const result = await fn.apply(this, args);
         return result;
       } catch (error) {
-        const endExecution =
+        const endFnExecution =
           typeof window === "undefined" ? performance.now() : Date.now();
         await onError({
           parameters: args,
-          startExecution,
-          endExecution,
+          startRetryExecution,
+          totalRetryExecution: endFnExecution - startRetryExecution,
+          startFnExecution,
+          endFnExecution,
           error,
           retries,
         });
@@ -75,14 +93,14 @@ export function withRetryAsync<T extends AnyAsyncFunction>(
 /**
  * Wraps a sync function in a policy-driven retry loop (busy, no awaits).
  *
- * ⚠️ Known signature bug (locked by tests): the wrapper declares a single
- * `args` parameter instead of a rest parameter, so calling it
- * `wrapped(1, 2)` passes `1` as the args array and `fn.apply(this, 1)` throws
- * a `TypeError`. Call it with zero arguments, or pass exactly one array
- * argument (it is spread onto `fn`), until this is fixed.
+ * Behavior notes:
+ * - Every call argument is forwarded verbatim to `fn` and reported to `onError`
+ *   via `parameters` (see {@link OnErrorFn}).
+ * - `this` is forwarded to every attempt.
  * @param fn - The sync function to wrap with retries.
  * @param onError - Sync retry policy callback; return to retry, throw to stop
- * (defaults to the ≤3-retries / 60s policy).
+ * (defaults to the 10-retry / 60s policy with built-in exponential jittered
+ * backoff).
  * @returns The wrapped function (typeof `fn`) that runs until it succeeds or
  * the policy throws.
  */
@@ -90,21 +108,25 @@ export function withRetrySync<T extends AnyFunction>(
   fn: AnySyncFunction<T>,
   onError: OnErrorFn<AnySyncFunction<T>> = defaultOnError,
 ) {
-  return function (this: ThisParameterType<T>, args: Parameters<T>) {
+  return function (this: ThisParameterType<T>, ...args: Parameters<T>) {
     let retries = 0;
+    const startRetryExecution =
+      typeof window === "undefined" ? performance.now() : Date.now();
     while (true) {
-      const startExecution =
+      const startFnExecution =
         typeof window === "undefined" ? performance.now() : Date.now();
       try {
         const result = fn.apply(this, args);
         return result;
       } catch (error) {
-        const endExecution =
+        const endFnExecution =
           typeof window === "undefined" ? performance.now() : Date.now();
         onError({
           parameters: args,
-          startExecution,
-          endExecution,
+          startRetryExecution,
+          totalRetryExecution: endFnExecution - startRetryExecution,
+          startFnExecution,
+          endFnExecution,
           error,
           retries,
         });

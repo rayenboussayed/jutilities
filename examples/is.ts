@@ -37,10 +37,9 @@ console.log("isPromise({then,catch,finally}) :",
 
 /**
  * Canonical `async` function for constructor-name detection.
- * @returns {Promise<string>} Always the literal `"plain"`. Minimal body by
- * design.
+ * @returns Always the literal `"plain"`. Minimal body by design.
  */
-async function plainAsync() {
+async function plainAsync(): Promise<string> {
   return "plain";
 }
 console.log("isAsyncFunction(plainAsync):", isAsyncFunction(plainAsync));

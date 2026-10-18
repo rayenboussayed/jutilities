@@ -1,8 +1,8 @@
 import type {
+  AnyAsyncFunction,
   AnyAsyncGeneratorFunction,
   AnyFunction,
   AnyGeneratorFunction,
-  AnySyncFunction,
 } from "./types/type.js";
 
 /**
@@ -145,7 +145,7 @@ export function isPromise(v: unknown): v is Promise<any> {
  * @param fn - The function to test.
  * @returns `true` when the function is declared with `async`.
  */
-export function isAsyncFunction(fn: AnyFunction): fn is AnySyncFunction {
+export function isAsyncFunction(fn: AnyFunction): fn is AnyAsyncFunction {
   return fn.constructor.name === "AsyncFunction";
 }
 
@@ -169,4 +169,39 @@ export function isAsyncGeneratorFunction(
   fn: AnyFunction,
 ): fn is AnyAsyncGeneratorFunction {
   return fn.constructor.name === "AsyncGeneratorFunction";
+}
+
+/**
+ * Detects a paren-less Stage 3 decoration: the runtime hands decorators
+ * `(member, context)` where the context carries a string-ish `kind`, so a
+ * guard/options object with a `kind` property is a telling misfire instead of
+ * an options bag.
+ * @param arg - The second argument a factory received (options or context).
+ * @returns `true` when the argument looks like a decoration context.
+ */
+export function isDecorationContext(arg: unknown): arg is { kind: string } {
+  return (
+    typeof arg === "object" &&
+    arg !== null &&
+    "kind" in arg &&
+    typeof (arg as { kind: unknown }).kind === "string"
+  );
+}
+
+/**
+ * Detects a paren-less application of a decorator-converter RESULT (the
+ * decorator factory): Stage 3 invokes it with `(member, context)`, which
+ * arrives as the factory's rest options — a leading function followed by a
+ * decoration context is the misfire fingerprint. Legit option slots (option
+ * bags, keys, delays) cannot mimic both stripes at those positions, so this is
+ * a safe heuristic guarded by a documented caveat in the package docs.
+ * @param rest - The rest arguments a factory received.
+ * @returns `true` when the rest looks like a raw decoration invocation.
+ */
+export function isRawMemberApplication(rest: unknown[]): boolean {
+  return (
+    rest.length === 2 &&
+    typeof rest[0] === "function" &&
+    isDecorationContext(rest[1])
+  );
 }

@@ -17,10 +17,10 @@ import {
 
 /**
  * A tiny readable emitting the given words as buffer chunks.
- * @param {string[]} words - Words to emit, one per chunk.
- * @returns {Readable} The configured source stream.
+ * @param words - Words to emit, one per chunk.
+ * @returns The configured source stream.
  */
-function sourceStream(words) {
+function sourceStream(words: string[]): Readable {
   return Readable.from(words.map((word) => Buffer.from(word)));
 }
 
@@ -49,7 +49,7 @@ console.log("branch one buffered:", buffered.toString(), "bytes:", buffered.leng
 console.log("branch two sank bytes:", seen);
 
 // ---- streamSize: pass chunks through while reporting cumulative size ----------
-const marks = [];
+const marks: string[] = [];
 for await (const chunk of streamSize(sourceStream(["one", "two", "three"]), {
   onSize: ({ size, done }) => marks.push(size + (done ? "*" : "")),
 })) {

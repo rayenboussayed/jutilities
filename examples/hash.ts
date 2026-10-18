@@ -16,11 +16,11 @@ console.log("stable:", djb2("cache-key") === djb2("cache-key"));
 // ---- seed chaining (domain separation) ---------------------------------------
 /**
  * Domain-separated key reducer for namespaced cache entries.
- * @param {string} namespace - Stable domain label hashed first.
- * @param {string} value - Payload hashed on top of the namespace seed.
- * @returns {number} The unsigned 32-bit composite fingerprint.
+ * @param namespace - Stable domain label hashed first.
+ * @param value - Payload hashed on top of the namespace seed.
+ * @returns The unsigned 32-bit composite fingerprint.
  */
-function namespacedHash(namespace, value) {
+function namespacedHash(namespace: string, value: string): number {
   return djb2(value, djb2(namespace));
 }
 

@@ -2,7 +2,7 @@
 
 Small, typed, heavily documented TypeScript utilities for Node.js — caching, retries, timeouts, delays, abort-aware sleeps, one-shot signal listeners, Node stream helpers, a super-JSON serializer, non-cryptographic hashes, and type guards.
 
-Everything is an independent module with a locked, test-verified behavior contract (289 tests). Every non-obvious quirk is documented at the call site.
+Everything is an independent module with a locked, test-verified behavior contract (361 tests). Every non-obvious quirk is documented at the call site.
 
 > **Status:** v1.0.0 — published on npm. APIs are stable in practice, but semver guarantees are not yet frozen. Requires **Node ≥ 22** (uses `Buffer` pool semantics, `Symbol.for` round-trips, shared timers).
 
@@ -47,10 +47,12 @@ import { superjson } from "jutilities/json";
 | `jutilities/signal` | `abort` | Flatten `AbortSignal` add/remove into two callables |
 | `jutilities/lazy` | `lazy` | Memoize by (source + args) hash, retry failures |
 | `jutilities/logger` | `withLogger` | Log invocation args + awaited result + duration |
+| `jutilities/decorators/<kind>` | `decorateMethod`, `decorateClass`, `decorateProperty`, `decorateGetter` | Turn fn-first HOFs into fully typed Stage 3 decorators (methods / whole classes / function-valued fields / getters) |
 | `jutilities/json` | `Json`, `superjson` | Round-trip Map/Set/Date/bigint/typed arrays/Errors… |
 | `jutilities/node-stream` | `tee`, `stream2buffer`, `buffer2stream`, `streamSizeTransform`, `streamSize` | Bandwidth-aware stream plumbing |
 | `jutilities/hash` | `djb2`, `sdbm`, `fnv1a64` | Fast 32-bit seeds + BigInt (unmasked) hashing |
-| `jutilities/is` | 14 type guards | `isRecord`, `isEmpty`, `isThenable`, … |
+| `jutilities/is` | 16 type guards | `isRecord`, `isEmpty`, `isThenable`, … |
+| `jutilities/assert` | `assert`, `assertNotNil`, `assertNever`, `withAssertSync`/`withAssertAsync` + decorator contract guards | Throw-first counterparts of the checks + per-call result gates (narrow, never return to broken state) |
 | `jutilities/to` | `toArray`, `toBase64` | Normalize wrappers / encode bytes |
 | `jutilities/from` | `fromBase64` | Decode bytes (Node `Buffer` / browser `atob`) |
 | `jutilities/types/type` | `AnyFunction`, `AnySyncFunction`, … | Shared callable/utility types |
@@ -137,10 +139,55 @@ for await (const chunk of streamSize(fetchStream, { onSize: console.log })) {
 }
 ```
 
+### Decorators — promote any HOF to `@decorator`
+
+```ts
+import { decorateMethod } from "jutilities/decorators/method";
+import { decorateClass } from "jutilities/decorators/class";
+import { withCacheSync, withCacheAsync } from "jutilities/cache";
+import { withRetryAsync } from "jutilities/retry";
+
+// Hoist the factory once, then apply it with single options calls:
+const cached = decorateMethod(withCacheSync);
+const retry = decorateMethod(withRetryAsync, { require: "async" });
+
+class Users {
+  @cached({ extraKeys: ["users"] })
+  name(id: string) { return `u-${id}`; }
+
+  // Declared-async methods pair with declared-async HOFs — mismatched slots
+  // are compile errors, and `require: "async"` backs them up at runtime.
+  // `withRetryAsync`'s option slot IS the onError policy callback, not a
+  // config object — omit it for the default policy (10 retries with
+  // exponential, jittered backoff):
+  @retry()
+  async load(id: string) { return id; }
+}
+
+// Whole-class fan-out: every own prototype method, one options call:
+const cachedUsers = decorateClass({
+  sync: withCacheSync,   // non-async members
+  async: withCacheAsync, // async members (resolved via pick: "detect")
+});
+
+@cachedUsers({ cacheStore: new Map(), extraKeys: ["users"] })
+class Repo {
+  count() { return 42; }
+  async load(id: string) { return id; }
+}
+// The class decorator also skips constructor, statics, and accessors.
+```
+
+`decorateProperty` enhances function-valued fields **per instance** (arrow
+fields keep their lexical `this`; a non-function initializer throws at
+construction), `decorateGetter` wraps a getter **once, prototype-wide** (a
+cached getter is shared across every instance), and `require: "sync" | "async"`
+guards turn declared-async mismatches into decorate-time `TypeError`s.
+
 ## Design principles
 
 1. **Independent modules.** Every helper is a single-file module; nothing pulls another feature in (only tiny shared types).
-2. **Explicit contracts over clever defaults.** Defaults exist (TTL store, 3 retries) but each is documented *including its surprising corners* — e.g. "abort during a delayed call still runs the function".
+2. **Explicit contracts over clever defaults.** Defaults exist (TTL store, a 10-retry backoff policy) but each is documented *including its surprising corners* — e.g. "a mid-wait abort rejects the delayed call with the abort reason and never runs the function".
 3. **`signal` is a first-class option.** Every async wrapper accepts `WithSignal<T>` (`{ signal?: AbortSignal } & T`) and behaves sensibly for pre-aborted and mid-flight aborts.
 4. **No throwing wrappers.** Racy failures resolve/reject with `signal.reason`; sync validation errors are the only synchronous surfaces (`tee`, `buffer2stream`, pre-aborted `sleepAsync`, …).
 5. **Compose, don't reimplement.** Wrappers are `this`-preserving and argument-preserving, so they stack: `withLogger(withRetryAsync(withCacheAsync(fn)))`.
@@ -148,13 +195,15 @@ for await (const chunk of streamSize(fetchStream, { onSize: console.log })) {
 ## Known quirks (documented, intentional)
 
 - `withCacheSync/Async` skip caching for empty/falsy results; default keys are 32-bit `djb2` hashes (theoretically collidable) and object-arg keys are order-sensitive.
-- `withRetrySync` has a documented args-spreading bug: exactly one array argument gets spread, other arities throw — known and pinned by a test until fixed.
-- `withDelayAsync/withDelaySync`: abort **mid-delay still runs the wrapped function** (the delay is checked, not the call).
+- `withDelayAsync`: abort **mid-delay rejects the wrapped call with `signal.reason` — the wrapped function never runs**; `withDelaySync` blocks the loop, so only pre-aborts are observable.
 - `withTimeoutAsync` rejects with `signal.reason` even for wall-clock timeouts.
 - `withLogger`/`withCache*` timing switches from `performance.now` (Node) to `Date.now` (browser branch, `window` present).
 - `lazy` caches only truthy results, evicts rejected promises, and keys on `djb2(source + args)` (32-bit, collidable).
 - `superjson.parse` of typed-array payloads rebuilds views on a fresh **shared Buffer pool**; pooled neighbors may be reachable from the bytes of adjacent allocations.
 - `sleepSync` is a busy-wait and can only observe signals that aborted *before* it started.
+- `decorators/<kind>` annotations must be applied as `@f(...options)` / `@f()`: bare `@f` applications are type-rejected, and method/class/getter bare applications additionally throw a `TypeError` at runtime. A bare application on a **field** is runtime-silent (fields hand `undefined`, not the member, to the decorator — only the type layer catches it), which is why the field shape is pinned compile-only.
+- Decorator async detection (`class` pair `pick: "detect"`, and the `require` guards) uses `fn.constructor.name === "AsyncFunction"`. It holds under tsx/esbuild and native Node, but transpilers that *lower* `async` functions into plain functions returning promises defeat it — declare `pick`/`require` explicitly in such toolchains.
+- `withCacheSync` forced onto a declared-`async` member (class `pick: "sync"`) does not memoize: promises count as "empty" under `isEmpty`, so every call recomputes — keep async members on the async slot (`pick: "detect"` does this automatically).
 
 ## Development
 
@@ -162,7 +211,7 @@ for await (const chunk of streamSize(fetchStream, { onSize: console.log })) {
 npm run lint        # 0 errors / 0 warnings policy
 npm run lint:fix
 npm run typecheck   # strict TS, tests included
-npm test            # 289 tests
+npm test            # 361 tests
 npm run build       # tsc → dist (tests excluded)
 npm run examples    # run every example in examples/
 ```
@@ -171,9 +220,11 @@ The examples import through the same `jutilities/<module>` style as every snippe
 
 ### Lint policy
 
-The config never disables a rule globally. The 0/0 gate holds by *solving* warnings where possible — e.g. the examples carry fully typed JSDoc (`@param {string} …`) — and by exactly two justified, *inline* exceptions:
+The config never disables a rule globally. The 0/0 gate holds by *solving* warnings where possible — e.g. the examples are fully typed TypeScript, strict-checked like `src` — and by exactly two justified, *inline* exceptions:
 
 - `src/logger.ts` — `deslint/no-prod-console` is disabled next to each `console.log`, because console logging **is this module's feature** (the output target is test-pinned). Swapping in pino/winston would change the public behavior and dependencies.
-- `examples/*.mjs` — one file-level `deslint/no-prod-console` disable per example: examples are demo scripts and printing is their purpose.
+- `examples/**/*.ts` — one file-level `deslint/no-prod-console` disable per example: examples are demo scripts and printing is their purpose.
 
-Community guides live in [docs/DOCUMENTATION.md](./docs/DOCUMENTATION.md) — per-module behavior contracts, quirks, and worked use cases. Executable, runnable copies of those snippets live in [examples/](./examples).
+Examples are ordinary TypeScript: the flat demos live in `examples/`, and the Stage 3 decorator showcases live in `examples/decorators/` (they need a transpile pass, like every plain-Node consumer of this repo). `npm run examples` drives them all through tsx (`examples/run-all.ts`), seeded by a fresh build.
+
+Community guides live in [docs/DOCUMENTATION.md](./docs/DOCUMENTATION.md) — per-module behavior contracts, quirks, and worked use cases; every snippet there has an executable, runnable copy in [examples/](./examples) that runs through the same gate.

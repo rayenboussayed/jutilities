@@ -1,5 +1,11 @@
 {
   "extends": "./tsconfig.json",
+  "compilerOptions": {
+    // Pinned rootDir: the base config now also type-checks examples/ (outside
+    // src/), so the build must re-scope the emit layout to src/ alone to keep
+    // dist/<module>.js flat.
+    "rootDir": "./src"
+  },
   "include": ["src"],
   "exclude": ["src/**/*.test.ts"]
 }
