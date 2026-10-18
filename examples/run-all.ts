@@ -1,9 +1,10 @@
 /* eslint-disable deslint/no-prod-console -- examples are demo scripts; printing is their purpose */
 
 /**
- * Runs every example in this directory — the flat module demos and the Stage 3
- * decorator demos in `decorators/` — as its own Node process and reports
- * pass/fail; sets a non-zero `process.exitCode` when one fails.
+ * Runs every example in this directory — the flat module demos, the Stage 3
+ * decorator demos in `decorators/`, and the multi-module real-life scenarios
+ * in `real-life/` — as its own Node process and reports pass/fail; sets a
+ * non-zero `process.exitCode` when one fails.
  *
  * Examples are TypeScript, and the decorator demos additionally rely on Stage 3
  * decorator syntax that plain Node cannot parse, so every child starts through
@@ -19,24 +20,25 @@ const here = dirname(fileURLToPath(import.meta.url));
 
 /**
  * Discovers the runnable demo scripts: every `.ts` next to this runner except
- * itself, plus every `.ts` in the `decorators/` subfolder, sorted for
- * deterministic output.
+ * itself, plus every `.ts` in the `decorators/` and `real-life/` subfolders,
+ * sorted for deterministic output.
  * @returns The demo paths relative to `examples/`, sorted.
  */
 function listExamples(): string[] {
   const flat = readdirSync(here)
     .filter((name) => name.endsWith(".ts") && name !== "run-all.ts")
     .sort();
-  const decorator = readdirSync(join(here, "decorators"))
-    .filter((name) => name.endsWith(".ts"))
-    .sort()
-    .map((name) => join("decorators", name));
-  return [...flat, ...decorator];
+  const inFolder = (folder: string) =>
+    readdirSync(join(here, folder))
+      .filter((name) => name.endsWith(".ts"))
+      .sort()
+      .map((name) => join(folder, name));
+  return [...flat, ...inFolder("decorators"), ...inFolder("real-life")];
 }
 
 /**
  * Spawns one example as its own process, inheriting stdio for visibility.
- * @param name - The example path inside `examples/` (may enter `decorators/`).
+ * @param name - The example path inside `examples/` (may enter a subfolder).
  * @returns The process exit code (`1` when the child never reported one).
  */
 function runExample(name: string): Promise<number> {

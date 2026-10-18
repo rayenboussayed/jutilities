@@ -49,7 +49,7 @@
     "prepare": "husky && node scripts/link-self.mjs"
   },
   "engines": {
-    "node": ">=22"
+    "node": ">=22.13.0"
   },
   "type": "module",
   "devDependencies": {

@@ -2,7 +2,7 @@
 
 Small, typed, heavily documented TypeScript utilities for Node.js — caching, retries, timeouts, delays, abort-aware sleeps, one-shot signal listeners, Node stream helpers, a super-JSON serializer, non-cryptographic hashes, and type guards.
 
-Everything is an independent module with a locked, test-verified behavior contract (361 tests). Every non-obvious quirk is documented at the call site.
+Everything is an independent module with a locked, test-verified behavior contract (366 tests). Every non-obvious quirk is documented at the call site.
 
 > **Status:** v1.0.0 — published on npm. APIs are stable in practice, but semver guarantees are not yet frozen. Requires **Node ≥ 22** (uses `Buffer` pool semantics, `Symbol.for` round-trips, shared timers).
 
@@ -211,7 +211,7 @@ guards turn declared-async mismatches into decorate-time `TypeError`s.
 npm run lint        # 0 errors / 0 warnings policy
 npm run lint:fix
 npm run typecheck   # strict TS, tests included
-npm test            # 361 tests
+npm test            # 366 tests
 npm run build       # tsc → dist (tests excluded)
 npm run examples    # run every example in examples/
 ```
@@ -220,11 +220,12 @@ The examples import through the same `jutilities/<module>` style as every snippe
 
 ### Lint policy
 
-The config never disables a rule globally. The 0/0 gate holds by *solving* warnings where possible — e.g. the examples are fully typed TypeScript, strict-checked like `src` — and by exactly two justified, *inline* exceptions:
+The config never disables a rule globally. The 0/0 gate holds by *solving* warnings where possible — e.g. the examples are fully typed TypeScript, strict-checked like `src` — and by a small set of justified, *inline* exceptions:
 
 - `src/logger.ts` — `deslint/no-prod-console` is disabled next to each `console.log`, because console logging **is this module's feature** (the output target is test-pinned). Swapping in pino/winston would change the public behavior and dependencies.
 - `examples/**/*.ts` — one file-level `deslint/no-prod-console` disable per example: examples are demo scripts and printing is their purpose.
+- `examples/real-life/sqlite-db.ts` — one extra file-level `n/no-unsupported-features/node-builtins` disable: `node:sqlite` has no stable release in eslint-plugin-n's dataset, so no `engines` range can satisfy the rule; the example pins the real unflagged floor (Node ≥ 22.13) in its header.
 
-Examples are ordinary TypeScript: the flat demos live in `examples/`, and the Stage 3 decorator showcases live in `examples/decorators/` (they need a transpile pass, like every plain-Node consumer of this repo). `npm run examples` drives them all through tsx (`examples/run-all.ts`), seeded by a fresh build.
+Examples are ordinary TypeScript: the flat demos live in `examples/`, the Stage 3 decorator showcases live in `examples/decorators/` (they need a transpile pass, like every plain-Node consumer of this repo), and the multi-module scenarios live in `examples/real-life/` — a `node:http` API, an SQLite store, file management, a worker pool, schedulers. `npm run examples` drives them all through tsx (`examples/run-all.ts`), seeded by a fresh build.
 
 Community guides live in [docs/DOCUMENTATION.md](./docs/DOCUMENTATION.md) — per-module behavior contracts, quirks, and worked use cases; every snippet there has an executable, runnable copy in [examples/](./examples) that runs through the same gate.
