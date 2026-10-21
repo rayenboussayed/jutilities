@@ -2,9 +2,7 @@ import { djb2 } from "./hash.js";
 import { isEmpty } from "./is.js";
 import { superjson } from "./json.js";
 import type {
-  AnyAsyncFunction,
   AnyFunction,
-  AnySyncFunction,
   HandleAsyncFunction,
   MaybePromise,
 } from "./types/type.js";
@@ -70,12 +68,10 @@ export type Options<T extends AnyFunction> = {
   extraKeys?: unknown[];
 };
 
-export interface CacheKind<T extends AnyFunction> extends HofKind<T> {
+export interface CacheKind<T extends AnyFunction = AnyFunction> extends HofKind<T> {
   options: Options<this["fn"]>;
 }
 
-export type CacheSyncKind = CacheKind<AnySyncFunction>;
-export type CacheAsyncKind = CacheKind<AnyAsyncFunction>;
 
 /**
  * Memoizes a sync function's results.
@@ -109,7 +105,7 @@ export type CacheAsyncKind = CacheKind<AnyAsyncFunction>;
  * @returns The wrapped function (typeof `fn`) that reads and writes through
  * the cache store.
  */
-export const withCacheSync = createHofSync<CacheSyncKind>(
+export const withCacheSync = createHofSync<CacheKind>(
   (
     fn,
     {
@@ -122,8 +118,8 @@ export const withCacheSync = createHofSync<CacheSyncKind>(
     const functionString = fn.toString();
 
     return function (
-      this: ThisParameterType<CacheSyncKind["fn"]>,
-      ...args: Parameters<CacheSyncKind["fn"]>[]
+      this: ThisParameterType<CacheKind["fn"]>,
+      ...args: Parameters<CacheKind["fn"]>[]
     ) {
       const cacheKey = generateCacheKey({
         parameters: args,
@@ -139,7 +135,7 @@ export const withCacheSync = createHofSync<CacheSyncKind>(
         cacheStore.set(cacheKey, result);
       }
       return result;
-    } as CacheSyncKind["fn"];
+    } as CacheKind["fn"];
   },
 );
 
@@ -173,7 +169,7 @@ export const withCacheSync = createHofSync<CacheSyncKind>(
  * @returns The wrapped function (typeof `fn`) that dedups in-flight calls and
  * reads/writes through the cache store.
  */
-export const withCacheAsync = createHofAsync<CacheAsyncKind>(
+export const withCacheAsync = createHofAsync<CacheKind>(
   (
     fn,
     {
@@ -184,11 +180,11 @@ export const withCacheAsync = createHofAsync<CacheAsyncKind>(
     },
   ) => {
     const functionString = fn.toString();
-    const inFlight = new Map<Key, ReturnType<CacheAsyncKind["fn"]>>();
+    const inFlight = new Map<Key, Promise<unknown>>();
 
     return async function (
-      this: ThisParameterType<CacheAsyncKind["fn"]>,
-      ...args: Parameters<CacheAsyncKind["fn"]>
+      this: ThisParameterType<CacheKind["fn"]>,
+      ...args: Parameters<CacheKind["fn"]>
     ) {
       const cacheKey = await generateCacheKey({
         parameters: args,
@@ -213,8 +209,8 @@ export const withCacheAsync = createHofAsync<CacheAsyncKind>(
         return result;
       })().finally(() => inFlight.delete(cacheKey));
 
-      inFlight.set(cacheKey, promise as ReturnType<CacheAsyncKind["fn"]>);
+      inFlight.set(cacheKey, promise);
       return promise;
-    } as CacheAsyncKind["fn"];
+    } as CacheKind["fn"];
   },
 );

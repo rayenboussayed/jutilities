@@ -1,9 +1,7 @@
 import type { AnyFunction } from "../types/type.js";
 import { isAsyncFunction } from "../is.js";
-import type { HofOptions } from "./hof.js";
+import type { HofOptionsOf } from "./hof.js";
 import type {
-  FlavorOf,
-  HofConstraint,
   HofFlavor,
   HofFn,
 } from "../libs/create-hof.js";
@@ -42,8 +40,7 @@ export type EnhancerPair<
 export type EnhancerOptions<
   HS extends HofFn<any, "sync"> | HofFn<any, "any">,
   HA extends HofFn<any, "async"> | HofFn<any, "any">,
-> = HofOptions<HS, HofConstraint<FlavorOf<HS>>> &
-  HofOptions<HA, HofConstraint<FlavorOf<HA>>>;
+> = HofOptionsOf<HS> & HofOptionsOf<HA>;
 
 /**
  * How {@link decorateClass} chooses the enhancer for each own prototype
@@ -131,7 +128,7 @@ export function decorateClass<
   enhancers: H,
   options?: { pick?: ClassPick },
 ): (
-  hofOptions?: HofOptions<H, HofConstraint<FlavorOf<H>>>,
+  hofOptions?: HofOptionsOf<H>,
 ) => ClassDecoratorOf;
 
 export function decorateClass(

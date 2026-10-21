@@ -1,8 +1,6 @@
 import { sleepSync } from "./sleep.js";
 import type {
-  AnyAsyncFunction,
   AnyFunction,
-  AnySyncFunction,
   HandleAsyncFunction,
   MaybePromise,
 } from "./types/type.js";
@@ -11,6 +9,7 @@ import {
   createHofSync,
   type HofKind,
 } from "./libs/create-hof.js";
+import { now } from "./libs/clock.js";
 
 /**
  * The default `onError` policy: exponential back-off (2^retries × the last
@@ -55,12 +54,40 @@ export type Options<T extends AnyFunction = AnyFunction> = {
   onError?: OnErrorFn<T>;
 };
 
-interface RetryKind<T extends AnyFunction> extends HofKind<T> {
+export interface RetryKind<T extends AnyFunction = AnyFunction> extends HofKind<T> {
   options: Options<this["fn"]>;
 }
 
-export type RetrySyncKind = RetryKind<AnySyncFunction>;
-export type RetryAsyncKind = RetryKind<AnyAsyncFunction>;
+/**
+ * The bookkeeping a retry attempt hands to the policy: the call arguments,
+ * the tour-wide clock, the attempt's own window, the retry count and the
+ * thrown value.
+ * @param parameters - The call arguments, forwarded verbatim.
+ * @param startRetryExecution - When the retry tour started.
+ * @param startFnExecution - When the failing attempt started.
+ * @param endFnExecution - When the failing attempt ended.
+ * @param error - The value the attempt threw.
+ * @param retries - How many retries have run so far.
+ * @returns The policy payload.
+ */
+function attemptPayload(
+  parameters: unknown[],
+  startRetryExecution: number,
+  startFnExecution: number,
+  endFnExecution: number,
+  error: unknown,
+  retries: number,
+) {
+  return {
+    parameters,
+    startRetryExecution,
+    totalRetryExecution: endFnExecution - startRetryExecution,
+    startFnExecution,
+    endFnExecution,
+    error,
+    retries,
+  };
+}
 
 /**
  * Higher-order wrappers that retry a function according to a caller-provided
@@ -93,37 +120,35 @@ export type RetryAsyncKind = RetryKind<AnyAsyncFunction>;
  * @returns The wrapped function (typeof `fn`) that runs until it succeeds or
  * the policy throws.
  */
-export const withRetryAsync = createHofAsync<RetryAsyncKind>(
+export const withRetryAsync = createHofAsync<RetryKind>(
   (fn, { onError = defaultOnError } = {}) => {
     return async function (
-      this: ThisParameterType<RetryAsyncKind["fn"]>,
-      ...args: Parameters<RetryAsyncKind["fn"]>
+      this: ThisParameterType<RetryKind["fn"]>,
+      ...args: Parameters<RetryKind["fn"]>
     ) {
       let retries = 0;
-      const startRetryExecution =
-        typeof window === "undefined" ? performance.now() : Date.now();
+      const startRetryExecution = now();
       while (true) {
-        const startFnExecution =
-          typeof window === "undefined" ? performance.now() : Date.now();
+        const startFnExecution = now();
         try {
           const result = await fn.apply(this, args);
           return result;
         } catch (error) {
-          const endFnExecution =
-            typeof window === "undefined" ? performance.now() : Date.now();
-          await onError({
-            parameters: args,
-            startRetryExecution,
-            totalRetryExecution: endFnExecution - startRetryExecution,
-            startFnExecution,
-            endFnExecution,
-            error,
-            retries,
-          });
+          const endFnExecution = now();
+          await onError(
+            attemptPayload(
+              args,
+              startRetryExecution,
+              startFnExecution,
+              endFnExecution,
+              error,
+              retries,
+            ),
+          );
           retries++;
         }
       }
-    } as RetryAsyncKind["fn"];
+    } as RetryKind["fn"];
   },
 );
 
@@ -147,36 +172,34 @@ export const withRetryAsync = createHofAsync<RetryAsyncKind>(
  * @returns The wrapped function (typeof `fn`) that runs until it succeeds or
  * the policy throws.
  */
-export const withRetrySync = createHofSync<RetrySyncKind>(
+export const withRetrySync = createHofSync<RetryKind>(
   (fn, { onError = defaultOnError } = {}) => {
     return function (
-      this: ThisParameterType<RetrySyncKind["fn"]>,
-      ...args: Parameters<RetrySyncKind["fn"]>
+      this: ThisParameterType<RetryKind["fn"]>,
+      ...args: Parameters<RetryKind["fn"]>
     ) {
       let retries = 0;
-      const startRetryExecution =
-        typeof window === "undefined" ? performance.now() : Date.now();
+      const startRetryExecution = now();
       while (true) {
-        const startFnExecution =
-          typeof window === "undefined" ? performance.now() : Date.now();
+        const startFnExecution = now();
         try {
           const result = fn.apply(this, args);
           return result;
         } catch (error) {
-          const endFnExecution =
-            typeof window === "undefined" ? performance.now() : Date.now();
-          onError({
-            parameters: args,
-            startRetryExecution,
-            totalRetryExecution: endFnExecution - startRetryExecution,
-            startFnExecution,
-            endFnExecution,
-            error,
-            retries,
-          });
+          const endFnExecution = now();
+          onError(
+            attemptPayload(
+              args,
+              startRetryExecution,
+              startFnExecution,
+              endFnExecution,
+              error,
+              retries,
+            ),
+          );
           retries++;
         }
       }
-    } as RetrySyncKind["fn"];
+    } as RetryKind["fn"];
   },
 );

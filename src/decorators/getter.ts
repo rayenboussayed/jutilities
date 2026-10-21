@@ -1,12 +1,7 @@
-import { isAsyncFunction } from "../is.js";
-import type { DecoratorGuard, HofOptions } from "./hof.js";
-import type {
-  FlavorOf,
-  HofConstraint,
-  HofFlavor,
-  HofFn,
-} from "../libs/create-hof.js";
-import { assertGuardConsistency, assertNotRawApplication, assertNotRawMemberApplication } from "../assert.js";
+import type { DecoratorGuard, HofOptionsOf } from "./hof.js";
+import { memberEnhancer } from "./hof.js";
+import type { HofFlavor, HofFn } from "../libs/create-hof.js";
+import { assertNotRawApplication } from "../assert.js";
 
 /**
  * Getter decorators from fn-first enhancers.
@@ -59,7 +54,7 @@ export function decorateGetter<
   hof: H,
   options?: DecoratorGuard,
 ): (
-  hofOptions?: HofOptions<H, HofConstraint<FlavorOf<H>>>,
+  hofOptions?: HofOptionsOf<H>,
 ) => GetterDecoratorOf;
 
 export function decorateGetter(
@@ -68,19 +63,10 @@ export function decorateGetter(
 ): any {
   return ((...args: unknown[]) => {
     assertNotRawApplication(options, "decorateGetter");
-    assertNotRawMemberApplication(args, "decorateGetter");
-    const hofOptions = args[0];
+    const enhance = memberEnhancer("decorateGetter", hof, options, args);
     return (
       getter: (this: unknown) => unknown,
       context: ClassGetterDecoratorContext<unknown, unknown>,
-    ) => {
-      assertGuardConsistency(
-        options,
-        isAsyncFunction(getter as () => unknown),
-        "decorateGetter",
-        String(context.name),
-      );
-      return hof(getter, hofOptions) as (this: unknown) => unknown;
-    };
+    ) => enhance(getter, String(context.name)) as (this: unknown) => unknown;
   }) as (hofOptions?: unknown) => GetterDecoratorOf;
 }

@@ -1,8 +1,4 @@
-import type {
-  AnyAsyncFunction,
-  AnyFunction,
-  AnySyncFunction,
-} from "./types/type.js";
+import type { AnyFunction } from "./types/type.js";
 import type { WithSignal } from "./types/with.js";
 import {
   createHofAsync,
@@ -15,12 +11,10 @@ export type Options = WithSignal<{
   delay?: number;
 }>;
 
-interface DelayKind<T extends AnyFunction> extends HofKind<T> {
+export interface DelayKind<T extends AnyFunction = AnyFunction> extends HofKind<T> {
   options: Options;
 }
 
-export type DelaySyncKind = DelayKind<AnySyncFunction>;
-export type DelayAsyncKind = DelayKind<AnyAsyncFunction>;
 
 /**
  * Higher-order wrappers that sleep before invoking a function.
@@ -47,16 +41,16 @@ export type DelayAsyncKind = DelayKind<AnyAsyncFunction>;
  * @returns The wrapped function (typeof `fn`), or `fn` itself when there is
  * nothing to delay.
  */
-export const withDelayAsync = createHofAsync<DelayAsyncKind>(
+export const withDelayAsync = createHofAsync<DelayKind>(
   (fn, { signal, delay = 0 }) => {
     if (delay <= 0) return fn;
     return async function (
-      this: ThisParameterType<DelayAsyncKind["fn"]>,
-      ...args: Parameters<DelayAsyncKind["fn"]>
+      this: ThisParameterType<DelayKind["fn"]>,
+      ...args: Parameters<DelayKind["fn"]>
     ) {
       await sleepAsync({ sleep: delay, signal });
       return fn.apply(this, args);
-    } as DelayAsyncKind["fn"];
+    } as DelayKind["fn"];
   },
 );
 
@@ -79,15 +73,15 @@ export const withDelayAsync = createHofAsync<DelayAsyncKind>(
  * @returns The wrapped function, or `fn` itself when there is nothing to
  * delay.
  */
-export const withDelaySync = createHofSync<DelaySyncKind>(
+export const withDelaySync = createHofSync<DelayKind>(
   (fn, { signal, delay = 0 }) => {
     if (delay <= 0) return fn;
     return function (
-      this: ThisParameterType<DelaySyncKind["fn"]>,
-      ...args: Parameters<DelaySyncKind["fn"]>
+      this: ThisParameterType<DelayKind["fn"]>,
+      ...args: Parameters<DelayKind["fn"]>
     ) {
       sleepSync({ sleep: delay, signal });
       return fn.apply(this, args);
-    } as DelaySyncKind["fn"];
+    } as DelayKind["fn"];
   },
 );

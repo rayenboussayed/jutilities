@@ -1,13 +1,8 @@
 import type { AnyFunction } from "../types/type.js";
-import { isAsyncFunction } from "../is.js";
-import type { DecoratorGuard, HofOptions } from "./hof.js";
-import type {
-  FlavorOf,
-  HofConstraint,
-  HofFlavor,
-  HofFn,
-} from "../libs/create-hof.js";
-import { assertGuardConsistency, assertNotRawApplication, assertNotRawMemberApplication } from "../assert.js";
+import type { DecoratorGuard, HofOptionsOf } from "./hof.js";
+import { memberEnhancer } from "./hof.js";
+import type { HofFlavor, HofFn } from "../libs/create-hof.js";
+import { assertNotRawApplication } from "../assert.js";
 
 /**
  * Field decorators for function-valued state.
@@ -61,7 +56,7 @@ export function decorateProperty<
   hof: H,
   options?: DecoratorGuard,
 ): (
-  hofOptions?: HofOptions<H, HofConstraint<FlavorOf<H>>>,
+  hofOptions?: HofOptionsOf<H>,
 ) => FieldDecoratorOf;
 
 export function decorateProperty(
@@ -70,24 +65,15 @@ export function decorateProperty(
 ): any {
   return ((...args: unknown[]) => {
     assertNotRawApplication(options, "decorateProperty");
-    assertNotRawMemberApplication(args, "decorateProperty");
-    const hofOptions = args[0];
-    return (_, context: ClassFieldDecoratorContext) => {
+    const enhance = memberEnhancer("decorateProperty", hof, options, args);
+    return (_: unknown, context: ClassFieldDecoratorContext) => {
       return (initialValue: unknown) => {
         if (typeof initialValue !== "function") {
           throw new TypeError(
             `decorateProperty: field "${String(context.name)}" must be a function-value initializer, got ${typeof initialValue}`,
           );
         }
-        assertGuardConsistency(
-          options,
-          isAsyncFunction(initialValue as AnyFunction),
-          "decorateProperty",
-          String(context.name),
-        );
-        return (
-          hof as (...args: unknown[]) => unknown
-        )(initialValue, hofOptions) as unknown;
+        return enhance(initialValue as AnyFunction, String(context.name));
       };
     };
   }) as (hofOptions?: unknown) => FieldDecoratorOf;

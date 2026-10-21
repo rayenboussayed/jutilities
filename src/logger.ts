@@ -1,13 +1,10 @@
-import type {
-  AnyAsyncFunction,
-  AnyFunction,
-  AnySyncFunction,
-} from "./types/type.js";
+import type { AnyFunction } from "./types/type.js";
 import {
   createHofAsync,
   createHofSync,
   type HofKind,
 } from "./libs/create-hof.js";
+import { now } from "./libs/clock.js";
 
 /**
  * Sync and async higher-order loggers that trace a function's invocation and
@@ -38,12 +35,76 @@ export type Options = {
   };
 };
 
-interface LoggerKind<T extends AnyFunction> extends HofKind<T> {
+export interface LoggerKind<T extends AnyFunction = AnyFunction> extends HofKind<T> {
   options: Options;
 }
 
-export type LoggerSyncKind = LoggerKind<AnySyncFunction>;
-export type LoggerAsyncKind = LoggerKind<AnyAsyncFunction>;
+/**
+ * The sink both wrappers log through: the injectable `options.logger`, or
+ * the `console` default.
+ */
+type LoggerSink = NonNullable<Options["logger"]>;
+
+/**
+ * The label a wrapper logs under: the explicit `options.name`, else the
+ * function's own name, else `"anonymous"`.
+ * @param fn - The wrapped function.
+ * @param name - The explicit label, when given.
+ * @returns The bracketed label used in every log line.
+ */
+function labelOf(fn: AnyFunction, name?: string): string {
+  return `[Function ${(name ?? fn.name) || "anonymous"}]`;
+}
+
+/**
+ * Logs the invocation line and starts the duration measurement.
+ * @param logger - The sink to log through.
+ * @param label - The wrapper's label.
+ * @param args - The call arguments.
+ * @returns The start timestamp of the measured call.
+ */
+function logStart(logger: LoggerSink, label: string, args: unknown[]): number {
+  logger.debug(`[${new Date()}] ${label} Execution, Args:`, ...args);
+  return now();
+}
+
+/**
+ * Logs the completion line with the elapsed duration.
+ * @param logger - The sink to log through.
+ * @param label - The wrapper's label.
+ * @param startTime - The start timestamp of the measured call.
+ * @param result - The call's result.
+ */
+function logResult(
+  logger: LoggerSink,
+  label: string,
+  startTime: number,
+  result: unknown,
+): void {
+  logger.debug(
+    `[${new Date()}] ${label} Execution ${now() - startTime}ms, Result:`,
+    result,
+  );
+}
+
+/**
+ * Logs the failure line with the elapsed duration.
+ * @param logger - The sink to log through.
+ * @param label - The wrapper's label.
+ * @param startTime - The start timestamp of the measured call.
+ * @param error - The thrown value.
+ */
+function logError(
+  logger: LoggerSink,
+  label: string,
+  startTime: number,
+  error: unknown,
+): void {
+  logger.error(
+    `[${new Date()}] ${label} Execution ${now() - startTime}ms, Error:`,
+    error,
+  );
+}
 
 /**
  * Logs the invocation arguments and completion (value + duration) of a
@@ -65,37 +126,24 @@ export type LoggerAsyncKind = LoggerKind<AnyAsyncFunction>;
  * Defaults to enabled.
  * @returns The wrapped function (typeof `fn`) with logging around each call.
  */
-export const withLoggerSync = createHofSync<LoggerSyncKind>(
+export const withLoggerSync = createHofSync<LoggerKind>(
   (fn, { name: fnName, logger = console } = {}) => {
-    const label = `[Function ${(fnName ?? fn.name) || "anonymous"}]`;
+    const label = labelOf(fn, fnName);
 
     return function (
-      this: ThisParameterType<LoggerSyncKind["fn"]>,
-      ...args: Parameters<LoggerSyncKind["fn"]>
+      this: ThisParameterType<LoggerKind["fn"]>,
+      ...args: Parameters<LoggerKind["fn"]>
     ) {
-      logger.debug(`[${new Date()}] ${label} Execution, Args:`, ...args);
-      const startTime =
-        typeof window === "undefined" ? performance.now() : Date.now();
+      const startTime = logStart(logger, label, args);
       try {
         const result = fn.apply(this, args);
-        const endTime =
-          typeof window === "undefined" ? performance.now() : Date.now();
-
-        logger.debug(
-          `[${new Date()}] ${label} Execution ${endTime - startTime}ms, Result:`,
-          result,
-        );
+        logResult(logger, label, startTime, result);
         return result;
       } catch (error) {
-        const endTime =
-          typeof window === "undefined" ? performance.now() : Date.now();
-        logger.error(
-          `[${new Date()}] ${label} Execution ${endTime - startTime}ms, Error:`,
-          error,
-        );
+        logError(logger, label, startTime, error);
         throw error;
       }
-    } as LoggerSyncKind["fn"];
+    } as LoggerKind["fn"];
   },
 );
 
@@ -119,36 +167,23 @@ export const withLoggerSync = createHofSync<LoggerSyncKind>(
  * Defaults to enabled.
  * @returns The wrapped function (typeof `fn`) with logging around each await.
  */
-export const withLoggerAsync = createHofAsync<LoggerAsyncKind>(
+export const withLoggerAsync = createHofAsync<LoggerKind>(
   (fn, { name: fnName, logger = console } = {}) => {
-    const label = `[Function ${(fnName ?? fn.name) || "anonymous"}]`;
+    const label = labelOf(fn, fnName);
 
     return async function (
-      this: ThisParameterType<LoggerAsyncKind["fn"]>,
-      ...args: Parameters<LoggerAsyncKind["fn"]>
+      this: ThisParameterType<LoggerKind["fn"]>,
+      ...args: Parameters<LoggerKind["fn"]>
     ) {
-      logger.debug(`[${new Date()}] ${label} Execution, Args:`, ...args);
-      const startTime =
-        typeof window === "undefined" ? performance.now() : Date.now();
+      const startTime = logStart(logger, label, args);
       try {
         const result = await fn.apply(this, args);
-        const endTime =
-          typeof window === "undefined" ? performance.now() : Date.now();
-
-        logger.debug(
-          `[${new Date()}] ${label} Execution ${endTime - startTime}ms, Result:`,
-          result,
-        );
+        logResult(logger, label, startTime, result);
         return result;
       } catch (error) {
-        const endTime =
-          typeof window === "undefined" ? performance.now() : Date.now();
-        logger.error(
-          `[${new Date()}] ${label} Execution ${endTime - startTime}ms, Error:`,
-          error,
-        );
+        logError(logger, label, startTime, error);
         throw error;
       }
-    } as LoggerAsyncKind["fn"];
+    } as LoggerKind["fn"];
   },
 );

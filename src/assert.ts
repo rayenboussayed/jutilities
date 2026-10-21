@@ -4,9 +4,7 @@ import {
   isRawMemberApplication,
 } from "./is.js";
 import type {
-  AnyAsyncFunction,
   AnyFunction,
-  AnySyncFunction,
   HandleAsyncFunction,
   MaybePromise,
 } from "./types/type.js";
@@ -119,12 +117,10 @@ export type Options<T extends AnyFunction = AnyFunction> = {
   onResult: OnResultFn<T>;
 };
 
-interface AssertKind<T extends AnyFunction> extends HofKind<T> {
+export interface AssertKind<T extends AnyFunction = AnyFunction> extends HofKind<T> {
   options: Options<this["fn"]>;
 }
 
-export type AssertSyncKind = AssertKind<AnySyncFunction>;
-export type AssertAsyncKind = AssertKind<AnyAsyncFunction>;
 
 /**
  * Wraps an async function so every resolution is checked by a validator before
@@ -147,16 +143,16 @@ export type AssertAsyncKind = AssertKind<AnyAsyncFunction>;
  * @returns The wrapped function (typeof `fn`) whose resolutions are gated by
  * `options.onResult`.
  */
-export const withAssertAsync = createHofAsync<AssertAsyncKind>(
+export const withAssertAsync = createHofAsync<AssertKind>(
   (fn, { onResult }) => {
     return async function (
-      this: ThisParameterType<AssertAsyncKind["fn"]>,
-      ...args: Parameters<AssertAsyncKind["fn"]>
+      this: ThisParameterType<AssertKind["fn"]>,
+      ...args: Parameters<AssertKind["fn"]>
     ) {
       const result = await fn.apply(this, args);
       await onResult({ parameters: args, result });
       return result;
-    } as AssertAsyncKind["fn"];
+    } as AssertKind["fn"];
   },
 );
 
@@ -182,16 +178,16 @@ export const withAssertAsync = createHofAsync<AssertAsyncKind>(
  * @returns The wrapped function (typeof `fn`) whose results are gated by
  * `options.onResult`.
  */
-export const withAssertSync = createHofSync<AssertSyncKind>(
+export const withAssertSync = createHofSync<AssertKind>(
   (fn, { onResult }) => {
     return function (
-      this: ThisParameterType<AssertSyncKind["fn"]>,
-      ...args: Parameters<AssertSyncKind["fn"]>
+      this: ThisParameterType<AssertKind["fn"]>,
+      ...args: Parameters<AssertKind["fn"]>
     ) {
       const result = fn.apply(this, args);
       onResult({ parameters: args, result });
       return result;
-    } as AssertSyncKind["fn"];
+    } as AssertKind["fn"];
   },
 );
 

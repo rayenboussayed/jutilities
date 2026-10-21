@@ -1,15 +1,14 @@
-import type { AnyAsyncFunction, AnyFunction } from "./types/type.js";
+import type { AnyFunction } from "./types/type.js";
 import type { WithSignal } from "./types/with.js";
 import { createHofAsync, type HofKind } from "./libs/create-hof.js";
 import { abort } from "./signal.js";
 
 export type Options = WithSignal<{ timeoutMs?: number }>;
 
-interface TimeoutKind<T extends AnyFunction> extends HofKind<T> {
+export interface TimeoutKind<T extends AnyFunction = AnyFunction>
+  extends HofKind<T> {
   options: Options;
 }
-
-export type TimeoutAsyncKind = TimeoutKind<AnyAsyncFunction>;
 
 /**
  * Higher-order wrapper that races an async function against a deadline or an
@@ -43,13 +42,13 @@ export type TimeoutAsyncKind = TimeoutKind<AnyAsyncFunction>;
  * @returns The wrapped function (typeof `fn`), or `fn` itself when neither a
  * signal nor a timeout is configured.
  */
-export const withTimeoutAsync = createHofAsync<TimeoutAsyncKind>(
+export const withTimeoutAsync = createHofAsync<TimeoutKind>(
   (fn, { signal, timeoutMs = 0 } = {}) => {
     if (!signal && timeoutMs <= 0) return fn;
 
     return function (
-      this: ThisParameterType<TimeoutAsyncKind["fn"]>,
-      ...args: Parameters<TimeoutAsyncKind["fn"]>
+      this: ThisParameterType<TimeoutKind["fn"]>,
+      ...args: Parameters<TimeoutKind["fn"]>
     ) {
       const cleanup: (() => void)[] = [];
       const timeoutPromise = new Promise<void>((_, reject) => {
@@ -70,6 +69,6 @@ export const withTimeoutAsync = createHofAsync<TimeoutAsyncKind>(
           cleanup.forEach((fn) => fn());
         },
       );
-    } as TimeoutAsyncKind["fn"];
+    } as TimeoutKind["fn"];
   },
 );

@@ -40,6 +40,7 @@ Every statement below is pinned by an executable test in `src/**/*.test.ts` — 
 16. [types](#types) — shared type utilities
 17. [create-hof](#create-hof) — `createHofSync`, `createHofAsync`
 18. [with](#with) — `withAsync`, `withSync` (stack composition)
+19. [clock](#clock) — `now` (the shared timing helper)
 
 ---
 
@@ -136,7 +137,7 @@ function withRetryAsync<T extends AnyAsyncFunction>(
   options?: {
     onError?: (o: {
       parameters: Parameters<T>; // the call arguments, forwarded verbatim
-      startRetryExecution: number; // performance.now (Node) — retry-loop start
+      startRetryExecution: number; // shared clock (Node) — retry-loop start
       totalRetryExecution: number; // elapsed since startRetryExecution
       startFnExecution: number; // per attempt start
       endFnExecution: number; // per attempt end
@@ -457,8 +458,9 @@ function withLoggerAsync<T extends AnyAsyncFunction>(fn: T, options?: { name?: s
   `` `[timestamp] [Function <name>] Execution, Args:` `` + the spread args,
   then `` `[timestamp] [Function <name>] Execution <ms>ms, Result:` `` + the
   (awaited) result.
-- Timing uses `performance.now` in Node; `Date.now` wherever a global `window`
-  exists (browser branch, *intentionally* mirrored by `withCache*`/`withDelay*`).
+- Timing uses the shared clock (`jutilities/libs/clock`): `performance.now` in
+  Node, `Date.now` wherever a global `window` exists (browser branch) — the
+  same rule the retry wrapper measures with.
 - Anonymous or trimmed-name functions log as `anonymous`.
 - Sync throw: the invocation line is logged, the result line is not; failures
   (sync throw and async rejection) are additionally emitted through
@@ -1084,10 +1086,14 @@ Guidelines:
 ### Public types
 
 - `HofOptions<H, TF>` — the option bag of a HOF, resolved from its kind.
+- `HofOptionsOf<H>` — the same bag, resolved against the flavor's constraint
+  level (the shorthand the converters use).
 - `GatedMember<F, M>` — the member shape a HOF of flavor `F` may wrap.
 - `DecoratorGuard` — the `require: "sync" | "async"` knob.
 - `EnhancerPair<HS, HA>` / `EnhancerOptions<HS, HA>` — the class fan-out's
   pair and its merged option bag.
+- `memberEnhancer` — the shared converter skeleton (misfire guard, option-bag
+  capture, guard check, HOF application).
 
 (From `jutilities/libs/create-hof`: `HofFn<K, F>`, `HofFlavor`,
 `HofConstraint<F>`, `HofSlot<TF, F>`, `KindOf<H>`, `FlavorOf<H>`.)
@@ -1109,7 +1115,7 @@ import {
   type KindOf, type FlavorOf,
 } from "jutilities/libs/create-hof";
 
-interface MyKind<T extends AnyFunction> extends HofKind<T> {
+interface MyKind<T extends AnyFunction = AnyFunction> extends HofKind<T> {
   options: {
     myHook?: (o: { parameters: Parameters<this["fn"]> }) => void;
   };
@@ -1119,8 +1125,9 @@ export const withMineSync = createHofSync<MyKind>((fn, { myHook } = {}) => {
   /* build the enhanced function once here; return it as MyKind["fn"] */
   return enhanced as MyKind["fn"];
 });
-export type MySyncKind = MyKind<AnySyncFunction>;
-export type MyAsyncKind = MyKind<AnyAsyncFunction>;
+export const withMineAsync = createHofAsync<MyKind>((fn, { myHook } = {}) => {
+  return enhanced as MyKind["fn"];
+});
 ```
 
 The engine every fn-first HOF in this package is built on — each wrapper is a
@@ -1196,9 +1203,10 @@ what makes them all share one shape: fn-first parameter, one options object,
 1. **New HOFs in this package's mold** — declare the kind, write one handler,
    get the `(fn, options)` ergonomics, `typeof fn` return, and `skipHof` for
    free; the decorators then convert your HOF with zero extra work.
-2. **Sync/async pair shipping** — declare `MySyncKind = MyKind<AnySyncFunction>`
-   / `MyAsyncKind = MyKind<AnyAsyncFunction>` next to the two wrappers so
-   decorator converters (`require: "sync"` / `"async"`) can gate on them.
+2. **Sync/async pair shipping** — one kind serves both wrappers: the flavor
+   (`HofFn<K, "sync">` vs `HofFn<K, "async">`) is what separates them, so the
+   kind stays a single declaration and the decorator converters
+   (`require: "sync"` / `"async"`) gate on the flavor.
 
 ---
 
@@ -1267,6 +1275,30 @@ const send = resilient(sendMail, {
   onError: backoff,        // retry
 });
 ```
+
+---
+
+## clock (shared timing helper)
+
+```ts
+import { now } from "jutilities/libs/clock";
+
+function now(): number;
+```
+
+The clock the timing-sensitive wrappers measure with: `performance.now` outside
+a browser (monotonic, sub-millisecond), `Date.now` where a global `window`
+exists.
+
+### Behavior contract
+
+- One rule, shared by the logger and the retry loop — the wrappers do not
+  branch on the environment themselves.
+
+### Use cases
+
+1. **Measuring a duration yourself** — the same clock the wrappers use, so your
+   own timings stay comparable with theirs.
 
 ---
 

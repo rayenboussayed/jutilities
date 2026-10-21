@@ -1,13 +1,8 @@
 import type { AnyFunction } from "../types/type.js";
-import { isAsyncFunction } from "../is.js";
-import type { DecoratorGuard, GatedMember, HofOptions } from "./hof.js";
-import type {
-  FlavorOf,
-  HofConstraint,
-  HofFlavor,
-  HofFn,
-} from "../libs/create-hof.js";
-import { assertGuardConsistency, assertNotRawApplication, assertNotRawMemberApplication } from "../assert.js";
+import type { DecoratorGuard, GatedMember, HofOptionsOf } from "./hof.js";
+import { memberEnhancer } from "./hof.js";
+import type { FlavorOf, HofFlavor, HofFn } from "../libs/create-hof.js";
+import { assertNotRawApplication } from "../assert.js";
 
 /**
  * Method decorators from fn-first enhancers.
@@ -65,7 +60,7 @@ export function decorateMethod<
   hof: H,
   options?: DecoratorGuard,
 ): (
-  hofOptions?: HofOptions<H, HofConstraint<FlavorOf<H>>>,
+  hofOptions?: HofOptionsOf<H>,
 ) => MethodDecoratorOf<FlavorOf<H>>;
 
 export function decorateMethod(
@@ -74,19 +69,10 @@ export function decorateMethod(
 ): any {
   return ((...args: unknown[]) => {
     assertNotRawApplication(options, "decorateMethod");
-    assertNotRawMemberApplication(args, "decorateMethod");
-    const hofOptions = args[0];
+    const enhance = memberEnhancer("decorateMethod", hof, options, args);
     return (
       method: AnyFunction,
       context: ClassMethodDecoratorContext<unknown, AnyFunction>,
-    ) => {
-      assertGuardConsistency(
-        options,
-        isAsyncFunction(method),
-        "decorateMethod",
-        String(context.name),
-      );
-      return hof(method, hofOptions) as AnyFunction;
-    };
+    ) => enhance(method, String(context.name));
   }) as (hofOptions?: unknown) => MethodDecoratorOf;
 }
