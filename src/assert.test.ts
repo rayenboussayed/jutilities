@@ -175,8 +175,10 @@ describe("withAssertSync", () => {
     const seen: { parameters: number[]; result: number }[] = [];
     const wrapped = withAssertSync(
       (a: number, b: number) => a + b,
-      ({ parameters, result }) => {
-        seen.push({ parameters, result });
+      {
+        onResult: ({ parameters, result }) => {
+          seen.push({ parameters, result });
+        },
       },
     );
 
@@ -185,15 +187,37 @@ describe("withAssertSync", () => {
   });
 
   it("replaces an invalid result with the validator's thrown error", () => {
-    const wrapped = withAssertSync(
-      () => undefined,
-      ({ result }) => assertNotNil(result, "user"),
-    );
+    const wrapped = withAssertSync(() => undefined, {
+      onResult: ({ result }) => assertNotNil(result, "user"),
+    });
 
     assert.throws(() => wrapped(), {
       name: "TypeError",
       message: /user: must not be null or undefined/,
     });
+  });
+
+  it("skipHof: true resolves to fn itself at wrap time", () => {
+    const fn = (x: number) => x + 1;
+    assert.strictEqual(
+      withAssertSync(fn, {
+        skipHof: true,
+        onResult: ({ result }) => assertNotNil(result, "never-called"),
+      }),
+      fn,
+    );
+  });
+
+  it("per-call skipHof predicate skips validation (raw result passes through)", () => {
+    const wrapped = withAssertSync(
+      () => undefined,
+      {
+        onResult: ({ result }) => assertNotNil(result, "must-not-run"),
+        skipHof: () => true,
+      },
+    );
+
+    assert.strictEqual(wrapped(), undefined);
   });
 });
 
@@ -202,10 +226,12 @@ describe("withAssertAsync", () => {
     let checked = 0;
     const wrapped = withAssertAsync(
       async (id: number) => ({ id }),
-      ({ parameters, result }) => {
-        checked++;
-        assert.deepStrictEqual(parameters, [7]);
-        assert.deepStrictEqual(result, { id: 7 });
+      {
+        onResult: ({ parameters, result }) => {
+          checked++;
+          assert.deepStrictEqual(parameters, [7]);
+          assert.deepStrictEqual(result, { id: 7 });
+        },
       },
     );
 
@@ -216,9 +242,11 @@ describe("withAssertAsync", () => {
   it("awaits an async validator and rejects the call when it throws", async () => {
     const wrapped = withAssertAsync(
       async () => null,
-      async ({ result }) => {
-        await Promise.resolve();
-        assertNotNil(result, "user");
+      {
+        onResult: async ({ result }) => {
+          await Promise.resolve();
+          assertNotNil(result, "user");
+        },
       },
     );
 
@@ -232,8 +260,10 @@ describe("withAssertAsync", () => {
       async () => {
         throw sentinel;
       },
-      () => {
-        called++;
+      {
+        onResult: () => {
+          called++;
+        },
       },
     );
 
@@ -242,5 +272,28 @@ describe("withAssertAsync", () => {
       (error: unknown): boolean => error === sentinel,
     );
     assert.strictEqual(called, 0);
+  });
+
+  it("skipHof: true resolves to fn itself at wrap time", async () => {
+    const fn = async (x: number) => x + 1;
+    assert.strictEqual(
+      withAssertAsync(fn, {
+        skipHof: true,
+        onResult: ({ result }) => assertNotNil(result, "never-called"),
+      }),
+      fn,
+    );
+  });
+
+  it("per-call skipHof predicate skips validation (raw result passes through)", async () => {
+    const wrapped = withAssertAsync(
+      async () => null,
+      {
+        onResult: ({ result }) => assertNotNil(result, "must-not-run"),
+        skipHof: () => true,
+      },
+    );
+
+    assert.strictEqual(await wrapped(), null);
   });
 });

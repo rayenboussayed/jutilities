@@ -1,7 +1,7 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { withCacheSync } from "../cache.js";
-import { withLogger } from "../logger.js";
+import { withLoggerSync } from "../logger.js";
 import { decorateProperty } from "./property.js";
 
 // Decorator grammar notes (already pinned in method.test.ts): converters are
@@ -124,14 +124,14 @@ describe("decorateProperty", () => {
     );
   });
 
-  it("works with option-less HOFs (withLogger) via an empty factory call", () => {
-    const originalLog = console.log;
+  it("works with option-less HOFs (withLoggerSync) via an empty factory call", () => {
+    const originalDebug = console.debug;
     const lines: unknown[][] = [];
-    console.log = (...parts: unknown[]) => {
+    console.debug = (...parts: unknown[]) => {
       lines.push(parts);
     };
     try {
-      const logged = decorateProperty(withLogger);
+      const logged = decorateProperty(withLoggerSync);
       class Announcer {
         @logged()
         speak = () => "hi";
@@ -139,7 +139,7 @@ describe("decorateProperty", () => {
       const talker = new Announcer();
       assert.strictEqual(talker.speak(), "hi");
     } finally {
-      console.log = originalLog;
+      console.debug = originalDebug;
     }
     assert.ok(lines.some((parts) => /speak/.test(String(parts[0]))));
   });

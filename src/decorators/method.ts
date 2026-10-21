@@ -31,9 +31,10 @@ export type MethodDecoratorOf<F extends AnyFunction = AnyFunction> = <
  * Two slot shapes are recognized: direct first parameters
  * (`(fn: T, ...rest) => T` — e.g. {@link ../cache.ts | withCacheAsync},
  * {@link ../retry.ts | withRetryAsync}, {@link ../delay.ts | withDelayAsync},
- * `lazy`, `withLogger`) and sync-gated first parameters
+ * `lazy`, `withLoggerAsync`) and sync-gated first parameters
  * (`(fn: AnySyncFunction<T>, ...rest) => T` — e.g.
- * {@link ../cache.ts | withCacheSync}). For sync/async discipline, pass
+ * {@link ../cache.ts | withCacheSync}, {@link ../logger.ts | withLoggerSync}).
+ * For sync/async discipline, pass
  * {@link DecoratorGuard} via `options.require`.
  * @example
  * ```ts

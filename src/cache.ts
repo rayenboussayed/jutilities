@@ -5,8 +5,14 @@ import type {
   AnyAsyncFunction,
   AnyFunction,
   AnySyncFunction,
+  HandleAsyncFunction,
   MaybePromise,
 } from "./types/type.js";
+import {
+  createHofAsync,
+  createHofSync,
+  type HofKind,
+} from "./libs/create-hof.js";
 import { ExpiredMap } from "expired-map";
 
 export type Key = string | number;
@@ -41,39 +47,35 @@ export type ShouldCacheParams<T extends AnyFunction> = {
 export type CacheStore<T extends AnyFunction> = {
   get: (
     key: Key,
-  ) => T extends AnyAsyncFunction
-    ? MaybePromise<Awaited<ReturnType<T>> | undefined>
-    : ReturnType<T> | undefined;
+  ) => HandleAsyncFunction<
+    T,
+    MaybePromise<Awaited<ReturnType<T>> | undefined>,
+    ReturnType<T> | undefined
+  >;
   set: (
     key: Key,
     value: ReturnType<T>,
-  ) => T extends AnyAsyncFunction ? MaybePromise<unknown> : unknown;
-  delete: (
-    key: Key,
-  ) => T extends AnyAsyncFunction ? MaybePromise<unknown> : unknown;
+  ) => HandleAsyncFunction<T, MaybePromise<unknown>, unknown>;
+  delete: (key: Key) => HandleAsyncFunction<T, MaybePromise<unknown>, unknown>;
 };
 
 export type Options<T extends AnyFunction> = {
   cacheStore?: CacheStore<T>;
   shouldCache?: (
     options: ShouldCacheParams<T>,
-  ) => T extends AnyAsyncFunction ? MaybePromise<boolean> : boolean;
+  ) => HandleAsyncFunction<T, MaybePromise<boolean>, boolean>;
   generateCacheKey?: (
     options: CacheKeyParams<T>,
-  ) => T extends AnyAsyncFunction ? MaybePromise<Key> : Key;
+  ) => HandleAsyncFunction<T, MaybePromise<Key>, Key>;
   extraKeys?: unknown[];
 };
 
-/**
- * Higher-order memoization helpers backed by a pluggable cache store.
- *
- * The default store is a process-wide `ExpiredMap` (TTL-aware Map), and the
- * default cache key is the unsigned 32-bit `djb2` hash of a `superjson`
- * serialization of `{ parameters, function source, extraKeys }` — so keys are
- * stable plain numbers, types that bare JSON loses (`NaN`, `BigInt`, `Map`,
- * `Set`) stay distinct, and object keys remain order-sensitive by nature of
- * the serialization.
- */
+export interface CacheKind<T extends AnyFunction> extends HofKind<T> {
+  options: Options<this["fn"]>;
+}
+
+export type CacheSyncKind = CacheKind<AnySyncFunction>;
+export type CacheAsyncKind = CacheKind<AnyAsyncFunction>;
 
 /**
  * Memoizes a sync function's results.
@@ -88,51 +90,58 @@ export type Options<T extends AnyFunction> = {
  *   tenant/user/etc. — `function` and `extraKeys` are visible to both hooks.
  * - No in-flight concept exists for sync: sequential post-throw/recompute calls
  *   simply recompute.
+ * @template T - The function being wrapped.
  * @param fn - The sync function to memoize.
- * @param root0 - Options object.
- * @param root0.cacheStore - Object with `get`/`set`/`delete` (defaults to a
+ * @param options - Options object.
+ * @param options.cacheStore - Object with `get`/`set`/`delete` (defaults to a
  * process-wide TTL-backed `ExpiredMap`).
- * @param root0.generateCacheKey - Custom key factory over
+ * @param options.generateCacheKey - Custom key factory over
  * `{ parameters, function, extraKeys }` (defaults to the hashed keygen
  * `djb2(superjson.stringify(...))`); may return a string or a number.
- * @param root0.shouldCache - Predicate over `{ parameters, result }` deciding
+ * @param options.shouldCache - Predicate over `{ parameters, result }` deciding
  * whether a computed value may be stored (defaults to always `true`).
- * @param root0.extraKeys - Extra lexical keys mixed into the cache
+ * @param options.extraKeys - Extra lexical keys mixed into the cache
  * identity (e.g. tenant id).
+ * @param options.skipHof - Per-call bypass switch: `true` resolves the wrapper
+ * to `fn` itself at wrap time; a function predicate receives the call arguments
+ * and a truthy result invokes `fn` raw for that call (no cache read/write).
+ * Defaults to enabled.
  * @returns The wrapped function (typeof `fn`) that reads and writes through
  * the cache store.
  */
-export function withCacheSync<T extends AnyFunction>(
-  fn: AnySyncFunction<T>,
-  {
-    cacheStore = globalCache,
-    generateCacheKey = defaultGenerateCacheKey,
-    shouldCache = () => true,
-    extraKeys,
-  }: Options<AnySyncFunction<T>> = {},
-) {
-  const functionString = fn.toString();
-
-  return function (this: ThisParameterType<T>, ...args: Parameters<T>) {
-    const cacheKey = generateCacheKey({
-      parameters: args,
-      function: functionString,
+export const withCacheSync = createHofSync<CacheSyncKind>(
+  (
+    fn,
+    {
+      cacheStore = globalCache,
+      generateCacheKey = defaultGenerateCacheKey,
+      shouldCache = () => true,
       extraKeys,
-    });
+    },
+  ) => {
+    const functionString = fn.toString();
 
-    // @ts-expect-error - cache store is generic; the narrowed sync branch
-    // returns undefined-or-value when the entry is present.
-    const cached = cacheStore.get(cacheKey);
-    if (!isEmpty(cached)) return cached;
+    return function (
+      this: ThisParameterType<CacheSyncKind["fn"]>,
+      ...args: Parameters<CacheSyncKind["fn"]>[]
+    ) {
+      const cacheKey = generateCacheKey({
+        parameters: args,
+        function: functionString,
+        extraKeys,
+      });
 
-    const result = fn.apply(this, args);
-    if (!isEmpty(result) && shouldCache({ parameters: args, result })) {
-      // @ts-expect-error - cache store is generic; storing a known sync value.
-      cacheStore.set(cacheKey, result);
-    }
-    return result;
-  } as T;
-}
+      const cached = cacheStore.get(cacheKey);
+      if (!isEmpty(cached)) return cached;
+
+      const result = fn.apply(this, args);
+      if (!isEmpty(result) && shouldCache({ parameters: args, result })) {
+        cacheStore.set(cacheKey, result);
+      }
+      return result;
+    } as CacheSyncKind["fn"];
+  },
+);
 
 /**
  * Memoizes an async function's results, with in-flight deduplication.
@@ -145,57 +154,67 @@ export function withCacheSync<T extends AnyFunction>(
  * - Empty results (see {@link isEmpty}) are never stored and never treated as
  *   hits; `shouldCache`, `generateCacheKey` and the store hooks may all be
  *   async.
+ * @template T - The function being wrapped.
  * @param fn - The async function to memoize.
- * @param root0 - Options object.
- * @param root0.cacheStore - Object with `get`/`set`/`delete` (defaults to a
+ * @param options - Options object.
+ * @param options.cacheStore - Object with `get`/`set`/`delete` (defaults to a
  * process-wide TTL-backed `ExpiredMap`).
- * @param root0.generateCacheKey - Custom (optionally async) key factory over
+ * @param options.generateCacheKey - Custom (optionally async) key factory over
  * `{ parameters, function, extraKeys }` (defaults to the hashed keygen
  * `djb2(superjson.stringify(...))`); may return a string or a number.
- * @param root0.shouldCache - (Optionally async) predicate over
+ * @param options.shouldCache - (Optionally async) predicate over
  * `{ parameters, result }` deciding whether a computed value may be stored.
- * @param root0.extraKeys - Extra lexical keys mixed into the cache identity
+ * @param options.extraKeys - Extra lexical keys mixed into the cache identity
  * (e.g. tenant id).
+ * @param options.skipHof - Per-call bypass switch: `true` resolves the wrapper
+ * to `fn` itself at wrap time; a function predicate receives the call
+ * arguments and a truthy result invokes `fn` raw for that call (no cache
+ * read/write, no in-flight dedup). Defaults to enabled.
  * @returns The wrapped function (typeof `fn`) that dedups in-flight calls and
  * reads/writes through the cache store.
  */
-export function withCacheAsync<T extends AnyAsyncFunction>(
-  fn: T,
-  {
-    cacheStore = globalCache,
-    generateCacheKey = defaultGenerateCacheKey,
-    shouldCache = () => true,
-    extraKeys,
-  }: Options<T> = {},
-) {
-  const functionString = fn.toString();
-  const inFlight = new Map<Key, ReturnType<T>>();
-
-  return async function (this: ThisParameterType<T>, ...args: Parameters<T>) {
-    const cacheKey = await generateCacheKey({
-      parameters: args,
-      function: functionString,
+export const withCacheAsync = createHofAsync<CacheAsyncKind>(
+  (
+    fn,
+    {
+      cacheStore = globalCache,
+      generateCacheKey = defaultGenerateCacheKey,
+      shouldCache = () => true,
       extraKeys,
-    });
+    },
+  ) => {
+    const functionString = fn.toString();
+    const inFlight = new Map<Key, ReturnType<CacheAsyncKind["fn"]>>();
 
-    const pending = inFlight.get(cacheKey);
-    if (pending) return pending;
+    return async function (
+      this: ThisParameterType<CacheAsyncKind["fn"]>,
+      ...args: Parameters<CacheAsyncKind["fn"]>
+    ) {
+      const cacheKey = await generateCacheKey({
+        parameters: args,
+        function: functionString,
+        extraKeys,
+      });
 
-    const promise = (async () => {
-      const cached = await cacheStore.get(cacheKey);
-      if (!isEmpty(cached)) return cached;
+      const pending = inFlight.get(cacheKey);
+      if (pending) return pending;
 
-      const result = await fn.apply(this, args);
-      if (
-        !isEmpty(result) &&
-        (await shouldCache({ parameters: args, result }))
-      ) {
-        await cacheStore.set(cacheKey, result);
-      }
-      return result;
-    })().finally(() => inFlight.delete(cacheKey));
+      const promise = (async () => {
+        const cached = await cacheStore.get(cacheKey);
+        if (!isEmpty(cached)) return cached;
 
-    inFlight.set(cacheKey, promise as ReturnType<T>);
-    return promise;
-  } as T;
-}
+        const result = await fn.apply(this, args);
+        if (
+          !isEmpty(result) &&
+          (await shouldCache({ parameters: args, result }))
+        ) {
+          await cacheStore.set(cacheKey, result);
+        }
+        return result;
+      })().finally(() => inFlight.delete(cacheKey));
+
+      inFlight.set(cacheKey, promise as ReturnType<CacheAsyncKind["fn"]>);
+      return promise;
+    } as CacheAsyncKind["fn"];
+  },
+);

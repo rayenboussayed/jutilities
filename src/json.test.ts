@@ -152,6 +152,14 @@ describe("custom handlers", () => {
     assert.ok(!(back instanceof Upper));
   });
 
+  it("keeps the handler registry off the public surface", () => {
+    const json = upperJson();
+
+    // @ts-expect-error - the registry is internal: `handlers` is not public API.
+    const registry = json.handlers;
+    assert.ok(registry instanceof Map);
+  });
+
   it("handler wins over user replacer for claimed values", () => {
     const json = upperJson();
     const text = json.stringify({ u: new Upper("a"), n: 1 }, (_k, v) =>

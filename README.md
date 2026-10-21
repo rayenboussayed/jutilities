@@ -2,9 +2,9 @@
 
 Small, typed, heavily documented TypeScript utilities for Node.js — caching, retries, timeouts, delays, abort-aware sleeps, one-shot signal listeners, Node stream helpers, a super-JSON serializer, non-cryptographic hashes, and type guards.
 
-Everything is an independent module with a locked, test-verified behavior contract (366 tests). Every non-obvious quirk is documented at the call site.
+Everything is an independent module with a locked, test-verified behavior contract (435 tests). Every non-obvious quirk is documented at the call site.
 
-> **Status:** v1.0.0 — published on npm. APIs are stable in practice, but semver guarantees are not yet frozen. Requires **Node ≥ 22** (uses `Buffer` pool semantics, `Symbol.for` round-trips, shared timers).
+> **Status:** APIs are stable in practice, but semver guarantees are not yet frozen. Requires **Node ≥ 22** (uses `Buffer` pool semantics, `Symbol.for` round-trips, shared timers).
 
 ## Install
 
@@ -46,7 +46,9 @@ import { superjson } from "jutilities/json";
 | `jutilities/sleep` | `sleepAsync`, `sleepSync` | Promisified (and blocking) waits, abort-aware |
 | `jutilities/signal` | `abort` | Flatten `AbortSignal` add/remove into two callables |
 | `jutilities/lazy` | `lazy` | Memoize by (source + args) hash, retry failures |
-| `jutilities/logger` | `withLogger` | Log invocation args + awaited result + duration |
+| `jutilities/logger` | `withLoggerSync`, `withLoggerAsync` | Log invocation args + awaited result + duration (timestamp-prefixed lines) |
+| `jutilities/libs/create-hof` | `createHofSync`, `createHofAsync` + `HofKind`/`ApplyKind`/`WithSkipHof` types | Build fn-first HOFs in this package's exact shape (kind → factory), with the shared bypass pre-wired |
+| `jutilities/libs/with` | `withAsync`, `withSync` + `MergeOptions` type | Compose several fn-first HOFs into one wrapper (the first one is the outermost layer) |
 | `jutilities/decorators/<kind>` | `decorateMethod`, `decorateClass`, `decorateProperty`, `decorateGetter` | Turn fn-first HOFs into fully typed Stage 3 decorators (methods / whole classes / function-valued fields / getters) |
 | `jutilities/json` | `Json`, `superjson` | Round-trip Map/Set/Date/bigint/typed arrays/Errors… |
 | `jutilities/node-stream` | `tee`, `stream2buffer`, `buffer2stream`, `streamSizeTransform`, `streamSize` | Bandwidth-aware stream plumbing |
@@ -57,6 +59,14 @@ import { superjson } from "jutilities/json";
 | `jutilities/from` | `fromBase64` | Decode bytes (Node `Buffer` / browser `atob`) |
 | `jutilities/types/type` | `AnyFunction`, `AnySyncFunction`, … | Shared callable/utility types |
 | `jutilities/types/with` | `WithSignal` | `{ signal?: AbortSignal } & T` convention |
+
+**Shared bypass (`skipHof`)** — every fn-first HOF in the table accepts
+`options.skipHof`: `true` returns the original `fn` untouched at wrap time; a
+predicate function receives the call arguments and a truthy result runs `fn`
+raw for that single call with the same `this` and arguments (async HOFs may
+pass an async predicate; sync ones must stay sync). Omitted / `false` applies
+the enhancement normally. The `withAsync` / `withSync` composers handle it
+once for the whole stack.
 
 `AsyncFunction`, `MaybePromise`, `Generator`, and friends are all re-exportable straight from `dist/types/type.js`.
 
@@ -84,13 +94,18 @@ await getUser("u1"); // hit — served from the store
 ```ts
 import { withRetryAsync } from "jutilities/retry";
 
-const flaky = withRetryAsync(callThirdPartyApi, ({ retries, error }) => {
-  if (retries >= 5) throw error; // stop and surface
-  await sleepAsync({ sleep: 2 ** retries * 100 }); // your backoff
+const flaky = withRetryAsync(callThirdPartyApi, {
+  onError: async ({ retries, error }) => {
+    if (retries >= 5) throw error; // stop and surface
+    await sleepAsync({ sleep: 2 ** retries * 100 }); // your backoff
+  },
 });
 ```
 
-Default policy: ≤ 3 retries (4 attempts) and a per-execution 60 s ceiling; **no built-in backoff** — you own the timing inside `onError`.
+Default policy: 10 retries (the policy throws at `retries === 10`, so 11
+attempts) and a 60 s cumulative budget; between attempts it sleeps an
+exponential, jittered `2^retries × last attempt's duration`, capped by the
+remaining budget. Pass `onError` to own the whole policy.
 
 ### Timeout + signal
 
@@ -124,7 +139,7 @@ superjson.stringify(new Map([["k", 1n]]));
 const back = superjson.parse(sameString); // Map with 1n — bit-for-bit
 ```
 
-Handlers cover numeric edge cases (`NaN`/`±Infinity`/`-0`, bigint, symbols via `Symbol.for`, boxed primitives, invalid dates, `Date`, `Map`, `Set`, `Buffer`, all typed arrays, `DataView`, `ArrayBuffer`, `Error` (+ `cause`), `RegExp`, `URL`, `URLSearchParams`, `Headers`). Invalid-date detection is strict (`Number.isNaN(getTime())` — no coercion), so a `Date` whose `getTime` was overridden to a non-number still round-trips as a valid date. Build your own registry with `new Json().addHandler(type, { isApplicable, stringify, parse })`.
+Handlers cover numeric edge cases (`NaN`/`±Infinity`/`-0`, bigint, symbols via `Symbol.for`, boxed primitives, invalid dates, `Date`, `Map`, `Set`, `Buffer`, all typed arrays, `DataView`, `ArrayBuffer`, `Error` (+ `cause`), `RegExp`, `URL`, `URLSearchParams`, `Headers`); invalid-date detection is strict (`Number.isNaN(getTime())` — no coercion). Build your own registry with `new Json().addHandler(type, { isApplicable, stringify, parse })`.
 
 ### Node streams
 
@@ -155,11 +170,9 @@ class Users {
   @cached({ extraKeys: ["users"] })
   name(id: string) { return `u-${id}`; }
 
-  // Declared-async methods pair with declared-async HOFs — mismatched slots
-  // are compile errors, and `require: "async"` backs them up at runtime.
-  // `withRetryAsync`'s option slot IS the onError policy callback, not a
-  // config object — omit it for the default policy (10 retries with
-  // exponential, jittered backoff):
+  // Declared-async methods pair with declared-async HOFs (mismatches are
+  // compile errors; `require: "async"` backs them up at runtime).
+  // No options → the default retry policy; pass `{ onError }` to own it:
   @retry()
   async load(id: string) { return id; }
 }
@@ -184,20 +197,39 @@ construction), `decorateGetter` wraps a getter **once, prototype-wide** (a
 cached getter is shared across every instance), and `require: "sync" | "async"`
 guards turn declared-async mismatches into decorate-time `TypeError`s.
 
+### Compose several HOFs
+
+```ts
+import { withAsync } from "jutilities/libs/with";
+import { withCacheAsync } from "jutilities/cache";
+import { withRetryAsync } from "jutilities/retry";
+
+// The first HOF is the outermost layer: cache → retry → fn.
+const resilient = withAsync(withCacheAsync, withRetryAsync);
+
+const send = resilient(sendMail, {
+  extraKeys: ["mail"], // read by the cache layer
+  onError: backoff,    // read by the retry layer
+});
+```
+
+One flat options bag is shared by the whole stack (each layer reads its own
+keys), and a single `skipHof` covers every layer.
+
 ## Design principles
 
 1. **Independent modules.** Every helper is a single-file module; nothing pulls another feature in (only tiny shared types).
 2. **Explicit contracts over clever defaults.** Defaults exist (TTL store, a 10-retry backoff policy) but each is documented *including its surprising corners* — e.g. "a mid-wait abort rejects the delayed call with the abort reason and never runs the function".
 3. **`signal` is a first-class option.** Every async wrapper accepts `WithSignal<T>` (`{ signal?: AbortSignal } & T`) and behaves sensibly for pre-aborted and mid-flight aborts.
 4. **No throwing wrappers.** Racy failures resolve/reject with `signal.reason`; sync validation errors are the only synchronous surfaces (`tee`, `buffer2stream`, pre-aborted `sleepAsync`, …).
-5. **Compose, don't reimplement.** Wrappers are `this`-preserving and argument-preserving, so they stack: `withLogger(withRetryAsync(withCacheAsync(fn)))`.
+5. **Compose, don't reimplement.** Wrappers are `this`-preserving and argument-preserving, so they stack: `withLoggerAsync(withRetryAsync(withCacheAsync(fn)))` — by hand or through the composer (`withAsync(withLoggerAsync, withRetryAsync)`).
 
 ## Known quirks (documented, intentional)
 
 - `withCacheSync/Async` skip caching for empty/falsy results; default keys are 32-bit `djb2` hashes (theoretically collidable) and object-arg keys are order-sensitive.
 - `withDelayAsync`: abort **mid-delay rejects the wrapped call with `signal.reason` — the wrapped function never runs**; `withDelaySync` blocks the loop, so only pre-aborts are observable.
 - `withTimeoutAsync` rejects with `signal.reason` even for wall-clock timeouts.
-- `withLogger`/`withCache*` timing switches from `performance.now` (Node) to `Date.now` (browser branch, `window` present).
+- `withLoggerSync`/`withLoggerAsync`/`withCache*` timing switches from `performance.now` (Node) to `Date.now` (browser branch, `window` present).
 - `lazy` caches only truthy results, evicts rejected promises, and keys on `djb2(source + args)` (32-bit, collidable).
 - `superjson.parse` of typed-array payloads rebuilds views on a fresh **shared Buffer pool**; pooled neighbors may be reachable from the bytes of adjacent allocations.
 - `sleepSync` is a busy-wait and can only observe signals that aborted *before* it started.
@@ -211,7 +243,7 @@ guards turn declared-async mismatches into decorate-time `TypeError`s.
 npm run lint        # 0 errors / 0 warnings policy
 npm run lint:fix
 npm run typecheck   # strict TS, tests included
-npm test            # 366 tests
+npm test            # 435 tests
 npm run build       # tsc → dist (tests excluded)
 npm run examples    # run every example in examples/
 ```
@@ -222,7 +254,7 @@ The examples import through the same `jutilities/<module>` style as every snippe
 
 The config never disables a rule globally. The 0/0 gate holds by *solving* warnings where possible — e.g. the examples are fully typed TypeScript, strict-checked like `src` — and by a small set of justified, *inline* exceptions:
 
-- `src/logger.ts` — `deslint/no-prod-console` is disabled next to each `console.log`, because console logging **is this module's feature** (the output target is test-pinned). Swapping in pino/winston would change the public behavior and dependencies.
+- `src/logger.ts` — no inline disables needed: normal lines go through the injectable `options.logger` sink (default `console`, swapped for capture mocks in tests) rather than calling `console` directly, so `deslint/no-prod-console` never fires; console logging **is this module's feature**, and swapping in pino/winston would change the public behavior and dependencies.
 - `examples/**/*.ts` — one file-level `deslint/no-prod-console` disable per example: examples are demo scripts and printing is their purpose.
 - `examples/real-life/sqlite-db.ts` — one extra file-level `n/no-unsupported-features/node-builtins` disable: `node:sqlite` has no stable release in eslint-plugin-n's dataset, so no `engines` range can satisfy the rule; the example pins the real unflagged floor (Node ≥ 22.13) in its header.
 

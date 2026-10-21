@@ -82,7 +82,9 @@ try {
  */
 const checkedDouble = withAssertSync(
   (value: number) => (value > 0 ? value * 2 : null),
-  ({ result }) => assertNotNil(result, "doubled value"),
+  {
+    onResult: ({ result }) => assertNotNil(result, "doubled value"),
+  },
 );
 
 console.log("withAssertSync valid   :", checkedDouble(3));
@@ -94,7 +96,9 @@ try {
 
 const checkedLoadUser = withAssertAsync(
   async (id: number) => (id > 0 ? { id } : null),
-  ({ result }) => assertNotNil(result, "user"),
+  {
+    onResult: ({ result }) => assertNotNil(result, "user"),
+  },
 );
 
 console.log("withAssertAsync valid  :", JSON.stringify(await checkedLoadUser(7)));

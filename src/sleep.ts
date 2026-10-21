@@ -33,7 +33,7 @@ export function sleepAsync({ signal, sleep = 0 }: Options = {}) {
       removeAbort();
       resolve();
       clearTimeout(timeout);
-    }, sleep);
+    }, Math.round(sleep));
   });
 }
 

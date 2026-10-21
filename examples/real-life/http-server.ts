@@ -20,7 +20,7 @@ import {
 import { withCacheAsync } from "jutilities/cache";
 import { superjson } from "jutilities/json";
 import { isRecord } from "jutilities/is";
-import { withLogger } from "jutilities/logger";
+import { withLoggerAsync } from "jutilities/logger";
 import { stream2buffer } from "jutilities/node-stream";
 import { withRetryAsync } from "jutilities/retry";
 import { sleepAsync } from "jutilities/sleep";
@@ -48,10 +48,12 @@ async function fetchUpstream(): Promise<string> {
   return "upstream payload";
 }
 
-const resilientFetch = withRetryAsync(fetchUpstream, async ({ retries, error }) => {
-  console.log(`    upstream attempt ${retries + 1} failed:`, (error as Error).message);
-  if (retries >= 4) throw error; // give up -> error becomes the rejection
-  await sleepAsync({ sleep: 40 }); // backoff between attempts
+const resilientFetch = withRetryAsync(fetchUpstream, {
+  onError: async ({ retries, error }) => {
+    console.log(`    upstream attempt ${retries + 1} failed:`, (error as Error).message);
+    if (retries >= 4) throw error; // give up -> error becomes the rejection
+    await sleepAsync({ sleep: 40 }); // backoff between attempts
+  },
 });
 
 /**
@@ -66,8 +68,8 @@ async function findUser(id: number): Promise<User | undefined> {
 
 /** Lookup whose results are gated: a `nil` row throws `AssertError` -> 404. */
 const findUserGated = withAssertAsync(
-  withLogger("db.findUser", findUser),
-  ({ result }) => assertNotNil(result, "user row"),
+  withLoggerAsync(findUser, { name: "db.findUser" }),
+  { onResult: ({ result }) => assertNotNil(result, "user row") },
 );
 
 let reportComputations = 0;
@@ -84,7 +86,7 @@ async function buildReport(region: string): Promise<{ region: string; orders: nu
 }
 
 /** Cached + logged report handler: the second call is a cache hit. */
-const report = withCacheAsync(withLogger("analytics.buildReport", buildReport));
+const report = withCacheAsync(withLoggerAsync(buildReport, { name: "analytics.buildReport" }));
 
 /** Handler that always overshoots its 80ms deadline. */
 const slow = withTimeoutAsync(async () => {

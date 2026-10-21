@@ -15,7 +15,7 @@
 import assert from "node:assert/strict";
 import { withCacheSync } from "jutilities/cache";
 import { withDelayAsync } from "jutilities/delay";
-import { withLogger } from "jutilities/logger";
+import { withLoggerSync } from "jutilities/logger";
 import { withRetryAsync } from "jutilities/retry";
 import { decorateMethod } from "jutilities/decorators/method";
 
@@ -23,7 +23,7 @@ import { decorateMethod } from "jutilities/decorators/method";
 const memoizeSync = decorateMethod(withCacheSync, { require: "sync" });
 const delayIt = decorateMethod(withDelayAsync, { require: "async" });
 const retried = decorateMethod(withRetryAsync, { require: "async" });
-const logged = decorateMethod(withLogger);
+const logged = decorateMethod(withLoggerSync, { require: "sync" });
 
 let slugComputations = 0;
 let fetches = 0;

@@ -29,12 +29,12 @@ export type StrictOmit<T, K extends keyof T> = Omit<T, K>;
 /**
  * Any (sync or async, generator or not) callable type.
  */
-export type AnyFunction = (...args: any) => any;
+export type AnyFunction = (...args: any) => unknown;
 
 /**
  * Any callable type producing a promise.
  */
-export type AnyAsyncFunction = (...args: any) => MaybePromise<any>;
+export type AnyAsyncFunction = (...args: any) => Promise<any>;
 
 /**
  * Callback type that must NOT return a promise, generator, or async
@@ -60,3 +60,6 @@ export type AnyGeneratorFunction = (...args: any) => Generator<any, any, any>;
 export type AnyAsyncGeneratorFunction = (
   ...args: any
 ) => AsyncGenerator<any, any, any>;
+
+export type HandleAsyncFunction<T extends AnyFunction, TTrue, TFalse> =
+  ReturnType<T> extends Promise<any> ? TTrue : TFalse;

@@ -14,14 +14,14 @@
  */
 import assert from "node:assert/strict";
 import { withCacheAsync, withCacheSync } from "jutilities/cache";
-import { withLogger } from "jutilities/logger";
+import { withLoggerSync } from "jutilities/logger";
 import { decorateClass } from "jutilities/decorators/class";
 
 // Pair mode: declared-async members take the async slot, others the sync slot.
 const cached = decorateClass({ sync: withCacheSync, async: withCacheAsync });
 
-// Single mode: one permissive enhancer (logging) wrapped around every member.
-const logged = decorateClass(withLogger);
+// Single mode: one enhancer (logging) wrapped around every sync member.
+const logged = decorateClass(withLoggerSync);
 
 let mounts = 0;
 let remoteCalls = 0;

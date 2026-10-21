@@ -6,7 +6,7 @@
  * shared AbortSignal stops all loops gracefully (in-flight ticks included,
  * through per-loop relayed signals).
  */
-import { withLogger } from "jutilities/logger";
+import { withLoggerAsync } from "jutilities/logger";
 import { sleepAsync } from "jutilities/sleep";
 import { abort } from "jutilities/signal";
 import { withTimeoutAsync } from "jutilities/timeout";
@@ -98,13 +98,13 @@ const loops = Promise.all([
   schedule({
     name: "heartbeat",
     intervalMs: 60,
-    task: withLogger("heartbeat", heartbeat),
+    task: withLoggerAsync(heartbeat, { name: "heartbeat" }),
     signal: controller.signal,
   }),
   schedule({
     name: "metrics-flush",
     intervalMs: 120,
-    task: withLogger("metrics", metricsFlush),
+    task: withLoggerAsync(metricsFlush, { name: "metrics" }),
     signal: controller.signal,
   }),
 ]);

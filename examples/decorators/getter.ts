@@ -15,12 +15,12 @@
  */
 import assert from "node:assert/strict";
 import { lazy } from "jutilities/lazy";
-import { withLogger } from "jutilities/logger";
+import { withLoggerSync } from "jutilities/logger";
 import { decorateGetter } from "jutilities/decorators/getter";
 
 // Hoist the factory so each decoration applies it exactly once.
 const report = decorateGetter(lazy);
-const logged = decorateGetter(withLogger);
+const logged = decorateGetter(withLoggerSync);
 
 let recomputes = 0;
 

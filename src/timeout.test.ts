@@ -224,4 +224,42 @@ describe("withTimeoutAsync", () => {
     assert.notStrictEqual(wrapped, fn);
     assert.strictEqual(await wrapped(21), 42);
   });
+
+  it("skipHof: true resolves to fn itself at wrap time", () => {
+    /**
+     * Identity function reaching the bypass switch unenhanced.
+     * @param x - Value echoed back.
+     * @returns `x`, unchanged.
+     */
+    async function fn(x: number) {
+      return x;
+    }
+    const controller = new AbortController();
+    assert.strictEqual(
+      withTimeoutAsync(fn, {
+        skipHof: true,
+        timeoutMs: 100,
+        signal: controller.signal,
+      }),
+      fn,
+    );
+  });
+
+  it("per-call skipHof predicate skips the deadline race", async () => {
+    let calls = 0;
+    /**
+     * Slow producer that would lose the 10ms race — run raw through the
+     * bypass it resolves past the deadline instead.
+     * @returns Always `1`, after counting the invocation.
+     */
+    async function fn() {
+      calls++;
+      await new Promise((r) => setTimeout(r, 30));
+      return 1;
+    }
+    const wrapped = withTimeoutAsync(fn, { timeoutMs: 10, skipHof: () => true });
+
+    assert.strictEqual(await wrapped(), 1);
+    assert.strictEqual(calls, 1);
+  });
 });

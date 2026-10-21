@@ -1,68 +1,154 @@
-import type { AnyFunction } from "./types/type.js";
+import type {
+  AnyAsyncFunction,
+  AnyFunction,
+  AnySyncFunction,
+} from "./types/type.js";
+import {
+  createHofAsync,
+  createHofSync,
+  type HofKind,
+} from "./libs/create-hof.js";
 
 /**
- * Higher-order logger that traces a function's invocation and result through
- * `console.log`.
+ * Sync and async higher-order loggers that trace a function's invocation and
+ * result through `logger.debug`, split exactly like `withCacheSync` /
+ * `withCacheAsync` and `withDelaySync` / `withDelayAsync` so neither wrapper
+ * body needs runtime promise sniffing.
  *
- * Two call forms:
- * - `withLogger("name", fn)` — log under an explicit name.
- * - `withLogger(fn)` — log under the function's own `.name` (may be `""` for
- *   anonymous functions, in which case `unknown` is used).
+ * One call form each: `withLoggerSync(fn, options?)` for sync functions and
+ * `withLoggerAsync(fn, options?)` for declared-`async` ones — fn-first like
+ * every wrapper in this package. Pass `options.name` to log under an explicit
+ * label, or omit options to log under the function's own `.name` (may be
+ * `""` for anonymous functions, in which case `anonymous` is used).
  *
- * Output: one line for invocation (`Execution, Args:` followed by the args as
- * separate console parameters) and one line for completion
- * (`Execution <ms>ms, Result:` followed by the resolved value). Timing uses
- * `performance.now` in Node and `Date.now` where a `window` exists. Async
- * functions log their awaited resolved value.
- *
- * Note: the return type is structurally widened only in the JSDoc sense — at
- * runtime it forwards `this` and returns whatever `fn` returns.
+ * Output (both variants, through the injectable `logger` sink — default
+ * `console`): one line for invocation (`Execution, Args:` followed by the
+ * args as separate console parameters) and one line for completion
+ * (`Execution <ms>ms, Result:` followed by the value). Timing uses
+ * `performance.now` in Node and `Date.now` where a `window` exists. The async
+ * variant logs its awaited resolved value; a sync function returning a
+ * non-`Promise` thenable logs that object without awaiting it.
  */
 
-export function withLogger<T extends AnyFunction>(name: string, fn: T): T;
+export type Options = {
+  name?: string;
+  logger?: {
+    debug: (...args: any[]) => void;
+    error: (...args: any[]) => void;
+  };
+};
 
-export function withLogger<T extends AnyFunction>(fn: T): T;
+interface LoggerKind<T extends AnyFunction> extends HofKind<T> {
+  options: Options;
+}
+
+export type LoggerSyncKind = LoggerKind<AnySyncFunction>;
+export type LoggerAsyncKind = LoggerKind<AnyAsyncFunction>;
 
 /**
  * Logs the invocation arguments and completion (value + duration) of a
- * wrapped function.
+ * wrapped SYNC function.
+ *
+ * The first parameter is sync-gated (`AnySyncFunction<T>`), so the wrapper
+ * feeds the sync slot of the decorator converters exactly like
+ * {@link ./cache.ts | withCacheSync} does.
  * @template T - The function being wrapped.
- * @param argument0 - Explicit name (string) or the function itself.
- * @param argument1 - The function, required only when `argument0` is the
- * name.
+ * @param fn - The sync function being wrapped.
+ * @param options - Options object.
+ * @param options.name - Explicit label for logs; defaults to `fn.name`, or
+ * `anonymous` when that is empty.
+ * @param options.logger - Debug/error output sink; defaults to `console`
+ * (inject a capturing mock to swap or verify output).
+ * @param options.skipHof - Per-call bypass switch: `true` resolves the wrapper
+ * to `fn` itself at wrap time; a function predicate receives the call
+ * arguments and a truthy result invokes `fn` raw for that call (no log lines).
+ * Defaults to enabled.
  * @returns The wrapped function (typeof `fn`) with logging around each call.
  */
-export function withLogger<T extends AnyFunction>(
-  argument0: string | T,
-  argument1?: T,
-) {
-  const fn = typeof argument0 === "function" ? argument0 : argument1!;
-  const name = typeof argument0 === "string" ? argument0 : fn.name;
+export const withLoggerSync = createHofSync<LoggerSyncKind>(
+  (fn, { name: fnName, logger = console } = {}) => {
+    const label = `[Function ${(fnName ?? fn.name) || "anonymous"}]`;
 
-  return function (this: ThisParameterType<T>, ...args: Parameters<T>) {
-    const label = `[Function ${name || "unknown"}]`;
-
-    // eslint-disable-next-line deslint/no-prod-console -- this module's feature *is* console logging (test-pinned output target)
-    console.log(`${label} Execution, Args:`, ...args);
-    const startTime =
-      typeof window === "undefined" ? performance.now() : Date.now();
-    const result = fn.apply(this, args);
-    if (result instanceof Promise) {
-      return result.then((value) => {
+    return function (
+      this: ThisParameterType<LoggerSyncKind["fn"]>,
+      ...args: Parameters<LoggerSyncKind["fn"]>
+    ) {
+      logger.debug(`[${new Date()}] ${label} Execution, Args:`, ...args);
+      const startTime =
+        typeof window === "undefined" ? performance.now() : Date.now();
+      try {
+        const result = fn.apply(this, args);
         const endTime =
           typeof window === "undefined" ? performance.now() : Date.now();
-        // eslint-disable-next-line deslint/no-prod-console -- this module's feature *is* console logging (test-pinned output target)
-        console.log(
-          `${label} Execution ${endTime - startTime}ms, Result:`,
-          value,
+
+        logger.debug(
+          `[${new Date()}] ${label} Execution ${endTime - startTime}ms, Result:`,
+          result,
         );
-        return value;
-      });
-    }
-    const endTime =
-      typeof window === "undefined" ? performance.now() : Date.now();
-    // eslint-disable-next-line deslint/no-prod-console -- this module's feature *is* console logging (test-pinned output target)
-    console.log(`${label} Execution ${endTime - startTime}ms, Result:`, result);
-    return result;
-  } as T;
-}
+        return result;
+      } catch (error) {
+        const endTime =
+          typeof window === "undefined" ? performance.now() : Date.now();
+        logger.error(
+          `[${new Date()}] ${label} Execution ${endTime - startTime}ms, Error:`,
+          error,
+        );
+        throw error;
+      }
+    } as LoggerSyncKind["fn"];
+  },
+);
+
+/**
+ * Logs the invocation arguments and completion (awaited value + duration) of
+ * a wrapped ASYNC function.
+ *
+ * The first parameter is `AnyAsyncFunction`, so the wrapper feeds the direct
+ * slot of the decorator converters exactly like
+ * {@link ./cache.ts | withCacheAsync} does.
+ * @template T - The function being wrapped.
+ * @param fn - The async function being wrapped.
+ * @param options - Options object.
+ * @param options.name - Explicit label for logs; defaults to `fn.name`, or
+ * `anonymous` when that is empty.
+ * @param options.logger - Debug/error output sink; defaults to `console`
+ * (inject a capturing mock to swap or verify output).
+ * @param options.skipHof - Per-call bypass switch: `true` resolves the wrapper
+ * to `fn` itself at wrap time; a function predicate receives the call
+ * arguments and a truthy result invokes `fn` raw for that call (no log lines).
+ * Defaults to enabled.
+ * @returns The wrapped function (typeof `fn`) with logging around each await.
+ */
+export const withLoggerAsync = createHofAsync<LoggerAsyncKind>(
+  (fn, { name: fnName, logger = console } = {}) => {
+    const label = `[Function ${(fnName ?? fn.name) || "anonymous"}]`;
+
+    return async function (
+      this: ThisParameterType<LoggerAsyncKind["fn"]>,
+      ...args: Parameters<LoggerAsyncKind["fn"]>
+    ) {
+      logger.debug(`[${new Date()}] ${label} Execution, Args:`, ...args);
+      const startTime =
+        typeof window === "undefined" ? performance.now() : Date.now();
+      try {
+        const result = await fn.apply(this, args);
+        const endTime =
+          typeof window === "undefined" ? performance.now() : Date.now();
+
+        logger.debug(
+          `[${new Date()}] ${label} Execution ${endTime - startTime}ms, Result:`,
+          result,
+        );
+        return result;
+      } catch (error) {
+        const endTime =
+          typeof window === "undefined" ? performance.now() : Date.now();
+        logger.error(
+          `[${new Date()}] ${label} Execution ${endTime - startTime}ms, Error:`,
+          error,
+        );
+        throw error;
+      }
+    } as LoggerAsyncKind["fn"];
+  },
+);

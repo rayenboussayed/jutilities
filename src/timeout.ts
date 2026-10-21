@@ -1,8 +1,15 @@
-import type { AnyAsyncFunction } from "./types/type.js";
+import type { AnyAsyncFunction, AnyFunction } from "./types/type.js";
 import type { WithSignal } from "./types/with.js";
+import { createHofAsync, type HofKind } from "./libs/create-hof.js";
 import { abort } from "./signal.js";
 
 export type Options = WithSignal<{ timeoutMs?: number }>;
+
+interface TimeoutKind<T extends AnyFunction> extends HofKind<T> {
+  options: Options;
+}
+
+export type TimeoutAsyncKind = TimeoutKind<AnyAsyncFunction>;
 
 /**
  * Higher-order wrapper that races an async function against a deadline or an
@@ -23,37 +30,46 @@ export type Options = WithSignal<{ timeoutMs?: number }>;
  *   simply rejects first.
  * - A sync-throwing wrapped function propagates synchronously and may leak the
  *   internal timer.
+ * @template T - The function being wrapped.
  * @param fn - The async function to wrap.
- * @param root0 - Options object.
- * @param root0.signal - Optional abort signal to reject early on abort.
- * @param root0.timeoutMs - Wall-clock budget in milliseconds (default `0`,
+ * @param options - Options object.
+ * @param options.signal - Optional abort signal to reject early on abort.
+ * @param options.timeoutMs - Wall-clock budget in milliseconds (default `0`,
  * meaning "no wall-clock timeout").
+ * @param options.skipHof - Per-call bypass switch: `true` resolves the wrapper
+ * to `fn` itself at wrap time; a function predicate receives the call
+ * arguments and a truthy result invokes `fn` raw for that call (no deadline).
+ * Defaults to enabled.
  * @returns The wrapped function (typeof `fn`), or `fn` itself when neither a
  * signal nor a timeout is configured.
  */
-export function withTimeoutAsync<T extends AnyAsyncFunction>(
-  fn: T,
-  { signal, timeoutMs = 0 }: Options = {},
-) {
-  if (!signal && timeoutMs <= 0) return fn;
+export const withTimeoutAsync = createHofAsync<TimeoutAsyncKind>(
+  (fn, { signal, timeoutMs = 0 } = {}) => {
+    if (!signal && timeoutMs <= 0) return fn;
 
-  return function (this: ThisParameterType<T>, ...args: Parameters<T>) {
-    const cleanup: (() => void)[] = [];
-    const timeoutPromise = new Promise<void>((_, reject) => {
-      if (signal) {
-        const onAbort = () => reject(signal?.reason);
-        const removeAbort = abort({ signal, onAbort });
-        cleanup.push(removeAbort);
-      }
+    return function (
+      this: ThisParameterType<TimeoutAsyncKind["fn"]>,
+      ...args: Parameters<TimeoutAsyncKind["fn"]>
+    ) {
+      const cleanup: (() => void)[] = [];
+      const timeoutPromise = new Promise<void>((_, reject) => {
+        if (signal) {
+          const onAbort = () => reject(signal?.reason);
+          const removeAbort = abort({ signal, onAbort });
+          cleanup.push(removeAbort);
+        }
 
-      if (timeoutMs > 0) {
-        const timeout = setTimeout(() => reject(signal?.reason), timeoutMs);
-        cleanup.push(() => clearTimeout(timeout));
-      }
-    });
+        if (timeoutMs > 0) {
+          const timeout = setTimeout(() => reject(signal?.reason), timeoutMs);
+          cleanup.push(() => clearTimeout(timeout));
+        }
+      });
 
-    return Promise.race([fn.apply(this, args), timeoutPromise]).finally(() => {
-      cleanup.forEach((fn) => fn());
-    });
-  } as T;
-}
+      return Promise.race([fn.apply(this, args), timeoutPromise]).finally(
+        () => {
+          cleanup.forEach((fn) => fn());
+        },
+      );
+    } as TimeoutAsyncKind["fn"];
+  },
+);

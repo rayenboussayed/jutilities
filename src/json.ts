@@ -73,17 +73,16 @@ export type JsonStringified<T> = string & { __source: T };
 export class Json {
   /**
    * The handler registry keyed by `__type` license plate. Managed through
-   * {@link addHandler} / {@link removeHandler}; exposed for inspection and
-   * advanced use (enumerating registered handlers, reordering match
-   * priority — the first matching handler wins).
+   * {@link addHandler} / {@link removeHandler}; internal to the class — the
+   * registry is not part of the public surface.
    */
-  readonly handlers = new Map<string, JsonHandler>();
+  private readonly handlers = new Map<string, JsonHandler>();
 
   /**
    * Registers (or replaces) the handler for a `__type` key.
    *
    * Registration order matters: the first matching handler wins, and
-   * re-adding an existing key moves it... it replaces it in place (Map keeps
+   * re-adding an existing key replaces it in place (the Map keeps its
    * original insertion order).
    * @template TA - The handler's runtime value type.
    * @template TS - The handler's JSON-safe payload type.

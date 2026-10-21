@@ -2,7 +2,7 @@ import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { withCacheAsync, withCacheSync } from "../cache.js";
 import { lazy } from "../lazy.js";
-import { withLogger } from "../logger.js";
+import { withLoggerSync } from "../logger.js";
 import { decorateGetter } from "./getter.js";
 
 // Decorator grammar notes (already pinned in method.test.ts): converters are
@@ -50,10 +50,10 @@ describe("decorateGetter", () => {
     assert.strictEqual(stats.area, 8);
   });
 
-  it("works with option-less HOFs (lazy) and logs through withLogger", () => {
-    const originalLog = console.log;
+  it("works with option-less HOFs (lazy) and logs through withLoggerSync", () => {
+    const originalDebug = console.debug;
     const lines: unknown[][] = [];
-    console.log = (...parts: unknown[]) => {
+    console.debug = (...parts: unknown[]) => {
       lines.push(parts);
     };
     try {
@@ -73,7 +73,7 @@ describe("decorateGetter", () => {
       assert.strictEqual(heavy.value, "heavy");
       assert.strictEqual(heavy.computes, 1);
       // The same converter also works for the logger.
-      const logged = decorateGetter(withLogger);
+      const logged = decorateGetter(withLoggerSync);
       class Buzzer {
         @logged()
         get buzz() {
@@ -82,7 +82,7 @@ describe("decorateGetter", () => {
       }
       assert.strictEqual(new Buzzer().buzz, "buzz");
     } finally {
-      console.log = originalLog;
+      console.debug = originalDebug;
     }
     assert.ok(lines.some((parts) => /value|buzz/.test(String(parts[0]))));
   });

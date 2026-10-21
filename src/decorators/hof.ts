@@ -9,7 +9,9 @@ import type { AnyFunction, AnySyncFunction } from "../types/type.js";
  * function being enhanced, every remaining parameter is one decorator call's
  * rest options, and the wrapped function (same shape as the input) is
  * returned. Every fn-first wrapper in this package conforms
- * (`withCacheSync`, `withRetryAsync`, `withDelaySync`, `lazy`, `withLogger`).
+ * (`withCacheSync`, `withCacheAsync`, `withRetrySync`, `withRetryAsync`,
+ * `withDelaySync`, `withDelayAsync`, `withTimeoutAsync`, `withAssertSync`,
+ * `withAssertAsync`, `lazy`, `withLoggerSync`, `withLoggerAsync`).
  *
  * A Stage 3 decorator factory is produced by
  * {@link ./method.ts | decorateMethod},
@@ -28,8 +30,8 @@ export type FnFirstHof<F extends AnyFunction = AnyFunction, R extends any[] = []
 
 /**
  * Sync-gated variant of {@link FnFirstHof} for HOFs whose first parameter is
- * typed `AnySyncFunction` (the sync flavor of `withCache`,
- * `withDelay`, and `withRetry` forward through here instead).
+ * typed `AnySyncFunction` (the sync flavors — `withCacheSync`, `withDelaySync`,
+ * and `withRetrySync` — forward through here instead).
  * @template F - The wrapped-function shape (usually inferred from a concrete
  * HOF).
  * @template R - The option slots spread verbatim as decorator options.

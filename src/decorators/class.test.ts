@@ -1,7 +1,7 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { withCacheAsync, withCacheSync } from "../cache.js";
-import { withLogger } from "../logger.js";
+import { withLoggerSync } from "../logger.js";
 import { decorateClass } from "./class.js";
 
 // Decorator grammar notes (already pinned in method.test.ts): TS rejects
@@ -221,14 +221,14 @@ describe("decorateClass", () => {
     assert.strictEqual(greeter.labelLoads, 2);
   });
 
-  it("works with option-less HOFs (withLogger) via decorator syntax", () => {
-    const originalLog = console.log;
+  it("works with option-less HOFs (withLoggerSync) via decorator syntax", () => {
+    const originalDebug = console.debug;
     const lines: unknown[][] = [];
-    console.log = (...parts: unknown[]) => {
+    console.debug = (...parts: unknown[]) => {
       lines.push(parts);
     };
     try {
-      const logged = decorateClass(withLogger);
+      const logged = decorateClass(withLoggerSync);
       @logged()
       class Announcer {
         speak() {
@@ -238,7 +238,7 @@ describe("decorateClass", () => {
       const talker = new Announcer();
       assert.strictEqual(talker.speak(), "hi");
     } finally {
-      console.log = originalLog;
+      console.debug = originalDebug;
     }
     assert.ok(lines.some((parts) => /speak/.test(String(parts[0]))));
   });
@@ -246,7 +246,7 @@ describe("decorateClass", () => {
   it("runtime paren-less factory application fails fast (class)", () => {
     // Decorator syntax cannot express this shape, so the invocation is
     // synthesized: the factory receives (class, context) as its options rest.
-    const factory = decorateClass(withLogger) as (...args: any[]) => unknown;
+    const factory = decorateClass(withLoggerSync) as (...args: any[]) => unknown;
     const member = class Source {};
     const context = { kind: "class", name: "Source", addInitializer() {} };
     assert.throws(

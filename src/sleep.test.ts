@@ -65,6 +65,27 @@ describe("sleepAsync", () => {
     assert.ok(performance.now() - start < 200);
   });
 
+  it("rounds a fractional delay to whole milliseconds (still a timer)", async () => {
+    // `sleep: 0` resolves through an already-resolved promise (microtask),
+    // while `sleep: 0.4` rounds to 0 ms and still goes through a timer
+    // (macrotask) — so the fractional sleep settles last.
+    const order: string[] = [];
+    await Promise.all([
+      sleepAsync({ sleep: 0 }).then(() => order.push("zero")),
+      sleepAsync({ sleep: 0.4 }).then(() => order.push("fractional")),
+    ]);
+    assert.deepStrictEqual(order, ["zero", "fractional"]);
+  });
+
+  it("rounds a fractional delay up, not down", async () => {
+    const start = Date.now();
+    await sleepAsync({ sleep: 0.6 });
+    assert.ok(
+      Date.now() - start >= 1,
+      "0.6 ms rounds to 1 ms, so at least one millisecond elapses",
+    );
+  });
+
   it("concurrent sleeps resolve independently (~sleep, not 3*sleep)", async () => {
     const start = performance.now();
     const results = await Promise.all([

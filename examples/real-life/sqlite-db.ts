@@ -18,7 +18,7 @@ import {
 import { withCacheSync } from "jutilities/cache";
 import { superjson } from "jutilities/json";
 import { lazy } from "jutilities/lazy";
-import { withLogger } from "jutilities/logger";
+import { withLoggerSync } from "jutilities/logger";
 import { withRetrySync } from "jutilities/retry";
 
 /** One orders-table row as read back from SQLite. */
@@ -49,9 +49,11 @@ const migrate = withRetrySync((db: DatabaseSync) => {
   }
   db.exec("CREATE TABLE orders (id INTEGER PRIMARY KEY AUTOINCREMENT, region TEXT NOT NULL, cents INTEGER NOT NULL)");
   return "orders@v1";
-}, ({ retries, error }) => {
-  console.log(`    migration attempt ${retries + 1} failed:`, (error as Error).message);
-  if (retries >= 5) throw error;
+}, {
+  onError: ({ retries, error }) => {
+    console.log(`    migration attempt ${retries + 1} failed:`, (error as Error).message);
+    if (retries >= 5) throw error;
+  },
 });
 
 /**
@@ -63,7 +65,9 @@ const migrate = withRetrySync((db: DatabaseSync) => {
  */
 const insertOrder = withAssertSync((db: DatabaseSync, region: string, cents: number) => {
   return db.prepare("INSERT INTO orders (region, cents) VALUES (?, ?)").run(region, cents);
-}, ({ result }) => assert(Number(result.changes) === 1, "expected exactly one inserted row", "db.insertOrder"));
+}, {
+  onResult: ({ result }) => assert(Number(result.changes) === 1, "expected exactly one inserted row", "db.insertOrder"),
+});
 
 console.log("applied schema:", migrate(openDb()));
 const db = openDb(); // same connection — lazy memoized
@@ -75,13 +79,13 @@ let aggregateComputations = 0;
  * @param region - The region to aggregate.
  * @returns Order count and total cents for the region.
  */
-const revenueByRegion = withCacheSync(withLogger("db.revenueByRegion", (region: string): RegionReport => {
+const revenueByRegion = withCacheSync(withLoggerSync((region: string): RegionReport => {
   aggregateComputations += 1;
   const rows = db.prepare("SELECT cents FROM orders WHERE region = ?").all(region) as Array<{ cents: number }>;
   let totalCents = 0;
   for (const row of rows) totalCents += row.cents;
   return { region, orders: rows.length, totalCents };
-}));
+}, { name: "db.revenueByRegion" }));
 
 /**
  * Finds one order row or throws `AssertError` for a missing id.

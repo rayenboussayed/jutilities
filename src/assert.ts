@@ -7,8 +7,14 @@ import type {
   AnyAsyncFunction,
   AnyFunction,
   AnySyncFunction,
+  HandleAsyncFunction,
   MaybePromise,
 } from "./types/type.js";
+import {
+  createHofAsync,
+  createHofSync,
+  type HofKind,
+} from "./libs/create-hof.js";
 
 /**
  * Thrown by every invariant guard in this module. Extends `TypeError` so
@@ -107,7 +113,18 @@ export function assertNever(
 export type OnResultFn<T extends AnyFunction = AnyFunction> = (options: {
   parameters: Parameters<T>;
   result: Awaited<ReturnType<T>>;
-}) => T extends AnyAsyncFunction ? MaybePromise<void> : void;
+}) => HandleAsyncFunction<T, MaybePromise<void>, void>;
+
+export type Options<T extends AnyFunction = AnyFunction> = {
+  onResult: OnResultFn<T>;
+};
+
+interface AssertKind<T extends AnyFunction> extends HofKind<T> {
+  options: Options<this["fn"]>;
+}
+
+export type AssertSyncKind = AssertKind<AnySyncFunction>;
+export type AssertAsyncKind = AssertKind<AnyAsyncFunction>;
 
 /**
  * Wraps an async function so every resolution is checked by a validator before
@@ -118,49 +135,65 @@ export type OnResultFn<T extends AnyFunction = AnyFunction> = (options: {
  * returned. Throwing inside `onResult` surfaces that error instead of the
  * result; a rejected wrapped call never reaches the validator and propagates
  * untouched.
+ * @template T - The function being wrapped.
  * @param fn - The async function whose results are gated.
- * @param onResult - Validates each call over the awaited `result` and the call
- * arguments, throwing to reject the call.
+ * @param options - Options object (`onResult` is required).
+ * @param options.onResult - Validates each call over the awaited `result` and
+ * the call arguments, throwing to reject the call (may be async).
+ * @param options.skipHof - Per-call bypass switch: `true` resolves the wrapper
+ * to `fn` itself at wrap time; a function predicate receives the call
+ * arguments and a truthy result invokes `fn` raw for that call (unvalidated).
+ * Defaults to enabled.
  * @returns The wrapped function (typeof `fn`) whose resolutions are gated by
- * `onResult`.
+ * `options.onResult`.
  */
-export function withAssertAsync<T extends AnyAsyncFunction>(
-  fn: T,
-  onResult: OnResultFn<T>,
-) {
-  return async function (this: ThisParameterType<T>, ...args: Parameters<T>) {
-    const result = await fn.apply(this, args);
-    await onResult({ parameters: args, result });
-    return result;
-  } as T;
-}
+export const withAssertAsync = createHofAsync<AssertAsyncKind>(
+  (fn, { onResult }) => {
+    return async function (
+      this: ThisParameterType<AssertAsyncKind["fn"]>,
+      ...args: Parameters<AssertAsyncKind["fn"]>
+    ) {
+      const result = await fn.apply(this, args);
+      await onResult({ parameters: args, result });
+      return result;
+    } as AssertAsyncKind["fn"];
+  },
+);
 
 /**
  * Wraps a sync function so every call's result is checked by a validator
  * before it is returned.
  *
  * Behavior notes:
- * - Call arguments are forwarded verbatim to `fn` and reported to `onResult`
- *   via `parameters` (see {@link OnResultFn}).
+ * - Call arguments are forwarded verbatim to `fn` and reported to
+ *   `options.onResult` via `parameters` (see {@link OnResultFn}).
  * - `this` is forwarded to `fn`.
  * - The validator is sync-only here; use {@link withAssertAsync} when the
  *   check needs to await.
+ * @template T - The function being wrapped.
  * @param fn - The sync function whose results are gated.
- * @param onResult - Validates each call over `result` and the call arguments,
- * throwing to replace the result.
+ * @param options - Options object (`onResult` is required).
+ * @param options.onResult - Validates each call over `result` and the call
+ * arguments, throwing to replace the result.
+ * @param options.skipHof - Per-call bypass switch: `true` resolves the wrapper
+ * to `fn` itself at wrap time; a function predicate receives the call
+ * arguments and a truthy result invokes `fn` raw for that call (unvalidated).
+ * Defaults to enabled.
  * @returns The wrapped function (typeof `fn`) whose results are gated by
- * `onResult`.
+ * `options.onResult`.
  */
-export function withAssertSync<T extends AnyFunction>(
-  fn: AnySyncFunction<T>,
-  onResult: OnResultFn<AnySyncFunction<T>>,
-) {
-  return function (this: ThisParameterType<T>, ...args: Parameters<T>) {
-    const result = fn.apply(this, args);
-    onResult({ parameters: args, result });
-    return result;
-  } as T;
-}
+export const withAssertSync = createHofSync<AssertSyncKind>(
+  (fn, { onResult }) => {
+    return function (
+      this: ThisParameterType<AssertSyncKind["fn"]>,
+      ...args: Parameters<AssertSyncKind["fn"]>
+    ) {
+      const result = fn.apply(this, args);
+      onResult({ parameters: args, result });
+      return result;
+    } as AssertSyncKind["fn"];
+  },
+);
 
 /**
  * Decorator-machinery guards, shared by every `decorators/<kind>` converter.

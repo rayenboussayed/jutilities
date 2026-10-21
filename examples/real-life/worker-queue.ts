@@ -5,7 +5,7 @@
  * shared job queue, poisoned jobs exhaust their retries into a dead-letter
  * list, and shutdown is graceful through an AbortSignal.
  */
-import { withLogger } from "jutilities/logger";
+import { withLoggerAsync } from "jutilities/logger";
 import { withRetryAsync } from "jutilities/retry";
 import { sleepAsync } from "jutilities/sleep";
 import { abort } from "jutilities/signal";
@@ -45,7 +45,9 @@ async function onJobError({ retries, error }: { retries: number; error: unknown 
   await sleepAsync({ sleep: 30 });
 }
 
-const runJob = withRetryAsync(withLogger("worker.process", process), onJobError);
+const runJob = withRetryAsync(withLoggerAsync(process, { name: "worker.process" }), {
+  onError: onJobError,
+});
 
 /**
  * Drains the shared queue until the signal aborts.

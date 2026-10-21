@@ -166,6 +166,29 @@ describe("lazy", () => {
     assert.strictEqual(count, 2);
   });
 
+  it("skipHof: true resolves to fn itself at wrap time", () => {
+    /**
+     * Named initializer reaching the bypass switch unenhanced.
+     * @returns Always `1`.
+     */
+    function initializer() {
+      return 1;
+    }
+    assert.strictEqual(lazy(initializer, { skipHof: true }), initializer);
+  });
+
+  it("per-call skipHof predicate evaluates fresh (no memo store involved)", () => {
+    let count = 0;
+    const fn = lazy((x: number) => {
+      count++;
+      return x * 2;
+    }, { skipHof: () => true });
+
+    assert.strictEqual(fn(2), 4);
+    assert.strictEqual(fn(2), 4);
+    assert.strictEqual(count, 2);
+  });
+
   it("TODO: NaN result is never cached (falsy check)", () => {
     let count = 0;
     const fn = lazy(() => {

@@ -141,6 +141,40 @@ describe("withDelayAsync", () => {
     assert.strictEqual(called, 0);
     assert.ok(performance.now() - start < 500, "delay cut short by abort");
   });
+
+  it("skipHof: true resolves to fn itself at wrap time", () => {
+    /**
+     * Identity function reaching the bypass switch unenhanced.
+     * @param x - Value echoed back.
+     * @returns `x`, unchanged.
+     */
+    async function fn(x: number) {
+      return x;
+    }
+    assert.strictEqual(
+      withDelayAsync(fn, { skipHof: true, delay: 100 }),
+      fn,
+    );
+  });
+
+  it("per-call skipHof predicate bypasses the pre-call wait", async () => {
+    let calls = 0;
+    /**
+     * Counter invoked straight through the bypass (no wait).
+     * @returns Always `1`, after counting the invocation.
+     */
+    async function fn() {
+      calls++;
+      return 1;
+    }
+    const wrapped = withDelayAsync(fn, { delay: 30, skipHof: () => true }) as
+      typeof fn;
+
+    const start = performance.now();
+    assert.strictEqual(await wrapped(), 1);
+    assert.ok(performance.now() - start < 25, "predicate truthy: no wait");
+    assert.strictEqual(calls, 1);
+  });
 });
 
 describe("withDelaySync", () => {
@@ -240,5 +274,38 @@ describe("withDelaySync", () => {
     const start = Date.now();
     assert.strictEqual(wrapped(), 1);
     assert.ok(Date.now() - start < 100);
+  });
+
+  it("skipHof: true resolves to fn itself at wrap time", () => {
+    /**
+     * Identity function reaching the bypass switch unenhanced (sync side).
+     * @param x - Value echoed back.
+     * @returns `x`, unchanged.
+     */
+    function fn(x: number) {
+      return x;
+    }
+    assert.strictEqual(
+      withDelaySync(fn, { skipHof: true, delay: 100 }),
+      fn,
+    );
+  });
+
+  it("per-call skipHof predicate bypasses the blocking wait", () => {
+    let calls = 0;
+    /**
+     * Counter invoked straight through the bypass (no block).
+     * @returns Always `1`, after counting the invocation.
+     */
+    function fn() {
+      calls++;
+      return 1;
+    }
+    const wrapped = withDelaySync(fn, { delay: 30, skipHof: () => true });
+
+    const start = Date.now();
+    assert.strictEqual(wrapped(), 1);
+    assert.ok(Date.now() - start < 25, "predicate truthy: no block");
+    assert.strictEqual(calls, 1);
   });
 });

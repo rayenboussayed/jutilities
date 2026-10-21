@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { withCacheAsync, withCacheSync } from "../cache.js";
 import { lazy } from "../lazy.js";
 import { withDelayAsync } from "../delay.js";
-import { withLogger } from "../logger.js";
+import { withLoggerAsync, withLoggerSync } from "../logger.js";
 import { withRetryAsync } from "../retry.js";
 import { withTimeoutAsync } from "../timeout.js";
 import { decorateMethod } from "./method.js";
@@ -50,8 +50,10 @@ describe("decorateMethod", () => {
   it("wraps an async method through withRetryAsync with shared options", async () => {
     class Flaky {
       attempts = 0;
-      @retryAsync(({ retries }) => {
-        if (retries >= 2) throw new Error("give up");
+      @retryAsync({
+        onError: ({ retries }) => {
+          if (retries >= 2) throw new Error("give up");
+        },
       })
       async call() {
         this.attempts++;
@@ -108,10 +110,10 @@ describe("decorateMethod", () => {
   });
 
   it("decorate-time guard rejects an async member under require: sync", () => {
-    // A permissive enhancer (withLogger) is required in decorator syntax:
+    // A permissive enhancer (withLoggerAsync) is required in decorator syntax:
     // slot-precise enhancers compile-reject async members outright, which is
     // the intended typing discipline; the runtime guard is for loose slots.
-    const guardSyncOnly = decorateMethod(withLogger, { require: "sync" });
+    const guardSyncOnly = decorateMethod(withLoggerAsync, { require: "sync" });
     assert.throws(
       () => {
         class Mixed {
@@ -131,7 +133,7 @@ describe("decorateMethod", () => {
   });
 
   it("decorate-time guard rejects require: async on a sync member", () => {
-    const guardAsyncOnly = decorateMethod(withLogger, { require: "async" });
+    const guardAsyncOnly = decorateMethod(withLoggerSync, { require: "async" });
     assert.throws(
       () => {
         class Mixed {
@@ -169,15 +171,15 @@ describe("decorateMethod", () => {
     assert.strictEqual(await pairs.slow(), 2);
   });
 
-  it("works with option-less HOFs (lazy, withLogger)", async () => {
-    const originalLog = console.log;
+  it("works with option-less HOFs (lazy, withLoggerAsync)", async () => {
+    const originalDebug = console.debug;
     const lines: unknown[][] = [];
-    console.log = (...parts: unknown[]) => {
+    console.debug = (...parts: unknown[]) => {
       lines.push(parts);
     };
     try {
       const memoizeLazy = decorateMethod(lazy);
-      const logged = decorateMethod(withLogger);
+      const logged = decorateMethod(withLoggerAsync);
       class Spread {
         @memoizeLazy()
         syncValue() {
@@ -194,7 +196,7 @@ describe("decorateMethod", () => {
       assert.strictEqual(spread.syncValue(), 42);
       assert.strictEqual(await spread.watched(), "seen");
     } finally {
-      console.log = originalLog;
+      console.debug = originalDebug;
     }
     assert.ok(lines.some((parts) => /watched/.test(String(parts[0]))));
   });

@@ -21,10 +21,12 @@ async function flaky(): Promise<string> {
   return "ok after " + flakyAttempts + " attempts";
 }
 
-const resilient = withRetryAsync(flaky, async ({ retries, error }) => {
-  console.log(`attempt ${retries + 1} failed:`, (error as Error).message);
-  if (retries >= 4) throw error; // give up -> error becomes the rejection
-  await sleepAsync({ sleep: 50 }); // exponential backoff belongs in onError
+const resilient = withRetryAsync(flaky, {
+  onError: async ({ retries, error }) => {
+    console.log(`attempt ${retries + 1} failed:`, (error as Error).message);
+    if (retries >= 4) throw error; // give up -> error becomes the rejection
+    await sleepAsync({ sleep: 50 }); // exponential backoff belongs in onError
+  },
 });
 
 console.log("result:", await resilient());
@@ -44,7 +46,9 @@ function add(a: number, b: number): number {
   return a + b;
 }
 
-const retryAdd = withRetrySync(add, ({ parameters }) => {
-  console.log("retrying add with", parameters);
+const retryAdd = withRetrySync(add, {
+  onError: ({ parameters }) => {
+    console.log("retrying add with", parameters);
+  },
 });
 console.log("withRetrySync(1, 2):", retryAdd(1, 2));

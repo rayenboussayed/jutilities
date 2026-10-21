@@ -34,9 +34,11 @@ const persistConfig = withRetrySync((path: string, content: string) => {
   }
   writeFileSync(path, content, "utf8");
   return writeAttempts;
-}, ({ retries, error }) => {
-  console.log(`    write attempt ${retries + 1} failed:`, (error as Error).message);
-  if (retries >= 4) throw error;
+}, {
+  onError: ({ retries, error }) => {
+    console.log(`    write attempt ${retries + 1} failed:`, (error as Error).message);
+    if (retries >= 4) throw error;
+  },
 });
 
 /**

@@ -352,6 +352,30 @@ describe("withCacheSync", () => {
     });
     assert.strictEqual(wrapped(), wrapped());
   });
+
+  it("skipHof: true resolves to fn itself at wrap time", () => {
+    const fn = (x: number) => x + 1;
+    assert.strictEqual(withCacheSync(fn, { skipHof: true }), fn);
+  });
+
+  it("per-call skipHof predicate skips cache read/write", () => {
+    let count = 0;
+    const store = memoryStore();
+    const wrapped = withCacheSync(
+      (x: number) => {
+        count++;
+        return x * 2;
+      },
+      { cacheStore: store as never, skipHof: (x: number) => x < 0 },
+    );
+    assert.strictEqual(wrapped(2), 4);
+    assert.strictEqual(wrapped(2), 4);
+    assert.strictEqual(count, 1);
+    assert.strictEqual(wrapped(-3), -6);
+    assert.strictEqual(wrapped(-3), -6);
+    assert.strictEqual(count, 3);
+    assert.strictEqual(store.map.size, 1);
+  });
 });
 
 describe("withCacheAsync", () => {
@@ -551,5 +575,29 @@ describe("withCacheAsync", () => {
     assert.strictEqual(count, 2);
     assert.strictEqual(await w1(1), 1);
     assert.strictEqual(count, 2);
+  });
+
+  it("skipHof: true resolves to fn itself at wrap time", async () => {
+    const fn = async (x: number) => x + 1;
+    assert.strictEqual(withCacheAsync(fn, { skipHof: true }), fn);
+  });
+
+  it("per-call skipHof predicate skips cache read/write", async () => {
+    let count = 0;
+    const store = memoryStore();
+    const wrapped = withCacheAsync(
+      async (x: number) => {
+        count++;
+        return x * 2;
+      },
+      { cacheStore: store as never, skipHof: (x: number) => x < 0 },
+    );
+    assert.strictEqual(await wrapped(2), 4);
+    assert.strictEqual(await wrapped(2), 4);
+    assert.strictEqual(count, 1);
+    assert.strictEqual(await wrapped(-3), -6);
+    assert.strictEqual(await wrapped(-3), -6);
+    assert.strictEqual(count, 3);
+    assert.strictEqual(store.map.size, 1);
   });
 });
