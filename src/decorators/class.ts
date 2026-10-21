@@ -1,11 +1,11 @@
 import type { AnyFunction } from "../types/type.js";
 import { isAsyncFunction } from "../is.js";
-import type { HofOptions, HofSlotFn } from "./hof.js";
+import type { HofOptions } from "./hof.js";
 import type {
   FlavorOf,
-  HofAnyFn,
-  HofAsyncFn,
-  HofSyncFn,
+  HofConstraint,
+  HofFlavor,
+  HofFn,
 } from "../libs/create-hof.js";
 import { assertNotRawApplication, assertNotRawMemberApplication } from "../assert.js";
 
@@ -21,8 +21,10 @@ import { assertNotRawApplication, assertNotRawMemberApplication } from "../asser
  * @template HA - The async slot's HOF type.
  */
 export type EnhancerPair<
-  HS extends HofSyncFn<any> | HofAnyFn<any> = HofSyncFn<any> | HofAnyFn<any>,
-  HA extends HofAsyncFn<any> | HofAnyFn<any> = HofAsyncFn<any> | HofAnyFn<any>,
+  HS extends HofFn<any, "sync"> | HofFn<any, "any"> = HofFn<any, "sync"> |
+  HofFn<any, "any">,
+  HA extends HofFn<any, "async"> | HofFn<any, "any"> = HofFn<any, "async"> |
+  HofFn<any, "any">,
 > = {
   /** Enhancer applied to non-`async` members. */
   sync?: HS;
@@ -38,10 +40,10 @@ export type EnhancerPair<
  * @template HA - The async slot's HOF type.
  */
 export type EnhancerOptions<
-  HS extends HofSyncFn<any> | HofAnyFn<any>,
-  HA extends HofAsyncFn<any> | HofAnyFn<any>,
-> = HofOptions<HS, HofSlotFn<FlavorOf<HS>>> &
-  HofOptions<HA, HofSlotFn<FlavorOf<HA>>>;
+  HS extends HofFn<any, "sync"> | HofFn<any, "any">,
+  HA extends HofFn<any, "async"> | HofFn<any, "any">,
+> = HofOptions<HS, HofConstraint<FlavorOf<HS>>> &
+  HofOptions<HA, HofConstraint<FlavorOf<HA>>>;
 
 /**
  * How {@link decorateClass} chooses the enhancer for each own prototype
@@ -105,8 +107,8 @@ export type ClassDecoratorOf =
  * member.
  */
 export function decorateClass<
-  HS extends HofSyncFn<any> | HofAnyFn<any>,
-  HA extends HofAsyncFn<any> | HofAnyFn<any>,
+  HS extends HofFn<any, "sync"> | HofFn<any, "any">,
+  HA extends HofFn<any, "async"> | HofFn<any, "any">,
 >(
   enhancers: EnhancerPair<HS, HA>,
   options?: { pick?: ClassPick },
@@ -124,12 +126,12 @@ export function decorateClass<
  * member.
  */
 export function decorateClass<
-  H extends HofSyncFn<any> | HofAsyncFn<any> | HofAnyFn<any>,
+  H extends HofFn<any, HofFlavor>,
 >(
   enhancers: H,
   options?: { pick?: ClassPick },
 ): (
-  hofOptions?: HofOptions<H, HofSlotFn<FlavorOf<H>>>,
+  hofOptions?: HofOptions<H, HofConstraint<FlavorOf<H>>>,
 ) => ClassDecoratorOf;
 
 export function decorateClass(

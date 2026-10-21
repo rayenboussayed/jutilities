@@ -32,18 +32,6 @@ export type HofOptions<
 > = WithSkipHof<ApplyKind<KindOf<H>, TF>, TF>;
 
 /**
- * The wrapped-function type a HOF of the given flavor resolves its options
- * against: a sync HOF against its sync-gated slot, an async HOF against the
- * promise-returning one, an "any" HOF against the general one.
- * @template F - The HOF flavor.
- */
-export type HofSlotFn<F extends HofFlavor> = F extends "sync"
-  ? AnySyncFunction
-  : F extends "async"
-    ? AnyAsyncFunction
-    : AnyFunction;
-
-/**
  * The member shape a converted HOF may wrap, narrowed by its flavor: a sync
  * HOF refuses a promise-returning member, an async HOF refuses a
  * non-promise-returning one. Both mismatches are compile-time rejections.

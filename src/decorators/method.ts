@@ -1,12 +1,11 @@
 import type { AnyFunction } from "../types/type.js";
 import { isAsyncFunction } from "../is.js";
-import type { DecoratorGuard, GatedMember, HofOptions, HofSlotFn } from "./hof.js";
+import type { DecoratorGuard, GatedMember, HofOptions } from "./hof.js";
 import type {
   FlavorOf,
-  HofAnyFn,
-  HofAsyncFn,
+  HofConstraint,
   HofFlavor,
-  HofSyncFn,
+  HofFn,
 } from "../libs/create-hof.js";
 import { assertGuardConsistency, assertNotRawApplication, assertNotRawMemberApplication } from "../assert.js";
 
@@ -61,12 +60,12 @@ export type MethodDecoratorOf<F extends HofFlavor = "any"> = <
  * once per decorated member.
  */
 export function decorateMethod<
-  H extends HofSyncFn<any> | HofAsyncFn<any> | HofAnyFn<any>,
+  H extends HofFn<any, HofFlavor>,
 >(
   hof: H,
   options?: DecoratorGuard,
 ): (
-  hofOptions?: HofOptions<H, HofSlotFn<FlavorOf<H>>>,
+  hofOptions?: HofOptions<H, HofConstraint<FlavorOf<H>>>,
 ) => MethodDecoratorOf<FlavorOf<H>>;
 
 export function decorateMethod(

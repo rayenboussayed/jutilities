@@ -1085,11 +1085,12 @@ Guidelines:
 
 - `HofOptions<H, TF>` — the option bag of a HOF, resolved from its kind.
 - `GatedMember<F, M>` — the member shape a HOF of flavor `F` may wrap.
-- `HofSlotFn<F>` — the wrapped-function type a flavor resolves its options
-  against.
 - `DecoratorGuard` — the `require: "sync" | "async"` knob.
 - `EnhancerPair<HS, HA>` / `EnhancerOptions<HS, HA>` — the class fan-out's
   pair and its merged option bag.
+
+(From `jutilities/libs/create-hof`: `HofFn<K, F>`, `HofFlavor`,
+`HofConstraint<F>`, `HofSlot<TF, F>`, `KindOf<H>`, `FlavorOf<H>`.)
 
 Removed: the structural `FnFirstHof`, `SyncFirstHof`, `HofFnOf` and
 `HofRestOf` types (the legacy shape-probing contract) — the kind brand
@@ -1104,8 +1105,8 @@ of a wrapped-function shape.
 import {
   createHofSync, createHofAsync,
   type HofKind, type ApplyKind, type WithSkipHof,
-  type HofSyncFn, type HofAsyncFn, type HofAnyFn,
-  type HofFlavor, type KindOf, type FlavorOf,
+  type HofFn, type HofFlavor, type HofConstraint, type HofSlot,
+  type KindOf, type FlavorOf,
 } from "jutilities/libs/create-hof";
 
 interface MyKind<T extends AnyFunction> extends HofKind<T> {
@@ -1163,10 +1164,18 @@ what makes them all share one shape: fn-first parameter, one options object,
   it may wrap. `FlavorOf<H>` reads it back, which is what lets a decorator
   refuse a member whose async-ness contradicts the HOF's slot (in both
   directions) instead of guessing from the signature shape.
-- **Three flavors.** `createHofSync` returns a `HofSyncFn<K>` (non-promise
-  members only), `createHofAsync` an `HofAsyncFn<K>` (promise-returning
-  members only), and `HofAnyFn<K>` is the "any" flavor — a brand-carrying
-  shape for wrappers that handle both (`lazy`) or that compose stacks.
+- **One shape, three flavors.** `HofFn<K, F>` is the single public shape of a
+  built HOF; the flavor `F` decides what it accepts:
+  | Flavor | Accepts | Produced by |
+  | --- | --- | --- |
+  | `"sync"` | non-promise functions only | `createHofSync` |
+  | `"async"` | promise-returning functions only | `createHofAsync` |
+  | `"any"` | either | wrappers that handle both (`lazy`) and composed stacks |
+
+  The flavor drives two helper types: `HofConstraint<F>` (the constraint the
+  wrapped function must satisfy — the async flavor only takes promise
+  returners) and `HofSlot<TF, F>` (the accepted slot — the sync flavor only
+  takes non-promise returners).
 
 ### Quirks
 
@@ -1197,15 +1206,15 @@ what makes them all share one shape: fn-first parameter, one options object,
 
 ```ts
 import { withAsync, withSync, type MergeOptions, type ComposedKind } from "jutilities/libs/with";
-import type { HofAsyncFn, HofSyncFn } from "jutilities/libs/create-hof";
+import type { HofFn } from "jutilities/libs/create-hof";
 
-function withAsync<const Hs extends readonly HofAsyncFn<any>[]>(
+function withAsync<const Hs extends readonly HofFn<any, "async">[]>(
   ...hofs: Hs
-): HofAsyncFn<ComposedKind<Hs>>;
+): HofFn<ComposedKind<Hs>, "async">;
 
-function withSync<const Hs extends readonly HofSyncFn<any>[]>(
+function withSync<const Hs extends readonly HofFn<any, "sync">[]>(
   ...hofs: Hs
-): HofSyncFn<ComposedKind<Hs>>;
+): HofFn<ComposedKind<Hs>, "sync">;
 ```
 
 Composes several fn-first HOFs into one wrapper. The **first** HOF is the
@@ -1233,9 +1242,9 @@ the same stack you would nest by hand, with the ordering rule stated once.
   HOF, so its own options, defaults, and shortcuts (e.g. `delay <= 0`) keep
   working inside the stack.
 - **The composed stack is brand-carrying.** The composer returns a
-  `HofAsyncFn` / `HofSyncFn` whose kind is `ComposedKind<Hs>` — the merged
-  option bag — so a whole stack can be handed to a [decorator](#decorators)
-  exactly like a single HOF.
+  `HofFn<ComposedKind<Hs>, "async" | "sync">` whose kind is `ComposedKind<Hs>`
+  — the merged option bag — so a whole stack can be handed to a
+  [decorator](#decorators) exactly like a single HOF.
 - An **empty stack** returns `fn` unchanged.
 
 ### Use cases

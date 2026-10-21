@@ -63,6 +63,9 @@ export type ApplyKind<K extends HofKind, TF extends AnyFunction> = (K & {
  * Returning `fn` itself signals "no enhancement needed": the factory then
  * skips its dispatch wrapper too, and the public wrapper resolves to `fn`
  * unchanged.
+ *
+ * This is the *handler* side of the factory; the *built* side is
+ * {@link HofFn} — the callable a factory returns.
  * @template K - The HOF's kind.
  * @template TF - The erased function shape the handler sees.
  */
@@ -72,59 +75,67 @@ export type Hof<K extends HofKind, TF extends AnyFunction = AnyFunction> = (
 ) => AnyFunction;
 
 /**
- * Public shape of a HOF built by {@link createHofAsync}: the callable plus a
- * type-only brand so composers (`withAsync`) can recover the kind `K`.
- * @template K - The HOF's kind.
- */
-export interface HofAsyncFn<K extends HofKind> {
-  <TF extends AnyAsyncFunction>(
-    fn: TF,
-    options?: WithSkipHof<ApplyKind<K, TF>, TF>,
-  ): TF;
-  /** Type-only brand (never set at runtime) so composers can recover `K`. */
-  readonly __kind: K;
-  /** Type-only flavor tag: this HOF wraps promise-returning functions. */
-  readonly __flavor: "async";
-}
-
-/**
- * Public shape of a HOF that accepts BOTH sync and async functions — the
- * "any" flavor, used by wrappers whose runtime handles a promise result
- * itself (`lazy`) and by composed stacks.
- *
- * The brand is the same type-only marker the other flavors carry, so a
- * decorator or a composer can recover the kind of an "any" HOF exactly as it
- * would for a sync or async one.
- * @template K - The HOF's kind.
- */
-export interface HofAnyFn<K extends HofKind> {
-  <TF extends AnyFunction>(
-    fn: TF,
-    options?: WithSkipHof<ApplyKind<K, TF>, TF>,
-  ): TF;
-  /** Type-only brand (never set at runtime) so composers can recover `K`. */
-  readonly __kind: K;
-  /** Type-only flavor tag: this HOF wraps sync or async functions. */
-  readonly __flavor: "any";
-}
-
-/**
- * Recovers the kind `K` a HOF was built with, from its type-only
- * `__kind` brand. Composes with any HOF flavor
- * ({@link HofSyncFn} / {@link HofAsyncFn} / {@link HofAnyFn}) — and yields
- * `never` for a function that is not a brand-carrying HOF.
- * @template H - The HOF type to probe.
- */
-export type KindOf<H> = H extends { readonly __kind: infer K extends HofKind }
-  ? K
-  : never;
-
-/**
  * The flavors a HOF can have: `"sync"` (wraps non-promise-returning
  * functions), `"async"` (wraps promise-returning ones) and `"any"` (wraps
  * either).
  */
 export type HofFlavor = "sync" | "async" | "any";
+
+/**
+ * The constraint a HOF of the given flavor puts on the function it wraps: an
+ * async HOF only accepts promise-returning functions, the other flavors
+ * accept any callable.
+ * @template F - The HOF flavor.
+ */
+export type HofConstraint<F extends HofFlavor> = F extends "async"
+  ? AnyAsyncFunction
+  : AnyFunction;
+
+/**
+ * The function slot a HOF of the given flavor accepts: a sync HOF only
+ * accepts non-promise-returning functions, the other flavors accept any
+ * callable.
+ * @template TF - The wrapped-function type.
+ * @template F - The HOF flavor.
+ */
+export type HofSlot<TF extends AnyFunction, F extends HofFlavor> = F extends
+  "sync" ? AnySyncFunction<TF>
+  : TF;
+
+/**
+ * Public shape of a built HOF: the callable plus the type-only brand that
+ * carries its kind and its flavor.
+ *
+ * The flavor decides what the HOF accepts: `"sync"` takes non-promise
+ * functions only, `"async"` takes promise-returning ones, `"any"` takes
+ * either. The brand is never set at runtime — it exists so a composer or a
+ * decorator can recover the kind (and the flavor) from the HOF value.
+ * @template K - The HOF's kind.
+ * @template F - The HOF's flavor.
+ */
+export interface HofFn<K extends HofKind, F extends HofFlavor = "any"> {
+  <TF extends HofConstraint<F>>(
+    fn: HofSlot<TF, F>,
+    options?: WithSkipHof<
+      ApplyKind<K, HofSlot<TF, F>>,
+      HofSlot<TF, F>
+    >,
+  ): HofSlot<TF, F>;
+  /** Type-only brand (never set at runtime) so composers can recover `K`. */
+  readonly __kind: K;
+  /** Type-only flavor tag: which member shapes this HOF may wrap. */
+  readonly __flavor: F;
+}
+
+/**
+ * Recovers the kind `K` a HOF was built with, from its type-only
+ * `__kind` brand. Composes with any HOF flavor — and yields `never` for a
+ * function that is not a brand-carrying HOF.
+ * @template H - The HOF type to probe.
+ */
+export type KindOf<H> = H extends { readonly __kind: infer K extends HofKind }
+  ? K
+  : never;
 
 /**
  * Recovers the flavor of a HOF — `"sync"`, `"async"` or `"any"` — from its
@@ -138,25 +149,6 @@ export type FlavorOf<H> = H extends {
 }
   ? F
   : never;
-
-/**
- * Public shape of a HOF built by {@link createHofSync}: the callable plus a
- * type-only brand so composers (`withSync`) can recover the kind `K`.
- * @template K - The HOF's kind.
- */
-export interface HofSyncFn<K extends HofKind> {
-  <TF extends AnyFunction>(
-    fn: AnySyncFunction<TF>,
-    options?: WithSkipHof<
-      ApplyKind<K, AnySyncFunction<TF>>,
-      AnySyncFunction<TF>
-    >,
-  ): AnySyncFunction<TF>;
-  /** Type-only brand (never set at runtime) so composers can recover `K`. */
-  readonly __kind: K;
-  /** Type-only flavor tag: this HOF wraps non-promise-returning functions. */
-  readonly __flavor: "sync";
-}
 
 /**
  * Builds a sync fn-first HOF from a core handler.
@@ -202,7 +194,7 @@ export function createHofSync<K extends HofKind>(
     } as TF;
   };
 
-  return hof as unknown as HofSyncFn<K>;
+  return hof as unknown as HofFn<K, "sync">;
 }
 
 /**
@@ -246,5 +238,5 @@ export function createHofAsync<K extends HofKind>(
     } as TF;
   };
 
-  return hof as unknown as HofAsyncFn<K>;
+  return hof as unknown as HofFn<K, "async">;
 }

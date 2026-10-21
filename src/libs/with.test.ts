@@ -4,7 +4,7 @@ import { withCacheAsync, withCacheSync } from "../cache.js";
 import {
   createHofAsync,
   createHofSync,
-  type HofAsyncFn,
+  type HofFn,
   type HofKind,
 } from "./create-hof.js";
 import { withAsync, withSync, type MergeOptions } from "./with.js";
@@ -347,7 +347,7 @@ describe("withSync", () => {
 describe("type-level contracts", () => {
   it("merges the options of every layer into one bag", () => {
     const options: MergeOptions<
-      [HofAsyncFn<AlphaKind>, HofAsyncFn<BetaKind>],
+      [HofFn<AlphaKind, "async">, HofFn<BetaKind, "async">],
       (value: number) => number
     > = { alpha: "A", beta: "B" };
 

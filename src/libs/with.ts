@@ -5,9 +5,8 @@ import type {
 } from "../types/type.js";
 import type {
   ApplyKind,
-  HofAsyncFn,
+  HofFn,
   HofKind,
-  HofSyncFn,
   KindOf,
   WithSkipHof,
 } from "./create-hof.js";
@@ -47,9 +46,9 @@ export interface ComposedKind<Hs extends readonly unknown[] = readonly unknown[]
  * @param hofs - The HOFs to stack, outermost first.
  * @returns A fn-first wrapper applying the whole stack.
  */
-export function withAsync<const Hs extends readonly HofAsyncFn<any>[]>(
+export function withAsync<const Hs extends readonly HofFn<any, "async">[]>(
   ...hofs: Hs
-): HofAsyncFn<ComposedKind<Hs>> {
+): HofFn<ComposedKind<Hs>, "async"> {
   const composed = <TF extends AnyAsyncFunction>(
     fn: TF,
     options: WithSkipHof<MergeOptions<Hs, TF>, TF> = {} as never,
@@ -74,7 +73,7 @@ export function withAsync<const Hs extends readonly HofAsyncFn<any>[]>(
     } as TF;
   };
 
-  return composed as unknown as HofAsyncFn<ComposedKind<Hs>>;
+  return composed as unknown as HofFn<ComposedKind<Hs>, "async">;
 }
 
 /**
@@ -84,9 +83,9 @@ export function withAsync<const Hs extends readonly HofAsyncFn<any>[]>(
  * @param hofs - The HOFs to stack, outermost first.
  * @returns A fn-first wrapper applying the whole stack.
  */
-export function withSync<const Hs extends readonly HofSyncFn<any>[]>(
+export function withSync<const Hs extends readonly HofFn<any, "sync">[]>(
   ...hofs: Hs
-): HofSyncFn<ComposedKind<Hs>> {
+): HofFn<ComposedKind<Hs>, "sync"> {
   const composed = <TF extends AnyFunction>(
     fn: AnySyncFunction<TF>,
     options: WithSkipHof<MergeOptions<Hs, TF>, TF> = {} as never,
@@ -112,5 +111,5 @@ export function withSync<const Hs extends readonly HofSyncFn<any>[]>(
     } as TF;
   };
 
-  return composed as unknown as HofSyncFn<ComposedKind<Hs>>;
+  return composed as unknown as HofFn<ComposedKind<Hs>, "sync">;
 }

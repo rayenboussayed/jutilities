@@ -1,7 +1,7 @@
 import { djb2 } from "./hash.js";
 import {
   createHofSync,
-  type HofAnyFn,
+  type HofFn,
   type HofKind,
 } from "./libs/create-hof.js";
 import type { AnyFunction } from "./types/type.js";
@@ -89,4 +89,4 @@ export const lazy = createHofSync<LazyKind>(
   fn: T,
   options?: LazyOptions<T>,
 ) => T) &
-  HofAnyFn<LazyKind>;
+  HofFn<LazyKind, "any">;

@@ -1,10 +1,10 @@
 import { isAsyncFunction } from "../is.js";
-import type { DecoratorGuard, HofOptions, HofSlotFn } from "./hof.js";
+import type { DecoratorGuard, HofOptions } from "./hof.js";
 import type {
   FlavorOf,
-  HofAnyFn,
-  HofAsyncFn,
-  HofSyncFn,
+  HofConstraint,
+  HofFlavor,
+  HofFn,
 } from "../libs/create-hof.js";
 import { assertGuardConsistency, assertNotRawApplication, assertNotRawMemberApplication } from "../assert.js";
 
@@ -54,12 +54,12 @@ export type GetterDecoratorOf = <This, Value>(
  * @returns A decorator factory whose options are forwarded to `hof`.
  */
 export function decorateGetter<
-  H extends HofSyncFn<any> | HofAsyncFn<any> | HofAnyFn<any>,
+  H extends HofFn<any, HofFlavor>,
 >(
   hof: H,
   options?: DecoratorGuard,
 ): (
-  hofOptions?: HofOptions<H, HofSlotFn<FlavorOf<H>>>,
+  hofOptions?: HofOptions<H, HofConstraint<FlavorOf<H>>>,
 ) => GetterDecoratorOf;
 
 export function decorateGetter(
