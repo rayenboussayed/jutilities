@@ -148,7 +148,7 @@ export const withRetryAsync = createHofAsync<RetryKind>(
           retries++;
         }
       }
-    } as RetryKind["fn"];
+    };
   },
 );
 
@@ -200,6 +200,6 @@ export const withRetrySync = createHofSync<RetryKind>(
           retries++;
         }
       }
-    } as RetryKind["fn"];
+    };
   },
 );

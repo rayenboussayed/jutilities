@@ -50,7 +50,7 @@ export const withDelayAsync = createHofAsync<DelayKind>(
     ) {
       await sleepAsync({ sleep: delay, signal });
       return fn.apply(this, args);
-    } as DelayKind["fn"];
+    };
   },
 );
 
@@ -82,6 +82,6 @@ export const withDelaySync = createHofSync<DelayKind>(
     ) {
       sleepSync({ sleep: delay, signal });
       return fn.apply(this, args);
-    } as DelayKind["fn"];
+    };
   },
 );

@@ -105,7 +105,7 @@ export function memberEnhancer(
       name,
       memberName,
     );
-    return hof(member, hofOptions) as AnyFunction;
+    return hof(member, hofOptions);
   };
 }
 

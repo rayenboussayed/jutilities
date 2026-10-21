@@ -1,5 +1,5 @@
 import type { AnyFunction } from "../types/type.js";
-import { isAsyncFunction } from "../is.js";
+import { isAsyncFunction, isFunction } from "../is.js";
 import type { HofOptionsOf } from "./hof.js";
 import type {
   HofFlavor,
@@ -10,6 +10,15 @@ import { assertNotRawApplication, assertNotRawMemberApplication } from "../asser
 /**
  * Class-level enhancer fan-out.
  */
+
+/**
+ * The callable shape an enhancer slot is applied through: a fn-first HOF that
+ * takes the member and the shared option bag.
+ */
+export type EnhancerFn = (
+  fn: AnyFunction,
+  hofOptions?: unknown,
+) => AnyFunction;
 
 /**
  * A HOF ensemble for {@link decorateClass}: one enhancer for every own
@@ -142,10 +151,7 @@ export function decorateClass(
     return <Class_ extends abstract new (...args: any[]) => unknown>(
       cls: Class_,
     ): Class_ => {
-      const proto = cls.prototype as Record<
-        string | symbol,
-        unknown
-      >;
+      const proto: Record<string | symbol, unknown> = cls.prototype;
       for (const key of [
         ...Object.getOwnPropertyNames(proto),
         ...Object.getOwnPropertySymbols(proto),
@@ -154,15 +160,15 @@ export function decorateClass(
         const descriptor = Object.getOwnPropertyDescriptor(proto, key);
         if (!descriptor) continue;
         if ("get" in descriptor || "set" in descriptor) continue;
-        const value = descriptor.value as unknown;
-        if (typeof value !== "function") continue;
+        const value: unknown = descriptor.value;
+        if (!isFunction(value)) continue;
         const hof = resolveEnhancer(
-          enhancers,
+          enhancers as EnhancerPair | EnhancerFn,
           options?.pick ?? "detect",
-          value as (...args: any[]) => unknown,
+          value,
           String(key),
         );
-        descriptor.value = hof(value as AnyFunction, hofOptions);
+        descriptor.value = hof(value, hofOptions);
         Object.defineProperty(proto, key, descriptor);
       }
       return cls;
@@ -182,15 +188,13 @@ export function decorateClass(
  * @returns The HOF to apply.
  */
 export function resolveEnhancer(
-  enhancers: unknown,
+  enhancers: EnhancerPair | EnhancerFn,
   pick: ClassPick,
   fn: (...args: any[]) => unknown,
   name: string,
-): (fn: AnyFunction, hofOptions?: unknown) => AnyFunction {
-  if (typeof enhancers === "function") {
-    return enhancers as (fn: AnyFunction, hofOptions?: unknown) => AnyFunction;
-  }
-  const pair = (enhancers as EnhancerPair) ?? {};
+): EnhancerFn {
+  if (typeof enhancers === "function") return enhancers;
+  const pair = enhancers ?? {};
   const chosen =
     pick === "async"
       ? pair.async
@@ -206,5 +210,5 @@ export function resolveEnhancer(
       } enhancer, but the pair does not provide one`,
     );
   }
-  return chosen as (fn: AnyFunction, hofOptions?: unknown) => AnyFunction;
+  return chosen as EnhancerFn;
 }

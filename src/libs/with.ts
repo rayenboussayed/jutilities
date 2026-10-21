@@ -11,7 +11,7 @@ import type {
   WithSkipHof,
 } from "./create-hof.js";
 
-type AnyHof = (fn: any, options: any) => unknown;
+type AnyHof = (fn: any, options?: any) => any;
 
 /**
  * Intersection of every HOF's options, resolved for the concrete wrapped
@@ -51,23 +51,19 @@ export function withAsync<const Hs extends readonly HofFn<any, "async">[]>(
 ): HofFn<ComposedKind<Hs>, "async"> {
   const composed = <TF extends AnyAsyncFunction>(
     fn: TF,
-    options: WithSkipHof<MergeOptions<Hs, TF>, TF> = {} as never,
+    options?: WithSkipHof<MergeOptions<Hs, TF>, TF>,
   ): TF => {
-    const { skipHof, ...rest } = options as { skipHof?: unknown } & Record<
-      string,
-      unknown
-    >;
+    const { skipHof, ...rest } = (options ?? {}) as {
+      skipHof?: boolean | ((...args: Parameters<TF>) => boolean | Promise<boolean>);
+    } & Record<string, unknown>;
     if (skipHof === true) return fn;
 
-    const layered = hofs.reduceRight<TF>(
-      (acc, hof) => (hof as AnyHof)(acc, rest) as TF,
-      fn,
-    );
+    const layered = hofs.reduceRight<TF>((acc, hof) => hof(acc, rest), fn);
 
     if (layered === fn || typeof skipHof !== "function") return layered;
 
     return async function (this: ThisParameterType<TF>, ...args: Parameters<TF>) {
-      return (await (skipHof as AnyFunction)(...args))
+      return (await skipHof(...args))
         ? fn.apply(this, args)
         : layered.apply(this, args);
     } as TF;
@@ -88,24 +84,23 @@ export function withSync<const Hs extends readonly HofFn<any, "sync">[]>(
 ): HofFn<ComposedKind<Hs>, "sync"> {
   const composed = <TF extends AnyFunction>(
     fn: AnySyncFunction<TF>,
-    options: WithSkipHof<MergeOptions<Hs, TF>, TF> = {} as never,
+    options?: WithSkipHof<MergeOptions<Hs, TF>, TF>,
   ): TF => {
     const raw = fn as TF;
-    const { skipHof, ...rest } = options as { skipHof?: unknown } & Record<
-      string,
-      unknown
-    >;
+    const { skipHof, ...rest } = (options ?? {}) as {
+      skipHof?: boolean | ((...args: Parameters<TF>) => boolean);
+    } & Record<string, unknown>;
     if (skipHof === true) return raw;
 
     const layered = hofs.reduceRight<TF>(
-      (acc, hof) => (hof as AnyHof)(acc, rest) as TF,
+      (acc, hof) => (hof as AnyHof)(acc, rest),
       raw,
     );
 
     if (layered === raw || typeof skipHof !== "function") return layered;
 
     return function (this: ThisParameterType<TF>, ...args: Parameters<TF>) {
-      return (skipHof as AnyFunction)(...args)
+      return skipHof(...args)
         ? raw.apply(this, args)
         : layered.apply(this, args);
     } as TF;

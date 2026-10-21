@@ -226,6 +226,13 @@ describe("isThenable", () => {
     assert.strictEqual(isThenable(0), false);
   });
 
+  it("accepts a callable carrying a then property", () => {
+    // A function is an object for the duck-typing probe: `typeof` reports
+    // "function", so the check must not exclude it.
+    const callable = Object.assign(() => "value", { then: () => {} });
+    assert.strictEqual(isThenable(callable), true);
+  });
+
   it("throws if then getter throws", () => {
     const evil = {
       get then(): unknown {

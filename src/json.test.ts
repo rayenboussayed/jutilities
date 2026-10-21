@@ -8,8 +8,8 @@ import { Json, superjson } from "./json.js";
  *   Date/Buffer/URL produce envelopes.
  * - `parse` applies `handler.parse` to envelope payloads and restores
  *   `undefined` keys afterwards (a reviver returning `undefined` would delete
- *   them), so every handler round-trips — except the TypedArray family, whose
- *   parse reads from the shared Buffer pool (see the dedicated pool test).
+ *   them), so every handler round-trips — including the TypedArray family,
+ *   whose parse copies the decoded bytes into a fresh, exactly sized buffer.
  * - The user reviver is NOT called for envelope keys (only for envelope
  *   children and plain values).
  * @template T - The value type round-tripped by the helper.
@@ -439,6 +439,25 @@ describe("superjson: typed arrays and DataView", () => {
     assert.strictEqual(
       superjson.stringify(new Uint8Array([104, 105])),
       '{"__type":"uint8array","value":"aGk="}',
+    );
+  });
+
+  it("round-trips views decoded from a pooled buffer", () => {
+    // `Buffer.from(string)` allocates from Node's shared pool, so the decoded
+    // buffer usually starts at a non-zero offset: the view must cover the
+    // decoded slice, not the pool at offset 0.
+    Buffer.from("advance the shared pool");
+    Buffer.from("advance it again");
+
+    const bytes = new Uint8Array([1, 2, 3, 4, 5]);
+    const back = superjson.parse(superjson.stringify(bytes)) as Uint8Array;
+    assert.deepStrictEqual([...back], [1, 2, 3, 4, 5]);
+
+    const view = new DataView(new Uint8Array([9, 8, 7]).buffer);
+    const backView = superjson.parse(superjson.stringify(view)) as DataView;
+    assert.deepStrictEqual(
+      [...new Uint8Array(backView.buffer, backView.byteOffset, 3)],
+      [9, 8, 7],
     );
   });
 

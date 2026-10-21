@@ -54,7 +54,7 @@ import { superjson } from "jutilities/json";
 | `jutilities/json` | `Json`, `superjson` | Round-trip Map/Set/Date/bigint/typed arrays/Errors… |
 | `jutilities/node-stream` | `tee`, `stream2buffer`, `buffer2stream`, `streamSizeTransform`, `streamSize` | Bandwidth-aware stream plumbing |
 | `jutilities/hash` | `djb2`, `sdbm`, `fnv1a64` | Fast 32-bit seeds + BigInt (unmasked) hashing |
-| `jutilities/is` | 16 type guards | `isRecord`, `isEmpty`, `isThenable`, … |
+| `jutilities/is` | 17 type guards | `isRecord`, `isEmpty`, `isThenable`, … |
 | `jutilities/assert` | `assert`, `assertNotNil`, `assertNever`, `withAssertSync`/`withAssertAsync` + decorator contract guards | Throw-first counterparts of the checks + per-call result gates (narrow, never return to broken state) |
 | `jutilities/to` | `toArray`, `toBase64` | Normalize wrappers / encode bytes |
 | `jutilities/from` | `fromBase64` | Decode bytes (Node `Buffer` / browser `atob`) |
@@ -239,7 +239,7 @@ keys), and a single `skipHof` covers every layer.
 - `withTimeoutAsync` rejects with `signal.reason` even for wall-clock timeouts.
 - `withLoggerSync`/`withLoggerAsync`/`withCache*` timing switches from `performance.now` (Node) to `Date.now` (browser branch, `window` present).
 - `lazy` caches only truthy results, evicts rejected promises, and keys on `djb2(source + args)` (32-bit, collidable).
-- `superjson.parse` of typed-array payloads rebuilds views on a fresh **shared Buffer pool**; pooled neighbors may be reachable from the bytes of adjacent allocations.
+- `superjson.parse` of typed-array payloads rebuilds views over a fresh, exactly sized buffer (the decoded bytes are copied out of Node's shared pool), so no neighboring allocation's bytes are reachable.
 - `sleepSync` is a busy-wait and can only observe signals that aborted *before* it started.
 - `decorators/<kind>` annotations must be applied as `@f(...options)` / `@f()`: bare `@f` applications are type-rejected, and method/class/getter bare applications additionally throw a `TypeError` at runtime. A bare application on a **field** is runtime-silent (fields hand `undefined`, not the member, to the decorator — only the type layer catches it), which is why the field shape is pinned compile-only.
 - `decorators/<kind>` convert only factory-built HOFs (they carry the `__kind` brand); a hand-written fn-first function is type-rejected, and a member whose async-ness contradicts the HOF's slot is rejected in both directions.

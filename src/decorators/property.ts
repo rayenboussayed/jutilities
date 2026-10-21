@@ -1,4 +1,4 @@
-import type { AnyFunction } from "../types/type.js";
+import { isFunction } from "../is.js";
 import type { DecoratorGuard, HofOptionsOf } from "./hof.js";
 import { memberEnhancer } from "./hof.js";
 import type { HofFlavor, HofFn } from "../libs/create-hof.js";
@@ -68,12 +68,12 @@ export function decorateProperty(
     const enhance = memberEnhancer("decorateProperty", hof, options, args);
     return (_: unknown, context: ClassFieldDecoratorContext) => {
       return (initialValue: unknown) => {
-        if (typeof initialValue !== "function") {
+        if (!isFunction(initialValue)) {
           throw new TypeError(
             `decorateProperty: field "${String(context.name)}" must be a function-value initializer, got ${typeof initialValue}`,
           );
         }
-        return enhance(initialValue as AnyFunction, String(context.name));
+        return enhance(initialValue, String(context.name));
       };
     };
   }) as (hofOptions?: unknown) => FieldDecoratorOf;

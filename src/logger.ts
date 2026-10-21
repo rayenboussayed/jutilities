@@ -143,7 +143,7 @@ export const withLoggerSync = createHofSync<LoggerKind>(
         logError(logger, label, startTime, error);
         throw error;
       }
-    } as LoggerKind["fn"];
+    };
   },
 );
 
@@ -184,6 +184,6 @@ export const withLoggerAsync = createHofAsync<LoggerKind>(
         logError(logger, label, startTime, error);
         throw error;
       }
-    } as LoggerKind["fn"];
+    };
   },
 );

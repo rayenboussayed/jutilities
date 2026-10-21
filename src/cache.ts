@@ -119,7 +119,7 @@ export const withCacheSync = createHofSync<CacheKind>(
 
     return function (
       this: ThisParameterType<CacheKind["fn"]>,
-      ...args: Parameters<CacheKind["fn"]>[]
+      ...args: Parameters<CacheKind["fn"]>
     ) {
       const cacheKey = generateCacheKey({
         parameters: args,
@@ -135,7 +135,7 @@ export const withCacheSync = createHofSync<CacheKind>(
         cacheStore.set(cacheKey, result);
       }
       return result;
-    } as CacheKind["fn"];
+    };
   },
 );
 
@@ -211,6 +211,6 @@ export const withCacheAsync = createHofAsync<CacheKind>(
 
       inFlight.set(cacheKey, promise);
       return promise;
-    } as CacheKind["fn"];
+    };
   },
 );

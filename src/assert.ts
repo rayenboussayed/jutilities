@@ -152,7 +152,7 @@ export const withAssertAsync = createHofAsync<AssertKind>(
       const result = await fn.apply(this, args);
       await onResult({ parameters: args, result });
       return result;
-    } as AssertKind["fn"];
+    };
   },
 );
 
@@ -187,7 +187,7 @@ export const withAssertSync = createHofSync<AssertKind>(
       const result = fn.apply(this, args);
       onResult({ parameters: args, result });
       return result;
-    } as AssertKind["fn"];
+    };
   },
 );
 

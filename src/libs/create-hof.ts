@@ -180,7 +180,7 @@ export function createHofSync<K extends HofKind>(
 
     // Built once per wrap: wrap-time state lives in the handler's closure,
     // never per call.
-    const enhanced = handler(fn, options) as TF;
+    const enhanced = handler(fn, options);
 
     // The handler echoed `fn` back — nothing to enhance, so return it
     // unchanged (also means nothing to bypass per call).
@@ -218,7 +218,7 @@ export function createHofAsync<K extends HofKind>(
 
     // Built once per wrap: wrap-time state lives in the handler's closure,
     // never per call.
-    const enhanced = handler(fn, options) as TF;
+    const enhanced = handler(fn, options);
 
     // The handler echoed `fn` back — nothing to enhance, so return it
     // unchanged (also means nothing to bypass per call).

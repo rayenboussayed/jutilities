@@ -119,7 +119,10 @@ export function isEmpty(value: unknown) {
  * @returns `true` when the value exposes a callable `then` property.
  */
 export function isThenable(v: unknown): v is PromiseLike<any> {
-  return typeof (v as any)?.then === "function";
+  if (v === null) return false;
+  if (typeof v !== "object" && typeof v !== "function") return false;
+  if (!("then" in v)) return false;
+  return typeof v.then === "function";
 }
 
 /**
@@ -129,12 +132,25 @@ export function isThenable(v: unknown): v is PromiseLike<any> {
  * @returns `true` when the value can be treated as a real promise.
  */
 export function isPromise(v: unknown): v is Promise<any> {
-  return (
-    v instanceof Promise ||
-    (isThenable(v) &&
-      typeof (v as any)?.catch === "function" &&
-      typeof (v as any)?.finally === "function")
-  );
+  if (v instanceof Promise) return true;
+  if (!isThenable(v)) return false;
+  if (typeof v !== "object" && typeof v !== "function") return false;
+  if (!("catch" in v) || typeof v.catch !== "function") return false;
+  if (!("finally" in v) || typeof v.finally !== "function") return false;
+  return true;
+}
+
+/**
+ * Callable check: true when the value is a function.
+ *
+ * The narrowing is to {@link AnyFunction} — a callable signature — so the
+ * checked value can be called directly; `typeof value === "function"` alone
+ * only narrows to `Function`, which carries no call signature.
+ * @param value - The value to test.
+ * @returns `true` when the value is callable.
+ */
+export function isFunction(value: unknown): value is AnyFunction {
+  return typeof value === "function";
 }
 
 /**

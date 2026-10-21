@@ -34,7 +34,7 @@ Every statement below is pinned by an executable test in `src/**/*.test.ts` — 
 10. [json](#json) — `Json`, `superjson`
 11. [node-stream](#node-stream) — `tee`, `stream2buffer`, `buffer2stream`, `streamSizeTransform`, `streamSize`
 12. [hash](#hash) — `djb2`, `sdbm`, `fnv1a64`
-13. [is](#is) — 16 type guards
+13. [is](#is) — 17 type guards
 14. [assert](#assert) — `assert`, `assertNotNil`, `assertNever`, `withAssertSync`/`withAssertAsync` + decorator contract guards
 15. [to](#to) / [from](#from) — `toArray`, `toBase64`, `fromBase64`
 16. [types](#types) — shared type utilities
@@ -543,10 +543,9 @@ order is kept, but a later `stringify` sees the replaced handler).
 
 ### Quirks
 
-- **Shared Buffer pool**: parsed typed-array / `DataView` / `ArrayBuffer` views
-  may cover a buffer slice of Node's shared pool; the surrounding bytes
-  (neighbors from other allocations) can be reachable — treat parsed views as
-  opaque and pass only their payload forward.
+- **Fresh parse buffers**: parsed typed-array / `DataView` / `ArrayBuffer` views
+  cover a fresh, exactly sized buffer — the decoded bytes are copied out of
+  Node's shared pool, so no neighboring allocation's bytes are reachable.
 - `SharedArrayBuffer` is deliberately *not* handled.
 - **`__type` collision risk**: a payload object that coincidentally has
   `{ __type: "map", value: ... }` at the same position parse into an envelope —
@@ -692,7 +691,7 @@ const key = `user:${djb2(JSON.stringify(payload))}`;
 ```ts
 import {
   isUndefined, isNull, isNil, isEmptyString, isEmptyArray,
-  isObject, isRecord, isEmptyRecord, isEmpty,
+  isObject, isFunction, isRecord, isEmptyRecord, isEmpty,
   isThenable, isPromise,
   isAsyncFunction, isGeneratorFunction, isAsyncGeneratorFunction,
   isDecorationContext, isRawMemberApplication,
@@ -709,6 +708,7 @@ import {
 | `isEmptyString` | `""` (string *primitive*) | boxed `new String("")` |
 | `isEmptyArray` | real empty arrays | array-likes, non-arrays, `null` |
 | `isObject` | any non-null object (including arrays & class instances) | functions (typeof `"function"`), primitives |
+| `isFunction` | any callable | narrows to a *callable* signature, so the value can be called directly (`typeof` alone only narrows to `Function`) |
 | `isRecord` | non-array objects | arrays (explicitly excluded), functions |
 | `isEmptyRecord` | records with zero `Object.keys` | objects with only *symbol* keys count as empty |
 | `isEmpty` | nil ∪ `""` ∪ `[]` ∪ keyless records | `0`, `false`, `NaN` are **not** empty; keyless objects like `new Date()` **are** |

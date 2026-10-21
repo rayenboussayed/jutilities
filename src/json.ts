@@ -15,8 +15,8 @@
  *   children and plain values).
  * - Keys whose parsed value came out as `undefined` are restored after parse,
  *   since the reviver mechanism would otherwise delete them.
- * - TypedArray handler `parse` builds its view over a fresh Buffer from the
- *   shared Node pool — see the pool-dependency note in tests/docs.
+ * - TypedArray handler `parse` builds its view over a fresh, exactly sized
+ *   buffer (the decoded bytes are copied out of Node's shared pool).
  */
 import { fromBase64 } from "./from.js";
 import { isRecord } from "./is.js";
@@ -182,6 +182,7 @@ export class Json {
  */
 export type TypedArrayCtor<T> = {
   new (buffer: ArrayBuffer, byteOffset: number, length: number): T;
+  prototype: T;
   BYTES_PER_ELEMENT: number;
 };
 
@@ -200,13 +201,16 @@ export type TypedArrayCtor<T> = {
 export const typedArray = <T extends ArrayBufferView>(
   Ctor: TypedArrayCtor<T>,
 ): JsonHandler<T, string> => ({
-  isApplicable: (_, v): v is T => v instanceof (Ctor as any),
+  isApplicable: (_, v): v is T =>
+    Object.prototype.isPrototypeOf.call(Ctor.prototype, v),
   stringify: (_, v) =>
     toBase64(new Uint8Array(v.buffer, v.byteOffset, v.byteLength)),
   parse: (_, v) => {
-    const bytes = fromBase64(v); // fresh buffer, so alignment is guaranteed
+    // A fresh, exactly sized copy: the decoded buffer may be a slice of
+    // Node's shared pool, so its byteOffset is not necessarily 0.
+    const bytes = new Uint8Array(fromBase64(v));
     return new Ctor(
-      bytes.buffer as ArrayBuffer,
+      bytes.buffer,
       0,
       bytes.byteLength / Ctor.BYTES_PER_ELEMENT,
     );
@@ -227,8 +231,8 @@ export const typedArray = <T extends ArrayBufferView>(
  * as plain `Error`), `RegExp`, `URL`, `URLSearchParams`, `Headers`.
  *
  * Caveats (locked by tests):
- * - `ArrayBuffer`/`DataView`/typed-array `parse` views may share the Node
- *   Buffer pool; `DataView`/`ArrayBuffer` parse even expose pooled neighbors.
+ * - `ArrayBuffer`/`DataView`/typed-array `parse` views cover a fresh, exactly
+ *   sized buffer — the decoded bytes are copied out of Node's shared pool.
  * - `SharedArrayBuffer` is deliberately NOT handled.
  * - The `Error` handler matches via `Error.isError` (needs Node 24).
  */
@@ -313,12 +317,12 @@ export const superjson = new Json()
     isApplicable: (_, v): v is DataView => v instanceof DataView,
     stringify: (_, v) =>
       toBase64(new Uint8Array(v.buffer, v.byteOffset, v.byteLength)),
-    parse: (_, v) => new DataView(fromBase64(v).buffer as ArrayBuffer),
+    parse: (_, v) => new DataView(new Uint8Array(fromBase64(v)).buffer),
   })
   .addHandler("arraybuffer", {
     isApplicable: (_, v): v is ArrayBuffer => v instanceof ArrayBuffer,
     stringify: (_, v) => toBase64(new Uint8Array(v)),
-    parse: (_, v) => fromBase64(v).buffer as ArrayBuffer,
+    parse: (_, v) => new Uint8Array(fromBase64(v)).buffer,
   })
   .addHandler("error", {
     isApplicable: (_, v): v is Error => Error.isError(v),
@@ -327,7 +331,7 @@ export const superjson = new Json()
       name: v.name,
       message: v.message,
       stack: v.stack,
-      cause: (v as any).cause,
+      cause: v.cause,
     }),
     parse: (_, v) => {
         const { name, message, stack, cause, ...rest } = v;

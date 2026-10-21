@@ -83,7 +83,7 @@ export const lazy = createHofSync<LazyKind>(
         });
       }
       return result;
-    } as LazyKind["fn"];
+    };
   },
 ) as unknown as (<T extends AnyFunction>(
   fn: T,

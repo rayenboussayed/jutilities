@@ -69,6 +69,6 @@ export const withTimeoutAsync = createHofAsync<TimeoutKind>(
           cleanup.forEach((fn) => fn());
         },
       );
-    } as TimeoutKind["fn"];
+    };
   },
 );
