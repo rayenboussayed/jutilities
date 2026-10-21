@@ -1,6 +1,12 @@
 import type { AnyFunction } from "../types/type.js";
 import { isAsyncFunction } from "../is.js";
-import type { DecoratorGuard, SyncFirstHof } from "./hof.js";
+import type { DecoratorGuard, HofOptions, HofSlotFn } from "./hof.js";
+import type {
+  FlavorOf,
+  HofAnyFn,
+  HofAsyncFn,
+  HofSyncFn,
+} from "../libs/create-hof.js";
 import { assertGuardConsistency, assertNotRawApplication, assertNotRawMemberApplication } from "../assert.js";
 
 /**
@@ -27,8 +33,8 @@ export type FieldDecoratorOf = (
  *
  * The field's initial value runs through the HOF once per instance, at field
  * initialization time — so each instance gets a freshly enhanced function and
- * arrow-function fields keep their lexical `this`. The HOF's option slots are
- * declared once at decorate time and forwarded verbatim.
+ * arrow-function fields keep their lexical `this`. The HOF's option bag (one
+ * object, resolved from the HOF's kind) is forwarded verbatim.
  *
  * A field whose initializer value is not a function (or is left uninitialized)
  * throws a `TypeError` naming the field at construction time.
@@ -42,42 +48,30 @@ export type FieldDecoratorOf = (
  *   run = async () => await drain();
  * }
  * ```
- * @template F - The wrapped-function shape, inferred from `hof`.
- * @template R - The option slots, inferred from `hof`.
+ * @template H - The converted HOF type, recovered from its `__kind` and
+ * `__flavor` brands.
  * @param hof - The fn-first HOF to convert.
  * @param options - Optional {@link DecoratorGuard} for decorate-time
  * sync/async discipline.
- * @returns A decorator factory forwarding its rest arguments to `hof`.
+ * @returns A decorator factory whose options are forwarded to `hof`.
  */
-export function decorateProperty<F extends AnyFunction, R extends any[] = []>(
-  hof: (fn: F, ...rest: R) => F,
+export function decorateProperty<
+  H extends HofSyncFn<any> | HofAsyncFn<any> | HofAnyFn<any>,
+>(
+  hof: H,
   options?: DecoratorGuard,
-): (...rest: R) => FieldDecoratorOf;
-
-/**
- * Sync-slot variant of {@link decorateProperty} for HOFs typed
- * {@link ../decorators/hof.ts | SyncFirstHof} — e.g.
- * {@link ../cache.ts | withCacheSync}. See the primary signature for full
- * details.
- * @template F - The wrapped-function shape, inferred from `hof`.
- * @template R - The option slots, inferred from `hof`.
- * @param hof - The fn-first (sync-gated) HOF to convert.
- * @param options - Optional {@link DecoratorGuard} for decorate-time
- * sync/async discipline.
- * @returns A decorator factory forwarding its rest arguments to `hof`.
- */
-export function decorateProperty<F extends AnyFunction, R extends any[] = []>(
-  hof: SyncFirstHof<F, R>,
-  options?: DecoratorGuard,
-): (...rest: R) => FieldDecoratorOf;
+): (
+  hofOptions?: HofOptions<H, HofSlotFn<FlavorOf<H>>>,
+) => FieldDecoratorOf;
 
 export function decorateProperty(
-  hof: (fn: AnyFunction, ...rest: any[]) => AnyFunction,
+  hof: (fn: any, hofOptions?: any) => any,
   options?: DecoratorGuard,
-): (...rest: any[]) => FieldDecoratorOf {
-  return (...rest: any[]) => {
+): any {
+  return ((...args: unknown[]) => {
     assertNotRawApplication(options, "decorateProperty");
-    assertNotRawMemberApplication(rest, "decorateProperty");
+    assertNotRawMemberApplication(args, "decorateProperty");
+    const hofOptions = args[0];
     return (_, context: ClassFieldDecoratorContext) => {
       return (initialValue: unknown) => {
         if (typeof initialValue !== "function") {
@@ -91,11 +85,10 @@ export function decorateProperty(
           "decorateProperty",
           String(context.name),
         );
-        return (hof as (...args: any[]) => unknown)(
-          initialValue,
-          ...rest,
-        ) as unknown;
+        return (
+          hof as (...args: unknown[]) => unknown
+        )(initialValue, hofOptions) as unknown;
       };
     };
-  };
+  }) as (hofOptions?: unknown) => FieldDecoratorOf;
 }

@@ -1,65 +1,59 @@
-import type { AnyFunction, AnySyncFunction } from "../types/type.js";
+import type {
+  AnyAsyncFunction,
+  AnyFunction,
+  AnySyncFunction,
+} from "../types/type.js";
+import type {
+  ApplyKind,
+  HofFlavor,
+  KindOf,
+  WithSkipHof,
+} from "../libs/create-hof.js";
 
 /**
  * Decorator conversion contract.
  */
 
 /**
- * The canonical decorator-convertible HOF shape: its FIRST parameter is the
- * function being enhanced, every remaining parameter is one decorator call's
- * rest options, and the wrapped function (same shape as the input) is
- * returned. Every fn-first wrapper in this package conforms
- * (`withCacheSync`, `withCacheAsync`, `withRetrySync`, `withRetryAsync`,
- * `withDelaySync`, `withDelayAsync`, `withTimeoutAsync`, `withAssertSync`,
- * `withAssertAsync`, `lazy`, `withLoggerSync`, `withLoggerAsync`).
+ * The options bag a converted HOF receives, resolved from the HOF's kind for
+ * a concrete wrapped-function type.
  *
- * A Stage 3 decorator factory is produced by
- * {@link ./method.ts | decorateMethod},
- * {@link ./property.ts | decorateProperty},
- * {@link ./getter.ts | decorateGetter} and
- * {@link ./class.ts | decorateClass}; each simply forwards
- * `(member, ...options)` to the HOF.
- * @template F - The wrapped-function shape (usually inferred from a concrete
- * HOF).
- * @template R - The option slots spread verbatim as decorator options.
+ * Every fn-first HOF built by
+ * {@link ../libs/create-hof.ts | createHofSync} / `createHofAsync` carries its
+ * kind as a type-only `__kind` brand, so a converter recovers the option type
+ * from that brand instead of probing the HOF's signature shape. The recovered
+ * bag includes the shared `skipHof` bypass slot.
+ * @template H - The converted HOF type.
+ * @template TF - The wrapped-function type the options are resolved for.
  */
-export type FnFirstHof<F extends AnyFunction = AnyFunction, R extends any[] = []> = (
-  fn: F,
-  ...rest: R
-) => F;
+export type HofOptions<
+  H,
+  TF extends AnyFunction = AnyFunction,
+> = WithSkipHof<ApplyKind<KindOf<H>, TF>, TF>;
 
 /**
- * Sync-gated variant of {@link FnFirstHof} for HOFs whose first parameter is
- * typed `AnySyncFunction` (the sync flavors — `withCacheSync`, `withDelaySync`,
- * and `withRetrySync` — forward through here instead).
- * @template F - The wrapped-function shape (usually inferred from a concrete
- * HOF).
- * @template R - The option slots spread verbatim as decorator options.
+ * The wrapped-function type a HOF of the given flavor resolves its options
+ * against: a sync HOF against its sync-gated slot, an async HOF against the
+ * promise-returning one, an "any" HOF against the general one.
+ * @template F - The HOF flavor.
  */
-export type SyncFirstHof<F extends AnyFunction = AnyFunction, R extends any[] = []> = (
-  fn: AnySyncFunction<F>,
-  ...rest: R
-) => F;
+export type HofSlotFn<F extends HofFlavor> = F extends "sync"
+  ? AnySyncFunction
+  : F extends "async"
+    ? AnyAsyncFunction
+    : AnyFunction;
 
 /**
- * Extracts the wrapped-function shape from a concrete fn-first HOF. Falls
- * back to `never` when the signature has no fn-first first parameter.
- * @template H - The HOF signature to probe.
+ * The member shape a converted HOF may wrap, narrowed by its flavor: a sync
+ * HOF refuses a promise-returning member, an async HOF refuses a
+ * non-promise-returning one. Both mismatches are compile-time rejections.
+ * @template F - The HOF flavor.
+ * @template M - The member type.
  */
-export type HofFnOf<H> =
-  H extends (fn: infer F, ...rest: unknown[]) => unknown
-    ? F extends AnyFunction
-      ? F
-      : never
-    : never;
-
-/**
- * Extracts the option slots of a HOF — everything after its first (the
- * wrapped-function) parameter — as a tuple for decorator spread typing.
- * @template H - The HOF signature to probe.
- */
-export type HofRestOf<H> =
-  H extends (fn: never, ...rest: infer R) => unknown ? R : never;
+export type GatedMember<F extends HofFlavor, M extends AnyFunction> =
+  F extends "sync" ? M & AnySyncFunction<M>
+  : F extends "async" ? M & AnyAsyncFunction
+  : M;
 
 /**
  * Optional sync/async discipline knob accepted by `decorateMethod`,

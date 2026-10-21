@@ -2,9 +2,9 @@
 
 /**
  * Runnable demo for `decorateMethod` (`jutilities/decorators/method`): any
- * fn-first HOF in this package converts into a reusable method decorator.
- * Stage 3 decorators cannot be parsed by plain Node, so this file is TypeScript
- * and is executed through tsx alongside the flat demos by
+ * fn-first HOF built by this package converts into a reusable method
+ * decorator. Stage 3 decorators cannot be parsed by plain Node, so this file
+ * is TypeScript and is executed through tsx alongside the flat demos by
  * `examples/run-all.ts`.
  *
  * Grammar demonstrated here: hoist each factory once, decorate prototype
@@ -13,10 +13,11 @@
  * pinned in `src/decorators/method.test.ts`, not here.
  */
 import assert from "node:assert/strict";
-import { withCacheSync } from "jutilities/cache";
+import { withCacheAsync, withCacheSync } from "jutilities/cache";
 import { withDelayAsync } from "jutilities/delay";
 import { withLoggerSync } from "jutilities/logger";
 import { withRetryAsync } from "jutilities/retry";
+import { withAsync } from "jutilities/libs/with";
 import { decorateMethod } from "jutilities/decorators/method";
 
 // Hoist the factory so each decoration applies it exactly once.
@@ -64,3 +65,27 @@ console.log("memoized:", store.slug("Ada"), ",", store.slug("Ada"), "(same argum
 
 assert.strictEqual(fetches, 2);
 assert.strictEqual(slugComputations, 1);
+
+// ---- a composed stack converts like a single HOF -----------------------------
+// The composer carries the same kind brand, so the converter can type the
+// shared option bag — here the cache layer reads `extraKeys`, the retry layer
+// uses its default policy.
+const resilient = decorateMethod(withAsync(withCacheAsync, withRetryAsync));
+
+let stackFetches = 0;
+
+class Gateway {
+  @resilient({ extraKeys: ["gateway"] })
+  async fetchUser(id: string): Promise<string> {
+    stackFetches++;
+    if (stackFetches === 1) throw new Error("flaky upstream");
+    return `user:${id}`;
+  }
+}
+
+const gateway = new Gateway();
+
+console.log("stack   :", await gateway.fetchUser("u1"), `(${stackFetches} real attempts)`);
+console.log("stack   :", await gateway.fetchUser("u1"), "(cache hit, no new attempt)");
+
+assert.strictEqual(stackFetches, 2);

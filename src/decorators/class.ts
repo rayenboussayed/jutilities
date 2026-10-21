@@ -1,6 +1,12 @@
 import type { AnyFunction } from "../types/type.js";
 import { isAsyncFunction } from "../is.js";
-import type { HofRestOf } from "./hof.js";
+import type { HofOptions, HofSlotFn } from "./hof.js";
+import type {
+  FlavorOf,
+  HofAnyFn,
+  HofAsyncFn,
+  HofSyncFn,
+} from "../libs/create-hof.js";
 import { assertNotRawApplication, assertNotRawMemberApplication } from "../assert.js";
 
 /**
@@ -11,14 +17,31 @@ import { assertNotRawApplication, assertNotRawMemberApplication } from "../asser
  * A HOF ensemble for {@link decorateClass}: one enhancer for every own
  * prototype method, or a sync/async pair resolved per method via
  * `pick` (default `"detect"` through {@link ../is.ts | isAsyncFunction}).
- * @template H - The enhancer (fn-first HOF) type.
+ * @template HS - The sync slot's HOF type.
+ * @template HA - The async slot's HOF type.
  */
-export type EnhancerPair<H> = {
+export type EnhancerPair<
+  HS extends HofSyncFn<any> | HofAnyFn<any> = HofSyncFn<any> | HofAnyFn<any>,
+  HA extends HofAsyncFn<any> | HofAnyFn<any> = HofAsyncFn<any> | HofAnyFn<any>,
+> = {
   /** Enhancer applied to non-`async` members. */
-  sync?: H;
+  sync?: HS;
   /** Enhancer applied to declared-`async` members. */
-  async?: H;
+  async?: HA;
 };
+
+/**
+ * The option bag a {@link decorateClass} pair receives: the intersection of
+ * both slots' option bags (each slot reads its own keys, the shared bag
+ * carries their union).
+ * @template HS - The sync slot's HOF type.
+ * @template HA - The async slot's HOF type.
+ */
+export type EnhancerOptions<
+  HS extends HofSyncFn<any> | HofAnyFn<any>,
+  HA extends HofAsyncFn<any> | HofAnyFn<any>,
+> = HofOptions<HS, HofSlotFn<FlavorOf<HS>>> &
+  HofOptions<HA, HofSlotFn<FlavorOf<HA>>>;
 
 /**
  * How {@link decorateClass} chooses the enhancer for each own prototype
@@ -45,8 +68,8 @@ export type ClassDecoratorOf =
  * property enumeration, but each can still be decorated individually with the
  * method/property factories).
  *
- * The HOF's option slots are declared ONCE at decorate time and forwarded
- * verbatim to every wrapped method.
+ * The HOF's option bag (one object, resolved from the HOF's kind) is declared
+ * ONCE at decorate time and forwarded verbatim to every wrapped method.
  *
  * Enhancers resolve per method:
  * - single HOF: applied to every member (any `pick` value is informative
@@ -72,26 +95,51 @@ export type ClassDecoratorOf =
  *   async load(id: string) { return await db.user(id); }
  * }
  * ```
- * @template H - The enhancer signature (fn-first HOF).
- * @param enhancers - A single HOF, or a `{ sync?, async? }` pair.
+ * @template HS - The sync slot's HOF type.
+ * @template HA - The async slot's HOF type.
+ * @param enhancers - A `{ sync?, async? }` pair of HOFs.
  * @param options - Slot resolution options.
  * @param options.pick - Slot resolution mode: `"sync"`, `"async"`, or
  * `"detect"` (default).
- * @returns A decorator factory forwarding its rest arguments (the HOF's
- * option slots) to every wrapped member.
+ * @returns A decorator factory whose options are forwarded to every wrapped
+ * member.
  */
-export function decorateClass<H extends (...args: any[]) => AnyFunction>(
-  enhancers: H | EnhancerPair<H>,
+export function decorateClass<
+  HS extends HofSyncFn<any> | HofAnyFn<any>,
+  HA extends HofAsyncFn<any> | HofAnyFn<any>,
+>(
+  enhancers: EnhancerPair<HS, HA>,
   options?: { pick?: ClassPick },
-): (...rest: HofRestOf<H>) => ClassDecoratorOf;
+): (hofOptions?: EnhancerOptions<HS, HA>) => ClassDecoratorOf;
+
+/**
+ * Single-HOF variant of {@link decorateClass}: the one HOF is applied to
+ * every own prototype method. See the primary signature for full details.
+ * @template H - The HOF type, recovered from its `__kind` and `__flavor`
+ * brands.
+ * @param enhancers - The HOF to apply to every member.
+ * @param options - Slot resolution options.
+ * @param options.pick - Slot resolution mode (informative for a single HOF).
+ * @returns A decorator factory whose options are forwarded to every wrapped
+ * member.
+ */
+export function decorateClass<
+  H extends HofSyncFn<any> | HofAsyncFn<any> | HofAnyFn<any>,
+>(
+  enhancers: H,
+  options?: { pick?: ClassPick },
+): (
+  hofOptions?: HofOptions<H, HofSlotFn<FlavorOf<H>>>,
+) => ClassDecoratorOf;
 
 export function decorateClass(
   enhancers: unknown,
   options?: { pick?: ClassPick },
-): (...rest: any[]) => ClassDecoratorOf {
+): any {
   assertNotRawApplication(options, "decorateClass");
-  return (...rest: any[]) => {
-    assertNotRawMemberApplication(rest, "decorateClass");
+  return ((...args: unknown[]) => {
+    assertNotRawMemberApplication(args, "decorateClass");
+    const hofOptions = args[0];
     return <Class_ extends abstract new (...args: any[]) => unknown>(
       cls: Class_,
     ): Class_ => {
@@ -115,12 +163,12 @@ export function decorateClass(
           value as (...args: any[]) => unknown,
           String(key),
         );
-        descriptor.value = hof(value as AnyFunction, ...rest);
+        descriptor.value = hof(value as AnyFunction, hofOptions);
         Object.defineProperty(proto, key, descriptor);
       }
       return cls;
     };
-  };
+  }) as (hofOptions?: unknown) => ClassDecoratorOf;
 }
 
 /**
@@ -139,11 +187,11 @@ export function resolveEnhancer(
   pick: ClassPick,
   fn: (...args: any[]) => unknown,
   name: string,
-): (fn: AnyFunction, ...rest: any[]) => AnyFunction {
+): (fn: AnyFunction, hofOptions?: unknown) => AnyFunction {
   if (typeof enhancers === "function") {
-    return enhancers as (fn: AnyFunction, ...rest: any[]) => AnyFunction;
+    return enhancers as (fn: AnyFunction, hofOptions?: unknown) => AnyFunction;
   }
-  const pair = (enhancers as EnhancerPair<unknown>) ?? {};
+  const pair = (enhancers as EnhancerPair) ?? {};
   const chosen =
     pick === "async"
       ? pair.async
@@ -159,5 +207,5 @@ export function resolveEnhancer(
       } enhancer, but the pair does not provide one`,
     );
   }
-  return chosen as (fn: AnyFunction, ...rest: any[]) => AnyFunction;
+  return chosen as (fn: AnyFunction, hofOptions?: unknown) => AnyFunction;
 }

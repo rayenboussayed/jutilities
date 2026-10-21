@@ -197,6 +197,13 @@ construction), `decorateGetter` wraps a getter **once, prototype-wide** (a
 cached getter is shared across every instance), and `require: "sync" | "async"`
 guards turn declared-async mismatches into decorate-time `TypeError`s.
 
+Only HOFs built by `createHofSync` / `createHofAsync` (or composed by
+`withAsync` / `withSync`) are convertible — they carry the kind brand the
+converter types the option bag from. A hand-written fn-first function is
+rejected at compile time, and a member whose async-ness contradicts the
+HOF's slot is rejected in both directions (a sync HOF refuses an `async`
+member, an async HOF refuses a sync one).
+
 ### Compose several HOFs
 
 ```ts
@@ -234,6 +241,7 @@ keys), and a single `skipHof` covers every layer.
 - `superjson.parse` of typed-array payloads rebuilds views on a fresh **shared Buffer pool**; pooled neighbors may be reachable from the bytes of adjacent allocations.
 - `sleepSync` is a busy-wait and can only observe signals that aborted *before* it started.
 - `decorators/<kind>` annotations must be applied as `@f(...options)` / `@f()`: bare `@f` applications are type-rejected, and method/class/getter bare applications additionally throw a `TypeError` at runtime. A bare application on a **field** is runtime-silent (fields hand `undefined`, not the member, to the decorator — only the type layer catches it), which is why the field shape is pinned compile-only.
+- `decorators/<kind>` convert only factory-built HOFs (they carry the `__kind` brand); a hand-written fn-first function is type-rejected, and a member whose async-ness contradicts the HOF's slot is rejected in both directions.
 - Decorator async detection (`class` pair `pick: "detect"`, and the `require` guards) uses `fn.constructor.name === "AsyncFunction"`. It holds under tsx/esbuild and native Node, but transpilers that *lower* `async` functions into plain functions returning promises defeat it — declare `pick`/`require` explicitly in such toolchains.
 - `withCacheSync` forced onto a declared-`async` member (class `pick: "sync"`) does not memoize: promises count as "empty" under `isEmpty`, so every call recomputes — keep async members on the async slot (`pick: "detect"` does this automatically).
 

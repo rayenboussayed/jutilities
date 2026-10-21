@@ -1,6 +1,11 @@
-import type { AnyFunction } from "../types/type.js";
 import { isAsyncFunction } from "../is.js";
-import type { DecoratorGuard, SyncFirstHof } from "./hof.js";
+import type { DecoratorGuard, HofOptions, HofSlotFn } from "./hof.js";
+import type {
+  FlavorOf,
+  HofAnyFn,
+  HofAsyncFn,
+  HofSyncFn,
+} from "../libs/create-hof.js";
 import { assertGuardConsistency, assertNotRawApplication, assertNotRawMemberApplication } from "../assert.js";
 
 /**
@@ -25,8 +30,12 @@ export type GetterDecoratorOf = <This, Value>(
  * Converts a fn-first HOF into a reusable Stage 3 getter decorator factory.
  * The getter's access function runs through the HOF once at class-definition
  * time; every subsequent access calls the wrapped getter with the instance as
- * `this`. The HOF's option slots are declared once at decorate time and
+ * `this`. The HOF's option bag (one object, resolved from the HOF's kind) is
  * forwarded verbatim.
+ *
+ * A getter is always sync, so the HOF's flavor does not narrow the decorated
+ * member — an async HOF is accepted and fails at decorate time when the
+ * `require: "async"` guard is set.
  * @example
  * ```ts
  * // Hoist the factory so each decoration applies it exactly once.
@@ -37,42 +46,30 @@ export type GetterDecoratorOf = <This, Value>(
  *   get report() { return computeHeavyReport(this); }
  * }
  * ```
- * @template F - The wrapped-function shape, inferred from `hof`.
- * @template R - The option slots, inferred from `hof`.
+ * @template H - The converted HOF type, recovered from its `__kind` and
+ * `__flavor` brands.
  * @param hof - The fn-first HOF to convert.
  * @param options - Optional {@link DecoratorGuard} for decorate-time
  * sync/async discipline.
- * @returns A decorator factory forwarding its rest arguments to `hof`.
+ * @returns A decorator factory whose options are forwarded to `hof`.
  */
-export function decorateGetter<F extends AnyFunction, R extends any[] = []>(
-  hof: (fn: F, ...rest: R) => F,
+export function decorateGetter<
+  H extends HofSyncFn<any> | HofAsyncFn<any> | HofAnyFn<any>,
+>(
+  hof: H,
   options?: DecoratorGuard,
-): (...rest: R) => GetterDecoratorOf;
-
-/**
- * Sync-slot variant of {@link decorateGetter} for HOFs typed
- * {@link ../decorators/hof.ts | SyncFirstHof} — e.g.
- * {@link ../cache.ts | withCacheSync}. See the primary signature for full
- * details.
- * @template F - The wrapped-function shape, inferred from `hof`.
- * @template R - The option slots, inferred from `hof`.
- * @param hof - The fn-first (sync-gated) HOF to convert.
- * @param options - Optional {@link DecoratorGuard} for decorate-time
- * sync/async discipline.
- * @returns A decorator factory forwarding its rest arguments to `hof`.
- */
-export function decorateGetter<F extends AnyFunction, R extends any[] = []>(
-  hof: SyncFirstHof<F, R>,
-  options?: DecoratorGuard,
-): (...rest: R) => GetterDecoratorOf;
+): (
+  hofOptions?: HofOptions<H, HofSlotFn<FlavorOf<H>>>,
+) => GetterDecoratorOf;
 
 export function decorateGetter(
-  hof: (fn: AnyFunction, ...rest: any[]) => AnyFunction,
+  hof: (fn: any, hofOptions?: any) => any,
   options?: DecoratorGuard,
-): (...rest: any[]) => GetterDecoratorOf {
-  return ((...rest: any[]) => {
+): any {
+  return ((...args: unknown[]) => {
     assertNotRawApplication(options, "decorateGetter");
-    assertNotRawMemberApplication(rest, "decorateGetter");
+    assertNotRawMemberApplication(args, "decorateGetter");
+    const hofOptions = args[0];
     return (
       getter: (this: unknown) => unknown,
       context: ClassGetterDecoratorContext<unknown, unknown>,
@@ -83,7 +80,7 @@ export function decorateGetter(
         "decorateGetter",
         String(context.name),
       );
-      return hof(getter, ...rest) as (this: unknown) => unknown;
+      return hof(getter, hofOptions) as (this: unknown) => unknown;
     };
-  }) as (...rest: any[]) => GetterDecoratorOf;
+  }) as (hofOptions?: unknown) => GetterDecoratorOf;
 }

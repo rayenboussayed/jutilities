@@ -8,15 +8,11 @@ import type {
   HofAsyncFn,
   HofKind,
   HofSyncFn,
+  KindOf,
   WithSkipHof,
 } from "./create-hof.js";
 
 type AnyHof = (fn: any, options: any) => unknown;
-
-/** Recovers the phantom kind `K` from a HOF returned by createHof*. */
-type KindOf<H> = H extends { readonly __kind: infer K extends HofKind }
-  ? K
-  : never;
 
 /**
  * Intersection of every HOF's options, resolved for the concrete wrapped
@@ -30,18 +26,31 @@ export type MergeOptions<
   : unknown;
 
 /**
+ * The kind of a composed stack: its options are the merged option bags of
+ * every layer, resolved for the concrete wrapped function type.
+ * @template Hs - The stacked HOF types.
+ */
+export interface ComposedKind<Hs extends readonly unknown[] = readonly unknown[]>
+  extends HofKind {
+  options: MergeOptions<Hs, this["fn"]>;
+}
+
+/**
  * Composes async HOFs into one. The FIRST hof is the OUTERMOST layer:
  * `withAsync(a, b, c)(fn, o)` === `a(b(c(fn, o), o), o)`.
  * Options are one flat bag shared by all layers (each reads its own keys).
  * `skipHof` is handled once for the whole stack (inner layers never see it),
  * so a per-call predicate runs once per call, not once per layer.
+ *
+ * The result carries the composed kind as a type-only brand, so a decorator
+ * can convert a whole stack (see `jutilities/decorators/method`).
  * @param hofs - The HOFs to stack, outermost first.
  * @returns A fn-first wrapper applying the whole stack.
  */
 export function withAsync<const Hs extends readonly HofAsyncFn<any>[]>(
   ...hofs: Hs
-) {
-  return <TF extends AnyAsyncFunction>(
+): HofAsyncFn<ComposedKind<Hs>> {
+  const composed = <TF extends AnyAsyncFunction>(
     fn: TF,
     options: WithSkipHof<MergeOptions<Hs, TF>, TF> = {} as never,
   ): TF => {
@@ -64,6 +73,8 @@ export function withAsync<const Hs extends readonly HofAsyncFn<any>[]>(
         : layered.apply(this, args);
     } as TF;
   };
+
+  return composed as unknown as HofAsyncFn<ComposedKind<Hs>>;
 }
 
 /**
@@ -75,8 +86,8 @@ export function withAsync<const Hs extends readonly HofAsyncFn<any>[]>(
  */
 export function withSync<const Hs extends readonly HofSyncFn<any>[]>(
   ...hofs: Hs
-) {
-  return <TF extends AnyFunction>(
+): HofSyncFn<ComposedKind<Hs>> {
+  const composed = <TF extends AnyFunction>(
     fn: AnySyncFunction<TF>,
     options: WithSkipHof<MergeOptions<Hs, TF>, TF> = {} as never,
   ): TF => {
@@ -100,4 +111,6 @@ export function withSync<const Hs extends readonly HofSyncFn<any>[]>(
         : layered.apply(this, args);
     } as TF;
   };
+
+  return composed as unknown as HofSyncFn<ComposedKind<Hs>>;
 }

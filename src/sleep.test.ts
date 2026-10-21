@@ -78,12 +78,16 @@ describe("sleepAsync", () => {
   });
 
   it("rounds a fractional delay up, not down", async () => {
-    const start = Date.now();
-    await sleepAsync({ sleep: 0.6 });
-    assert.ok(
-      Date.now() - start >= 1,
-      "0.6 ms rounds to 1 ms, so at least one millisecond elapses",
-    );
+    // Deterministic probe, no wall-clock: `1.6` rounds to a 2 ms timer, so
+    // the abort's 1 ms timer (`setTimeout(fn, 0)` is clamped to 1 ms) is due
+    // first and the sleep rejects. Truncating instead of rounding would make
+    // both timers 1 ms — the sleep's timer (registered first) would win and
+    // the sleep would resolve.
+    const controller = new AbortController();
+    const pending = sleepAsync({ sleep: 1.6, signal: controller.signal });
+    setTimeout(() => controller.abort(new Error("aborted")), 0);
+
+    await assert.rejects(pending, (error) => error instanceof Error);
   });
 
   it("concurrent sleeps resolve independently (~sleep, not 3*sleep)", async () => {

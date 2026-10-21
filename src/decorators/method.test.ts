@@ -6,6 +6,7 @@ import { withDelayAsync } from "../delay.js";
 import { withLoggerAsync, withLoggerSync } from "../logger.js";
 import { withRetryAsync } from "../retry.js";
 import { withTimeoutAsync } from "../timeout.js";
+import { withAsync } from "../libs/with.js";
 import { decorateMethod } from "./method.js";
 
 // Hoisted converters: TS rejects inline chained calls (`@f(h)(opts)`)
@@ -249,5 +250,107 @@ describe("decorateMethod", () => {
         error instanceof TypeError &&
         /applied without parentheses/.test(error.message),
     );
+  });
+});
+
+describe("decorateMethod: kind-based conversion contract", () => {
+  it("rejects a legacy (non-factory) HOF at compile time", () => {
+    // A hand-written fn-first function carries no `__kind` brand, so the
+    // converter cannot recover its option bag — rejected.
+    const legacyHof = (fn: (x: number) => number) => fn;
+
+    void (() => {
+      // @ts-expect-error - only factory-built HOFs are convertible.
+      return decorateMethod(legacyHof);
+    });
+  });
+
+  it("rejects an async member under a sync HOF at compile time", () => {
+    void (() => {
+      class Pinned {
+        // @ts-expect-error - a sync HOF refuses a promise-returning member.
+        @memoizeSync()
+        async m() {
+          return 1;
+        }
+      }
+      return Pinned;
+    });
+  });
+
+  it("rejects a sync member under an async HOF at compile time", () => {
+    void (() => {
+      class Pinned {
+        // @ts-expect-error - an async HOF refuses a non-promise member.
+        @retryAsync()
+        m() {
+          return 1;
+        }
+      }
+      return Pinned;
+    });
+  });
+
+  it("rejects an unknown option key at compile time", () => {
+    void (() => {
+      class Pinned {
+        // @ts-expect-error - the option bag is typed from the HOF's kind.
+        @memoizeSync({ bogus: true })
+        m() {
+          return 1;
+        }
+      }
+      return Pinned;
+    });
+  });
+
+  it("accepts an async member under an any-flavor HOF (lazy)", async () => {
+    const memo = decorateMethod(lazy);
+    class Async {
+      calls = 0;
+      @memo()
+      async value() {
+        this.calls++;
+        return 42;
+      }
+    }
+    const instance = new Async();
+    assert.strictEqual(await instance.value(), 42);
+    assert.strictEqual(await instance.value(), 42);
+    assert.strictEqual(instance.calls, 1);
+  });
+
+  it("forwards the option bag to the HOF as a single argument", () => {
+    // `skipHof` lives in the option bag: a truthy predicate runs the member
+    // raw, so the cache layer never stores anything.
+    const bypass = decorateMethod(withCacheSync);
+    class Bypassed {
+      calls = 0;
+      @bypass({ skipHof: () => true })
+      value() {
+        this.calls++;
+        return 1;
+      }
+    }
+    const instance = new Bypassed();
+    assert.strictEqual(instance.value(), 1);
+    assert.strictEqual(instance.value(), 1);
+    assert.strictEqual(instance.calls, 2);
+  });
+
+  it("converts a composed stack (the composer's brand is honored)", async () => {
+    const stack = decorateMethod(withAsync(withCacheAsync, withRetryAsync));
+    class Stacked {
+      calls = 0;
+      @stack({ extraKeys: ["stacked"] })
+      async value() {
+        this.calls++;
+        return 7;
+      }
+    }
+    const instance = new Stacked();
+    assert.strictEqual(await instance.value(), 7);
+    assert.strictEqual(await instance.value(), 7);
+    assert.strictEqual(instance.calls, 1);
   });
 });

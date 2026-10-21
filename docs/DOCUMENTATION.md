@@ -919,7 +919,7 @@ import { decorateProperty } from "jutilities/decorators/property";
 import { decorateGetter } from "jutilities/decorators/getter";
 ```
 
-Four converters that turn any fn-first HOF from this package (`withCacheSync`,
+Four converters that turn a fn-first HOF from this package (`withCacheSync`,
 `withRetryAsync`, `withLoggerSync`, `withLoggerAsync`, `lazy`,
 `withDelayAsync`, …) into a reusable
 **Stage 3 decorator factory** — one per member kind:
@@ -931,24 +931,31 @@ Four converters that turn any fn-first HOF from this package (`withCacheSync`,
 | `decorateProperty` | function-valued fields | field initialization | per instance |
 | `decorateGetter` | getters | class definition | prototype-wide |
 
+Only HOFs built by [`createHofSync` / `createHofAsync`](#create-hof) (or
+composed by [`withAsync` / `withSync`](#with)) are convertible: they carry
+the `__kind` brand the converter needs to type the option bag. A hand-written
+fn-first function is rejected at compile time.
+
 ### Behavior contract
 
 - **The conversion contract.** A converter takes `hof` (whose first parameter
-  is the wrapped function) and returns a decorator factory. Everything after
-  the first HOF parameter is an *option slot* declared once at decorate time
-  and forwarded verbatim: `(value, context) => hof(value, ...rest)`.
+  is the wrapped function) and returns a decorator factory. The HOF's
+  **option bag** — one object, typed from the HOF's kind — is declared once at
+  decorate time and forwarded verbatim: `(value, context) => hof(value, bag)`.
+  The bag carries the shared `skipHof` bypass slot too, so a decorator can
+  bypass the enhancement per call.
 - **The recommended usage grammar.** Hoist the factory to a const, then apply
-  it with a single options call per member. A HOF with zero extra parameters
-  still needs the empty call `@f()`:
+  it with a single options call per member. A HOF with no options still needs
+  the empty call `@f()`:
 
   ```ts
   const cached = decorateMethod(withCacheSync);   // hoist once
-  const logged = decorateMethod(withLoggerSync);  // zero-rest HOF
+  const logged = decorateMethod(withLoggerSync);  // zero-option HOF
   class Repo {
     @cached({ cacheStore: store, extraKeys: ["repo"] })
     load(id: string) { return id; }
 
-    @logged()                                     // zero-rest HOF: empty call
+    @logged()                                     // zero-option HOF: empty call
     ping() { return "pong"; }
   }
   ```
@@ -963,11 +970,12 @@ Four converters that turn any fn-first HOF from this package (`withCacheSync`,
   `decorateClass` via its pair slots) assert when the class is *defined*;
   `decorateProperty` asserts when the field is *initialized*
   (i.e. construction), because field values only exist then.
-- **Type-layer discipline.** For converters typed against a precise HOF
-  (`withCacheSync`, `withLoggerSync`), a member whose declared sync/async-ness
-  contradicts the HOF's slot is a compile error — the runtime `require` guard
-  mostly protects loose HOFs and transpiled code where declared `async` is
-  invisible to types.
+- **Type-layer discipline.** The HOF's *flavor* decides which members may be
+  decorated, and a mismatch is a compile error in **both** directions: a sync
+  HOF (`withCacheSync`) refuses a promise-returning member, an async HOF
+  (`withRetryAsync`) refuses a non-promise-returning one. An "any" HOF
+  (`lazy`) takes either. The runtime `require` guard then only protects
+  transpiled code, where the declared `async` is invisible to types.
 - **Runtime misfire protection.** Where they *can* occur, both paren-less
   shapes throw a `TypeError` naming the converter: the factory called with a
   raw `(member, context)` rest (pinned for all four kinds), and the converter
@@ -1009,12 +1017,13 @@ Four converters that turn any fn-first HOF from this package (`withCacheSync`,
 | Shape | Verdict |
 | --- | --- |
 | `const f = conv(hof)` hoisted + `@f(...opts)` | ✅ the pattern |
-| zero-rest HOF: `@f()` (empty call) | ✅ required — bare `@f` misfires |
+| zero-option HOF: `@f()` (empty call) | ✅ required — bare `@f` misfires |
 | inline `(f(h)(opts))` with surrounding parens | ✅ compiles (discouraged) |
 | inline `@f(h)(opts)` without parens | 🚫 **parse error** (TS1497) — nothing suppresses it |
-| paren-less `@f(...)` bare application, zero-rest | 🚫 type-rejected (TS1241/TS1270) |
-| paren-less `@f` with option-rest HOF, on method/class/getter | 🚫 type-rejected **and** runtime `TypeError` |
+| paren-less `@f(...)` bare application, zero-option | 🚫 type-rejected (TS1241/TS1270) |
+| paren-less `@f` with an option-bag HOF, on method/class/getter | 🚫 type-rejected **and** runtime `TypeError` |
 | paren-less `@f` on a **field** | 🚫 type-rejected but runtime-silent — fields hand `undefined`, not the member, so the fingerprint cannot see it; hence the compile pin |
+| a hand-written fn-first function (no `__kind` brand) | 🚫 type-rejected — only factory-built HOFs are convertible |
 
 ### Quirks
 
@@ -1055,22 +1064,37 @@ Four converters that turn any fn-first HOF from this package (`withCacheSync`,
 ### Composition
 
 ```ts
-// Hand-composed stacks convert exactly like single HOFs — the decorator
-// pattern is orthogonal to wrapper stacking:
-const resilient = (fn: AnyFunction) => withCacheAsync(withRetryAsync(fn));
-const cachedResilient = decorateMethod(resilient);
+// A composed stack converts like a single HOF — the composer carries the
+// same kind brand, so the converter can type the shared option bag:
+const resilient = decorateMethod(withAsync(withCacheAsync, withRetryAsync));
 
 class Service {
-  @cachedResilient({ extraKeys: ["svc"] })   // rest goes to the OUTER HOF
+  @resilient({ extraKeys: ["svc"], onError: backoff })
   async load(id: string) { return id; }
 }
 ```
 
 Guidelines:
 
-- The converter forwards its rest options to whatever HOF you hand it — when
-  composing a stack, configure *inner* layers inline (or via closures) and
-  pass only the outermost layer's options to the annotation call.
+- The converter forwards its option bag to the HOF — for a composed stack the
+  bag is shared: every layer reads its own keys.
+- A hand-written fn-first function is **not** convertible (it carries no
+  `__kind` brand) — build it with `createHofSync` / `createHofAsync`.
+
+### Public types
+
+- `HofOptions<H, TF>` — the option bag of a HOF, resolved from its kind.
+- `GatedMember<F, M>` — the member shape a HOF of flavor `F` may wrap.
+- `HofSlotFn<F>` — the wrapped-function type a flavor resolves its options
+  against.
+- `DecoratorGuard` — the `require: "sync" | "async"` knob.
+- `EnhancerPair<HS, HA>` / `EnhancerOptions<HS, HA>` — the class fan-out's
+  pair and its merged option bag.
+
+Removed: the structural `FnFirstHof`, `SyncFirstHof`, `HofFnOf` and
+`HofRestOf` types (the legacy shape-probing contract) — the kind brand
+replaces them, and `MethodDecoratorOf` now takes the HOF's *flavor* instead
+of a wrapped-function shape.
 
 ---
 
@@ -1080,6 +1104,8 @@ Guidelines:
 import {
   createHofSync, createHofAsync,
   type HofKind, type ApplyKind, type WithSkipHof,
+  type HofSyncFn, type HofAsyncFn, type HofAnyFn,
+  type HofFlavor, type KindOf, type FlavorOf,
 } from "jutilities/libs/create-hof";
 
 interface MyKind<T extends AnyFunction> extends HofKind<T> {
@@ -1130,7 +1156,17 @@ what makes them all share one shape: fn-first parameter, one options object,
 - **The `__kind` brand.** Every built HOF carries a type-only `__kind`
   property holding its declared kind. It is never set at runtime, but it lets
   a composer recover the kind from the HOF value — that is how
-  [with](#with) types a stack's merged options.
+  [with](#with) types a stack's merged options, and how the
+  [decorators](#decorators) type an option bag.
+- **The `__flavor` tag.** Every built HOF also carries a type-only
+  `__flavor` tag — `"sync"`, `"async"` or `"any"` — naming the member shapes
+  it may wrap. `FlavorOf<H>` reads it back, which is what lets a decorator
+  refuse a member whose async-ness contradicts the HOF's slot (in both
+  directions) instead of guessing from the signature shape.
+- **Three flavors.** `createHofSync` returns a `HofSyncFn<K>` (non-promise
+  members only), `createHofAsync` an `HofAsyncFn<K>` (promise-returning
+  members only), and `HofAnyFn<K>` is the "any" flavor — a brand-carrying
+  shape for wrappers that handle both (`lazy`) or that compose stacks.
 
 ### Quirks
 
@@ -1160,22 +1196,16 @@ what makes them all share one shape: fn-first parameter, one options object,
 ## with (stack composition)
 
 ```ts
-import { withAsync, withSync, type MergeOptions } from "jutilities/libs/with";
+import { withAsync, withSync, type MergeOptions, type ComposedKind } from "jutilities/libs/with";
 import type { HofAsyncFn, HofSyncFn } from "jutilities/libs/create-hof";
 
 function withAsync<const Hs extends readonly HofAsyncFn<any>[]>(
   ...hofs: Hs
-): <TF extends AnyAsyncFunction>(
-  fn: TF,
-  options?: WithSkipHof<MergeOptions<Hs, TF>, TF>,
-) => TF;
+): HofAsyncFn<ComposedKind<Hs>>;
 
 function withSync<const Hs extends readonly HofSyncFn<any>[]>(
   ...hofs: Hs
-): <TF extends AnyFunction>(
-  fn: AnySyncFunction<TF>,
-  options?: WithSkipHof<MergeOptions<Hs, TF>, TF>,
-) => TF;
+): HofSyncFn<ComposedKind<Hs>>;
 ```
 
 Composes several fn-first HOFs into one wrapper. The **first** HOF is the
@@ -1202,6 +1232,10 @@ the same stack you would nest by hand, with the ordering rule stated once.
 - **A layer's own behavior is untouched:** every layer is a normal fn-first
   HOF, so its own options, defaults, and shortcuts (e.g. `delay <= 0`) keep
   working inside the stack.
+- **The composed stack is brand-carrying.** The composer returns a
+  `HofAsyncFn` / `HofSyncFn` whose kind is `ComposedKind<Hs>` — the merged
+  option bag — so a whole stack can be handed to a [decorator](#decorators)
+  exactly like a single HOF.
 - An **empty stack** returns `fn` unchanged.
 
 ### Use cases

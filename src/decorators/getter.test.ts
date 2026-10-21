@@ -182,3 +182,48 @@ describe("decorateGetter", () => {
     );
   });
 });
+
+describe("decorateGetter: kind-based conversion contract", () => {
+  it("rejects a legacy (non-factory) HOF at compile time", () => {
+    // A hand-written fn-first function carries no `__kind` brand, so the
+    // converter cannot recover its option bag — rejected.
+    const legacyHof = (fn: (x: number) => number) => fn;
+
+    void (() => {
+      // @ts-expect-error - only factory-built HOFs are convertible.
+      return decorateGetter(legacyHof);
+    });
+  });
+
+  it("rejects an unknown option key at compile time", () => {
+    const cached = decorateGetter(withCacheSync);
+    void (() => {
+      class Pinned {
+        // @ts-expect-error - the option bag is typed from the HOF's kind.
+        @cached({ bogus: true })
+        get value() {
+          return 1;
+        }
+      }
+      return Pinned;
+    });
+  });
+
+  it("forwards the option bag to the HOF as a single argument", () => {
+    // `skipHof` lives in the option bag: a truthy predicate runs the getter
+    // raw, so the cache layer never stores anything.
+    const bypass = decorateGetter(withCacheSync);
+    class Bypassed {
+      calls = 0;
+      @bypass({ skipHof: () => true })
+      get value() {
+        this.calls++;
+        return 1;
+      }
+    }
+    const instance = new Bypassed();
+    assert.strictEqual(instance.value, 1);
+    assert.strictEqual(instance.value, 1);
+    assert.strictEqual(instance.calls, 2);
+  });
+});

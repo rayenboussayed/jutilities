@@ -1,7 +1,7 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { withCacheAsync, withCacheSync } from "../cache.js";
-import { withLoggerSync } from "../logger.js";
+import { withLoggerAsync, withLoggerSync } from "../logger.js";
 import { decorateClass } from "./class.js";
 
 // Decorator grammar notes (already pinned in method.test.ts): TS rejects
@@ -285,5 +285,82 @@ describe("decorateClass", () => {
       }
       return Pinned;
     });
+  });
+});
+
+describe("decorateClass: kind-based conversion contract", () => {
+  it("rejects a legacy (non-factory) HOF at compile time", () => {
+    // A hand-written fn-first function carries no `__kind` brand, so the
+    // converter cannot recover its option bag — rejected.
+    const legacyHof = (fn: (x: number) => number) => fn;
+
+    void (() => {
+      // @ts-expect-error - only factory-built HOFs are convertible.
+      return decorateClass(legacyHof);
+    });
+    void (() => {
+      return decorateClass({
+        // @ts-expect-error - only factory-built HOFs are convertible.
+        sync: legacyHof,
+      });
+    });
+  });
+
+  it("rejects an unknown option key at compile time", () => {
+    const pair = decorateClass({ sync: withCacheSync, async: withCacheAsync });
+    void (() => {
+      // @ts-expect-error - the option bag is typed from the HOFs' kinds.
+      @pair({ bogus: true })
+      class Pinned {
+        count() {
+          return 1;
+        }
+      }
+      return Pinned;
+    });
+  });
+
+  it("merges both slots' option bags into one shared bag", async () => {
+    const pair = decorateClass({ sync: withCacheSync, async: withLoggerAsync });
+    const lines: unknown[][] = [];
+    const originalDebug = console.debug;
+    console.debug = (...parts: unknown[]) => {
+      lines.push(parts);
+    };
+    try {
+      @pair({ extraKeys: ["class-merged"], name: "merged" })
+      class Merged {
+        count() {
+          return 1;
+        }
+        async load() {
+          return 2;
+        }
+      }
+      const instance = new Merged();
+      assert.strictEqual(instance.count(), 1);
+      assert.strictEqual(await instance.load(), 2);
+    } finally {
+      console.debug = originalDebug;
+    }
+    assert.ok(lines.some((parts) => /merged/.test(String(parts[0]))));
+  });
+
+  it("forwards the option bag to every wrapped member", () => {
+    // `skipHof` lives in the option bag: a truthy predicate runs each member
+    // raw, so the cache layer never stores anything.
+    const bypass = decorateClass(withCacheSync);
+    @bypass({ skipHof: () => true })
+    class Bypassed {
+      calls = 0;
+      count() {
+        this.calls++;
+        return 1;
+      }
+    }
+    const instance = new Bypassed();
+    assert.strictEqual(instance.count(), 1);
+    assert.strictEqual(instance.count(), 1);
+    assert.strictEqual(instance.calls, 2);
   });
 });
