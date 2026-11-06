@@ -1,1 +1,1 @@
-npm run check
+npm audit fix && npm run check

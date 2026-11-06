@@ -168,35 +168,6 @@ export type FlavorOf<H> = H extends {
  * @returns The new fn-first HOF taking `(fn, options)`.
  */
 /**
- * Builds a flavor-agnostic fn-first HOF. Unlike the sync flavor this does not
- * guard return values, because `lazy` deliberately memoizes sync and async
- * functions alike. `skipHof` stays synchronous (a truthy result bypasses).
- * @template K - The HOF's kind.
- * @param handler - The core handler building the wrapper; called exactly once per wrap.
- * @returns The instantiated HOF.
- */
-export function createHofAny<K extends HofKind>(
-  handler: Hof<K, AnyFunction>,
-) {
-  const hof = <TF extends AnyFunction>(
-    fn: TF,
-    options: WithSkipHof<ApplyKind<K, TF>, TF> = {},
-  ) => {
-    if (options.skipHof === true) return fn;
-    const enhanced = handler(fn, options);
-    if (enhanced === fn) return fn;
-    if (typeof options.skipHof !== "function") return enhanced;
-
-    const skipHof = options.skipHof as (...predicateArgs: Parameters<TF>) => boolean;
-    return function (this: ThisParameterType<TF>, ...args: Parameters<TF>) {
-      return skipHof(...args) ? fn.apply(this, args) : enhanced.apply(this, args);
-    } as TF;
-  };
-
-  return hof as unknown as HofFn<K, "any">;
-}
-
-/**
  * Builds a sync-flavored fn-first HOF.
  * @param handler - Core handler building the enhanced wrapper.
  * @returns The new fn-first HOF.

@@ -38,7 +38,7 @@ Every statement below is pinned by an executable test in `src/**/*.test.ts` — 
 14. [assert](#assert) — `assert`, `assertNotNil`, `assertNever`, `withAssertSync`/`withAssertAsync` + decorator contract guards
 15. [to](#to) / [from](#from) — `toArray`, `toBase64`, `fromBase64`
 16. [types](#types) — shared type utilities
-17. [create-hof](#create-hof) — `createHofSync`, `createHofAsync`, `createHofAny`
+17. [create-hof](#create-hof) — `createHofSync`, `createHofAsync`
 18. [with](#with) — `withAsync`, `withSync` (stack composition)
 19. [clock](#clock) — `now` (the shared timing helper)
 

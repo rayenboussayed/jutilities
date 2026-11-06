@@ -1,7 +1,6 @@
 import { describe, it } from "vitest";
 import assert from "node:assert/strict";
 import {
-  createHofAny,
   createHofAsync,
   createHofSync,
   type ApplyKind,
@@ -177,80 +176,3 @@ describe("createHofAsync", () => {
 });
 
 
-describe("createHofAny", () => {
-  it("returns fn for skipHof: true and calls the handler zero times", () => {
-    let builds = 0;
-    const hof = createHofAny<MarkerKind>((fn) => {
-      builds++;
-      return fn;
-    });
-    const fn = async (x: number) => x;
-
-    assert.strictEqual(hof(fn, { skipHof: true }), fn);
-    assert.strictEqual(builds, 0);
-  });
-
-  it("echoes fn when the handler echoes it", async () => {
-    let builds = 0;
-    const hof = createHofAny<MarkerKind>((fn) => {
-      builds++;
-      return fn;
-    });
-    const fn = async (x: number) => x * 2;
-
-    const wrapped = hof(fn);
-    assert.strictEqual(wrapped, fn);
-    assert.strictEqual(builds, 1);
-    assert.strictEqual(await wrapped(4), 8);
-  });
-
-  it("returns the enhanced function when no predicate is configured", async () => {
-    const enhancedMarker = Symbol("enhanced");
-    const hof = createHofAny<MarkerKind>((fn) => {
-      /**
-       * @param args - The arguments forwarded to `fn`.
-       * @returns The combined marker and result array.
-       */
-      /**
-       * Enhanced wrapper returning a marker and result pair.
-       * @param args - Arguments forwarded to the wrapped function.
-       * @returns Array containing a marker and the resolved wrapped result.
-       */
-      async function enhanced(...args: Parameters<typeof fn>) {
-        return [enhancedMarker, await fn(...args)];
-      }
-      // @returns The combined marker and result array.
-      return enhanced;
-    });
-    const fn = async (x: number) => x * 2;
-
-    const wrapped = hof(fn);
-    assert.deepStrictEqual(await wrapped(3), [enhancedMarker, 6]);
-  });
-
-  it.each([false, true])(
-    "routes per-call predicates to %s",
-    async (bypass) => {
-      const hof = createHofAny<MarkerKind>((fn) => {
-        /**
-         *
-         * @param args
-         */
-       /**
-        * Enhanced wrapper returning a marker and result pair.
-        * @param args - Arguments forwarded to the wrapped function.
-        * @returns Array containing the enhanced marker and result.
-        */
-        async function enhanced(...args: Parameters<typeof fn>) {
-          return ["enhanced", await fn(...args)];
-        }
-        return enhanced;
-      });
-      const fn = async (x: number) => x;
-      const wrapped = hof(fn, { skipHof: () => bypass });
-
-      const result = await wrapped(5);
-      assert.deepStrictEqual(result, bypass ? 5 : ["enhanced", 5]);
-    },
-  );
-});
