@@ -39,7 +39,7 @@ export type LazyOptions<T extends AnyFunction = AnyFunction> = {
  * @param options.skipHof - Per-call bypass switch.
  * @returns The cached function.
  */
-export const lazy = lazyFactory as unknown as (<T extends AnyFunction>(
+export const lazy = lazyFactory as (<T extends AnyFunction>(
   fn: T,
   options?: LazyOptions<T>,
 ) => T) &

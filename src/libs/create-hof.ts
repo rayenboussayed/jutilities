@@ -193,7 +193,7 @@ export function createHofAsync<K extends HofKind>(
     } as TF;
   };
 
-  return hof as unknown as HofFn<K, "async">;
+  return hof as HofFn<K, "async">;
 }
 
 /**
@@ -250,5 +250,5 @@ export function createHofSync<K extends HofKind>(
     } as TF;
   };
 
-  return hof as unknown as HofFn<K, "sync">;
+  return hof as HofFn<K, "sync">;
 }

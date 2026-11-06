@@ -253,32 +253,32 @@ export const superjson = new Json()
   })
   .addHandler("bigint", {
     isApplicable: (_, v): v is bigint => typeof v === "bigint",
-    parse: (_, v) => BigInt(v as any),
+    parse: (_, v: string) => BigInt(v),
     stringify: (_, v) => v.toString(),
   })
   .addHandler("symbol", {
     // only globally registered symbols (Symbol.for) can round-trip
     isApplicable: (_, v): v is symbol =>
       typeof v === "symbol" && Symbol.keyFor(v) !== undefined,
-    parse: (_, v) => Symbol.for(v as string),
+    parse: (_, v: string) => Symbol.for(v),
     stringify: (_, v) => Symbol.keyFor(v)!,
   })
   .addHandler("numberobject", {
     isApplicable: (_, v) => v instanceof Number,
     // eslint-disable-next-line sonarjs/no-primitive-wrappers
-    parse: (_, v) => new Number(v),
+    parse: (_, v: string) => new Number(v),
     stringify: (_, v) => String(v.valueOf()),
   })
   .addHandler("stringobject", {
     isApplicable: (_, v) => v instanceof String,
     // eslint-disable-next-line sonarjs/no-primitive-wrappers
-    parse: (_, v) => new String(v),
+    parse: (_, v: string) => new String(v),
     stringify: (_, v) => v.valueOf(),
   })
   .addHandler("booleanobject", {
     isApplicable: (_, v) => v instanceof Boolean,
     // eslint-disable-next-line sonarjs/no-primitive-wrappers
-    parse: (_, v) => new Boolean(v),
+    parse: (_, v: boolean) => new Boolean(v),
     stringify: (_, v) => v.valueOf(),
   })
   .addHandler("invaliddate", {
@@ -288,23 +288,23 @@ export const superjson = new Json()
   })
   .addHandler("date", {
     isApplicable: (_, v): v is Date => v instanceof Date,
-    parse: (_, v) => new Date(v as any),
+    parse: (_, v: string) => new Date(v),
     stringify: (_, v) => v.toISOString(),
   })
   .addHandler("map", {
     isApplicable: (_, v): v is Map<any, any> => v instanceof Map,
-    parse: (_, v) => new Map(v as any),
+    parse: (_, v: [unknown, unknown][]) => new Map(v),
     stringify: (_, v) => Array.from(v.entries()),
   })
   .addHandler("set", {
     isApplicable: (_, v): v is Set<any> => v instanceof Set,
-    parse: (_, v) => new Set(v as any),
+    parse: (_, v: unknown[]) => new Set(v),
     stringify: (_, v) => Array.from(v),
   })
   .addHandler("buffer", {
     isApplicable: (_, v): v is Buffer =>
       typeof window === "undefined" && Buffer.isBuffer(v),
-    parse: (_, v) => Buffer.from(v as any, "base64"),
+    parse: (_, v: string) => Buffer.from(v, "base64"),
     stringify: (_, v) => toBase64(v),
   })
   .addHandler("uint8array", typedArray(Uint8Array))
@@ -320,19 +320,19 @@ export const superjson = new Json()
   .addHandler("biguint64array", typedArray(BigUint64Array))
   .addHandler("dataview", {
     isApplicable: (_, v): v is DataView => v instanceof DataView,
-    parse: (_, v) => new DataView(new Uint8Array(fromBase64(v as any)).buffer),
+    parse: (_, v: string) => new DataView(new Uint8Array(fromBase64(v)).buffer),
     stringify: (_, v) =>
       toBase64(new Uint8Array(v.buffer, v.byteOffset, v.byteLength)),
   })
   .addHandler("arraybuffer", {
     isApplicable: (_, v): v is ArrayBuffer => v instanceof ArrayBuffer,
-    parse: (_, v) => new Uint8Array(fromBase64(v as any)).buffer,
+    parse: (_, v: string) => new Uint8Array(fromBase64(v)).buffer,
     stringify: (_, v) => toBase64(new Uint8Array(v)),
   })
   .addHandler("error", {
     isApplicable: (_, v): v is Error => Error.isError(v),
-      parse: (_, v) => {
-        const { cause, message, name, stack, ...rest } = v as any;
+      parse: (_, v: Record<string, unknown> & { cause?: unknown; message: string; name: string; stack?: string; }) => {
+        const { cause, message, name, stack, ...rest } = v;
         const e = new Error(
           message,
           cause !== undefined ? { cause } : undefined,
@@ -352,23 +352,23 @@ export const superjson = new Json()
   .addHandler("regexp", {
     isApplicable: (_, v): v is RegExp => v instanceof RegExp,
     // eslint-disable-next-line security/detect-non-literal-regexp
-    parse: (_, v) => new RegExp((v as any).source, (v as any).flags),
+    parse: (_, v: { readonly flags: string; readonly source: string; }) => new RegExp(v.source, v.flags),
     stringify: (_, v) => ({ flags: v.flags, source: v.source }),
   })
   .addHandler("url", {
     isApplicable: (_, v): v is URL => v instanceof URL,
-    parse: (_, v) => new URL(v as any),
+    parse: (_, v: string) => new URL(v),
     stringify: (_, v) => v.href,
   })
   .addHandler("urlsearchparams", {
     isApplicable: (_, v): v is URLSearchParams =>
       typeof URLSearchParams !== "undefined" && v instanceof URLSearchParams,
-    parse: (_, v) => new URLSearchParams(v as any),
+    parse: (_, v: string) => new URLSearchParams(v),
     stringify: (_, v) => v.toString(),
   })
   .addHandler("headers", {
     isApplicable: (_, v): v is Headers =>
       typeof Headers !== "undefined" && v instanceof Headers,
-    parse: (_, v) => new Headers(v as any),
+    parse: (_, v: [string, string][]) => new Headers(v),
     stringify: (_, v) => [...v.entries()],
   });

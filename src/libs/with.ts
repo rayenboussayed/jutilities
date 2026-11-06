@@ -70,7 +70,7 @@ export function withAsync<const Hs extends readonly HofFn<any, "async">[]>(
     } as TF;
   };
 
-  return composed as unknown as HofFn<ComposedKind<Hs>, "async">;
+  return composed as HofFn<ComposedKind<Hs>, "async">;
 }
 
 /**
@@ -114,5 +114,5 @@ export function withSync<const Hs extends readonly HofFn<any, "sync">[]>(
     } as TF;
   };
 
-  return composed as unknown as HofFn<ComposedKind<Hs>, "sync">;
+  return composed as HofFn<ComposedKind<Hs>, "sync">;
 }
