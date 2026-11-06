@@ -1,17 +1,9 @@
 /* eslint-disable deslint/no-prod-console -- examples are demo scripts; printing is their purpose */
 /* eslint-disable n/no-unsupported-features/node-builtins -- node:sqlite has no stable release in eslint-plugin-n's dataset, so no engines range can satisfy the rule; this example pins the real unflagged floor (Node >= 22.13) in its header and consciously accepts the experimental status */
 
-/**
- * Real-life scenario: managing an SQLite database with `node:sqlite` — the
- * connection opens lazily, migrations retry through transient locks, hot
- * aggregate queries memoize, inserts are gated by invariants, and a snapshot
- * round-trips through superjson. Requires Node >= 22.13 (unflagged
- * `node:sqlite`).
- */
-import { DatabaseSync } from "node:sqlite";
 import {
-  AssertError,
   assert,
+  AssertError,
   assertNotNil,
   withAssertSync,
 } from "jutilities/assert";
@@ -20,12 +12,20 @@ import { superjson } from "jutilities/json";
 import { lazy } from "jutilities/lazy";
 import { withLoggerSync } from "jutilities/logger";
 import { withRetrySync } from "jutilities/retry";
+/**
+ * Real-life scenario: managing an SQLite database with `node:sqlite` — the
+ * connection opens lazily, migrations retry through transient locks, hot
+ * aggregate queries memoize, inserts are gated by invariants, and a snapshot
+ * round-trips through superjson. Requires Node >= 22.13 (unflagged
+ * `node:sqlite`).
+ */
+import { DatabaseSync } from "node:sqlite";
 
 /** One orders-table row as read back from SQLite. */
-type OrderRow = { id: number; region: string; cents: number };
+type OrderRow = { cents: number; id: number; region: string; };
 
 /** The aggregated revenue report for one region. */
-type RegionReport = { region: string; orders: number; totalCents: number };
+type RegionReport = { orders: number; region: string; totalCents: number };
 
 let connectionsOpened = 0;
 
@@ -50,7 +50,7 @@ const migrate = withRetrySync((db: DatabaseSync) => {
   db.exec("CREATE TABLE orders (id INTEGER PRIMARY KEY AUTOINCREMENT, region TEXT NOT NULL, cents INTEGER NOT NULL)");
   return "orders@v1";
 }, {
-  onError: ({ retries, error }) => {
+  onError: ({ error, retries }) => {
     console.log(`    migration attempt ${retries + 1} failed:`, (error as Error).message);
     if (retries >= 5) throw error;
   },
@@ -84,7 +84,7 @@ const revenueByRegion = withCacheSync(withLoggerSync((region: string): RegionRep
   const rows = db.prepare("SELECT cents FROM orders WHERE region = ?").all(region) as Array<{ cents: number }>;
   let totalCents = 0;
   for (const row of rows) totalCents += row.cents;
-  return { region, orders: rows.length, totalCents };
+  return { orders: rows.length, region, totalCents };
 }, { name: "db.revenueByRegion" }));
 
 /**

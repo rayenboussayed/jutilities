@@ -1,5 +1,6 @@
-import { describe, it } from "vitest";
 import assert from "node:assert/strict";
+import { describe, it } from "vitest";
+
 import { lazy } from "./lazy.js";
 
 describe("lazy", () => {
@@ -46,6 +47,7 @@ describe("lazy", () => {
     fn({ a: 1, b: 2 });
     fn({ a: 1, b: 2 });
     assert.strictEqual(count, 1);
+    // eslint-disable-next-line perfectionist/sort-objects
     fn({ b: 2, a: 1 });
     assert.strictEqual(count, 2);
   });
@@ -187,6 +189,18 @@ describe("lazy", () => {
     assert.strictEqual(fn(2), 4);
     assert.strictEqual(fn(2), 4);
     assert.strictEqual(count, 2);
+  });
+
+  it("per-call skipHof predicate false uses memoized enhanced", () => {
+    let count = 0;
+    const fn = lazy((x: number) => {
+      count++;
+      return x * 2;
+    }, { skipHof: () => false });
+
+    assert.strictEqual(fn(2), 4);
+    assert.strictEqual(fn(2), 4);
+    assert.strictEqual(count, 1);
   });
 
   it("NaN result is never cached (falsy result cache gate)", () => {

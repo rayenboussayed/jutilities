@@ -33,6 +33,7 @@ export function toBase64(bytes: Uint8Array) {
     ).toString("base64");
   }
   let bin = "";
+  // eslint-disable-next-line security/detect-object-injection
   for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]!);
   return btoa(bin);
 }

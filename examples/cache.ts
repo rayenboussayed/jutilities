@@ -1,11 +1,12 @@
 /* eslint-disable deslint/no-prod-console -- examples are demo scripts; printing is their purpose */
-import assert from "node:assert/strict";
-import { withCacheAsync, withCacheSync } from "jutilities/cache";
 import type { CacheStore, Key } from "jutilities/cache";
-import { withRetryAsync } from "jutilities/retry";
-import { lazy } from "jutilities/lazy";
-import { decorateMethod } from "jutilities/decorators/method";
 import type { AnyFunction } from "jutilities/types/type";
+
+import { withCacheAsync, withCacheSync } from "jutilities/cache";
+import { decorateMethod } from "jutilities/decorators/method";
+import { lazy } from "jutilities/lazy";
+import { withRetryAsync } from "jutilities/retry";
+import assert from "node:assert/strict";
 
 
 /**
@@ -24,7 +25,7 @@ let computeCalls = 0;
  * @param id - Arbitrary identifier (part of the cache key).
  * @returns A payload recording how many times the real computation ran.
  */
-function computeSync(id: string | number): { id: string | number; marker: string } {
+function computeSync(id: number | string): { id: number | string; marker: string } {
   computeCalls += 1;
   return { id, marker: `compute-${computeCalls}` };
 }
@@ -54,7 +55,7 @@ let loadUserCalls = 0;
 
 const loadUser = withCacheAsync(async (id: string) => {
   loadUserCalls += 1;
-  await new Promise((r) => setTimeout(r, 20));
+  await new Promise((resolve) => setTimeout(resolve, 20));
   return { id, phone: "+1-555-0000" };
 });
 
@@ -78,26 +79,10 @@ console.log("upstream ran", loadUserCalls, "times for 3 requests");
  * sync flavor additionally enforces sync discipline at runtime.
  */
 
-// ---- generic typed cache store ------------------------------------------------
-/**
- * A tiny typed `CacheStore<W>` backed by a `Map`, generic on the wrapped
- * function `W`; it stores `Awaited<ReturnType<W>>` values.
- * @template W - The wrapped function whose return value is stored.
- * @returns A `CacheStore<W>` implementation backed by an in-memory `Map`.
- */
-function typedStore<W extends AnyFunction>(): CacheStore<W> {
-  const map = new Map<string, unknown>();
-  return {
-    get: (key: Key) => map.get(String(key)) as never,
-    set: (key: Key, value: ReturnType<W>) => {
-      map.set(String(key), value);
-      return undefined;
-    },
-    delete: (key: Key) => {
-      map.delete(String(key));
-      return undefined;
-    },
-  };
+interface User {
+  id: string;
+  name: string;
+  roles: ReadonlyArray<string>;
 }
 
 // ---- generic sync memoizer factory --------------------------------------------
@@ -117,16 +102,32 @@ function makeSyncLoader<T extends { id: string }>(
   load: (id: string) => T,
 ) {
   const cached = withCacheSync(load, {
-    extraKeys: [label],
     cacheStore: typedStore<(id: string) => T>(),
+    extraKeys: [label],
   });
   return cached;
 }
 
-interface User {
-  id: string;
-  name: string;
-  roles: ReadonlyArray<string>;
+// ---- generic typed cache store ------------------------------------------------
+/**
+ * A tiny typed `CacheStore<W>` backed by a `Map`, generic on the wrapped
+ * function `W`; it stores `Awaited<ReturnType<W>>` values.
+ * @template W - The wrapped function whose return value is stored.
+ * @returns A `CacheStore<W>` implementation backed by an in-memory `Map`.
+ */
+function typedStore<W extends AnyFunction>(): CacheStore<W> {
+  const map = new Map<string, unknown>();
+  return {
+    delete: (key: Key) => {
+      map.delete(String(key));
+      return undefined;
+    },
+    get: (key: Key) => map.get(String(key)) as never,
+    set: (key: Key, value: ReturnType<W>) => {
+      map.set(String(key), value);
+      return undefined;
+    },
+  };
 }
 
 let realUserCalls = 0;
@@ -139,6 +140,12 @@ const u2 = users("u1"); // same args + scope -> cache hit, producer not run
 const u3 = users("u2"); // different id -> producer runs again
 assert.strictEqual(realUserCalls, 2, "the identical second id is a cache hit");
 console.log("generic sync cache:", u1, u2, u3, "real calls:", realUserCalls);
+
+interface Product {
+  id: string;
+  price: number;
+  tags: ReadonlyArray<string>;
+}
 
 // ---- generic async repository (no boundary cast) -------------------------------
 interface Repo<T> {
@@ -167,12 +174,6 @@ function makeRepo<T extends { id: string }>(kind: string): Repo<T> {
       return value;
     },
   };
-}
-
-interface Product {
-  id: string;
-  price: number;
-  tags: ReadonlyArray<string>;
 }
 
 const products = makeRepo<Product>("product");
@@ -255,6 +256,11 @@ try {
 // ---- hoisted factories -----------------------------------------------------
 const cachedAsync = decorateMethod(withCacheAsync);
 
+interface Cat {
+  id: string;
+  lives: number;
+}
+
 /**
  * A generic repository whose cache-signature member keeps the entity type `T`.
  * The async member keeps its unresolved entity type parameter end-to-end; an
@@ -264,25 +270,29 @@ const cachedAsync = decorateMethod(withCacheAsync);
 class Repository<T extends { id: string }> {
   private readonly data = new Map<string, T>();
 
+  add(value: T): void {
+    this.data.set(value.id, value);
+  }
+
   @cachedAsync({ extraKeys: ["repo"] })
   async findAsync(id: string): Promise<T | undefined> {
     return this.data.get(id);
   }
-
-  add(value: T): void {
-    this.data.set(value.id, value);
-  }
-}
-
-interface Cat {
-  id: string;
-  lives: number;
 }
 
 const repo = new Repository<Cat>();
 repo.add({ id: "c1", lives: 9 });
 
 console.log("async generic repo fetch:", await repo.findAsync("c1"));
+
+/**
+ * Shape of a demo entity holding arbitrary generic `V` contents.
+ * @template V - The payload type.
+ */
+interface Entity<V> {
+  id: string;
+  payload: V;
+}
 
 // ---- generic sync cache via a hoisted factory --------------------------------
 /**
@@ -302,15 +312,6 @@ function memoizeValue<V>(key: string, load: (id: string) => V) {
     { extraKeys: [key] },
   );
   return { cached, calls };
-}
-
-/**
- * Shape of a demo entity holding arbitrary generic `V` contents.
- * @template V - The payload type.
- */
-interface Entity<V> {
-  id: string;
-  payload: V;
 }
 
 const memo = memoizeValue<Entity<number>>("entity", (id) => {

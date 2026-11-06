@@ -1,5 +1,6 @@
-import { describe, it } from "vitest";
 import assert from "node:assert/strict";
+import { describe, it } from "vitest";
+
 import { abort } from "./signal.js";
 
 describe("abort", () => {
@@ -20,7 +21,7 @@ describe("abort", () => {
   it("calls onAbort when signal aborts", () => {
     const controller = new AbortController();
     let called = 0;
-    abort({ signal: controller.signal, onAbort: () => called++ });
+    abort({ onAbort: () => called++, signal: controller.signal });
     assert.strictEqual(called, 0);
     controller.abort();
     assert.strictEqual(called, 1);
@@ -30,8 +31,8 @@ describe("abort", () => {
     const controller = new AbortController();
     let called = 0;
     const remove = abort({
-      signal: controller.signal,
       onAbort: () => called++,
+      signal: controller.signal,
     });
     remove();
     controller.abort();
@@ -42,8 +43,8 @@ describe("abort", () => {
     const controller = new AbortController();
     let called = 0;
     const remove = abort({
-      signal: controller.signal,
       onAbort: () => called++,
+      signal: controller.signal,
     });
     remove();
     assert.doesNotThrow(() => remove());
@@ -55,7 +56,7 @@ describe("abort", () => {
     const controller = new AbortController();
     controller.abort();
     let called = 0;
-    abort({ signal: controller.signal, onAbort: () => called++ });
+    abort({ onAbort: () => called++, signal: controller.signal });
     assert.strictEqual(called, 0);
   });
 
@@ -63,8 +64,8 @@ describe("abort", () => {
     const controller = new AbortController();
     let a = 0;
     let b = 0;
-    const removeA = abort({ signal: controller.signal, onAbort: () => a++ });
-    abort({ signal: controller.signal, onAbort: () => b++ });
+    const removeA = abort({ onAbort: () => a++, signal: controller.signal });
+    abort({ onAbort: () => b++, signal: controller.signal });
     removeA();
     controller.abort();
     assert.strictEqual(a, 0);
@@ -74,7 +75,7 @@ describe("abort", () => {
   it("always returns a function", () => {
     const controller = new AbortController();
     assert.strictEqual(
-      typeof abort({ signal: controller.signal, onAbort: () => {} }),
+      typeof abort({ onAbort: () => {}, signal: controller.signal }),
       "function",
     );
     assert.strictEqual(typeof abort({ onAbort: () => {} }), "function");
@@ -83,7 +84,7 @@ describe("abort", () => {
   it("repeated abort fires onAbort only once", () => {
     const controller = new AbortController();
     let called = 0;
-    abort({ signal: controller.signal, onAbort: () => called++ });
+    abort({ onAbort: () => called++, signal: controller.signal });
     controller.abort();
     controller.abort();
     assert.strictEqual(called, 1);

@@ -1,5 +1,8 @@
 /* eslint-disable deslint/no-prod-console -- examples are demo scripts; printing is their purpose */
 
+import { decorateGetter } from "jutilities/decorators/getter";
+import { lazy } from "jutilities/lazy";
+import { withLoggerSync } from "jutilities/logger";
 /**
  * Runnable demo for `decorateGetter` (`jutilities/decorators/getter`): the
  * getter's access function runs through the HOF once at class definition, and
@@ -14,9 +17,6 @@
  * `src/decorators/getter.test.ts`, not here.
  */
 import assert from "node:assert/strict";
-import { lazy } from "jutilities/lazy";
-import { withLoggerSync } from "jutilities/logger";
-import { decorateGetter } from "jutilities/decorators/getter";
 
 // Hoist the factory so each decoration applies it exactly once.
 const report = decorateGetter(lazy);

@@ -1,9 +1,10 @@
-import { describe, it } from "vitest";
 import assert from "node:assert/strict";
+import { describe, it } from "vitest";
+
 import {
+  type ApplyKind,
   createHofAsync,
   createHofSync,
-  type ApplyKind,
   type HofKind,
 } from "./create-hof.js";
 
@@ -21,6 +22,7 @@ describe("createHofSync", () => {
     assert.strictEqual(kind, undefined);
   });
 
+  // eslint-disable-next-line sonarjs/assertions-in-tests
   it("rejects an async predicate on the sync factory", () => {
     const hof = createHofSync<MarkerKind>((fn) => fn);
 

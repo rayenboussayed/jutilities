@@ -1,7 +1,9 @@
-import { describe, it } from "vitest";
+/* eslint-disable sonarjs/void-use */
 import assert from "node:assert/strict";
-import { Readable, PassThrough } from "node:stream";
+import { PassThrough, Readable } from "node:stream";
 import { pipeline } from "node:stream/promises";
+import { describe, it } from "vitest";
+
 import {
   buffer2stream,
   stream2buffer,
@@ -63,9 +65,9 @@ describe("tee", () => {
 
   it("copies readableHighWaterMark and objectMode", () => {
     const source = new Readable({
-      read() {},
       highWaterMark: 16,
       objectMode: true,
+      read() {},
     });
     const [b1, b2] = tee({ source });
     assert.strictEqual(b1.readableHighWaterMark, source.readableHighWaterMark);
@@ -81,7 +83,7 @@ describe("tee", () => {
     const controller = new AbortController();
     controller.abort();
     const source = Readable.from(["x"]);
-    assert.throws(() => tee({ source, signal: controller.signal }));
+    assert.throws(() => tee({ signal: controller.signal, source }));
     source.destroy();
   });
 
@@ -211,7 +213,7 @@ describe("buffer2stream", () => {
 
 describe("streamSizeTransform", () => {
   it("passes through bytes and reports progressive sizes + done", async () => {
-    const calls: { size: number; done: boolean }[] = [];
+    const calls: { done: boolean; size: number; }[] = [];
     const t = streamSizeTransform({
       onSize: (o) => calls.push(o),
     });
@@ -222,7 +224,7 @@ describe("streamSizeTransform", () => {
     );
     assert.strictEqual((result as Buffer).toString(), "hello");
     assert.ok(calls.length >= 2);
-    assert.deepStrictEqual(calls[calls.length - 1], { size: 5, done: true });
+    assert.deepStrictEqual(calls[calls.length - 1], { done: true, size: 5 });
     assert.ok(calls.slice(0, -1).every((c) => c.done === false));
     assert.ok(
       calls
@@ -240,11 +242,11 @@ describe("streamSizeTransform", () => {
       stream2buffer,
     )) as Buffer;
     assert.strictEqual(result.length, 0);
-    assert.deepStrictEqual(calls, [{ size: 0, done: true }]);
+    assert.deepStrictEqual(calls, [{ done: true, size: 0 }]);
   });
 
   it("handles string chunks with encoding", async () => {
-    const calls: { size: number; done: boolean }[] = [];
+    const calls: { done: boolean; size: number; }[] = [];
     const t = streamSizeTransform({ onSize: (o) => calls.push(o) });
     const result = (await pipeline(
       Readable.from(["ab", "c"]),
@@ -252,7 +254,7 @@ describe("streamSizeTransform", () => {
       stream2buffer,
     )) as Buffer;
     assert.strictEqual(result.toString(), "abc");
-    assert.deepStrictEqual(calls[calls.length - 1], { size: 3, done: true });
+    assert.deepStrictEqual(calls[calls.length - 1], { done: true, size: 3 });
   });
 
   it("throwing onSize errors the stream", async () => {
@@ -270,7 +272,7 @@ describe("streamSizeTransform", () => {
 
 describe("streamSize (async generator)", () => {
   it("yields identical chunks and reports sizes", async () => {
-    const calls: { size: number; done: boolean }[] = [];
+    const calls: { done: boolean; size: number; }[] = [];
     const seen: Buffer[] = [];
     for await (const chunk of streamSize(Readable.from(["ab", "c"]), {
       onSize: (o) => calls.push(o),
@@ -278,7 +280,7 @@ describe("streamSize (async generator)", () => {
       seen.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
     }
     assert.strictEqual(Buffer.concat(seen).toString(), "abc");
-    assert.deepStrictEqual(calls[calls.length - 1], { size: 3, done: true });
+    assert.deepStrictEqual(calls[calls.length - 1], { done: true, size: 3 });
     assert.ok(calls.slice(0, -1).every((c) => c.done === false));
   });
 
@@ -292,7 +294,7 @@ describe("streamSize (async generator)", () => {
       void _;
     }
     assert.strictEqual(yielded, 0);
-    assert.deepStrictEqual(calls, [{ size: 0, done: true }]);
+    assert.deepStrictEqual(calls, [{ done: true, size: 0 }]);
   });
 
   it("pre-aborted throws and done:true not called", async () => {
@@ -302,8 +304,8 @@ describe("streamSize (async generator)", () => {
     await assert.rejects(
       (async () => {
         for await (const _ of streamSize(Readable.from(["x"]), {
-          signal: controller.signal,
           onSize: (o) => calls.push(o),
+          signal: controller.signal,
         })) {
           void _;
         }
@@ -325,7 +327,7 @@ describe("streamSize (async generator)", () => {
     await assert.rejects(
       (async () => {
         for await (const _ of streamSize(bad, {
-          onSize: (o) => calls.push(o as { size: number; done: boolean }),
+          onSize: (o) => calls.push(o as { done: boolean; size: number; }),
         })) {
           void _;
         }
@@ -337,15 +339,15 @@ describe("streamSize (async generator)", () => {
 
   it("mid-iteration abort rejects and done:true is not called", async () => {
     const controller = new AbortController();
-    const calls: { size: number; done: boolean }[] = [];
+    const calls: { done: boolean; size: number; }[] = [];
     await assert.rejects(
       (async () => {
         for await (const _ of streamSize(Readable.from(["ab", "cd"]), {
-          signal: controller.signal,
           onSize: (o) => {
             calls.push(o);
             controller.abort();
           },
+          signal: controller.signal,
         })) {
           void _;
         }
@@ -357,6 +359,12 @@ describe("streamSize (async generator)", () => {
 });
 
 // ===== Additional coverage merge from node-stream.additional.test.ts
+// eslint-disable-next-line jsdoc/require-returns
+/**
+ *
+ // eslint-disable-next-line jsdoc/require-param-description
+ * @param stream - The stream under test.
+ */
 async function collectChunks(stream: Readable) {
   const out: unknown[] = [];
   for await (const chunk of stream) out.push(chunk);
@@ -372,6 +380,7 @@ describe("node-stream coverage extras", () => {
     b1.destroy();
     source.end("hello");
     await collectChunks(b2);
+    // eslint-disable-next-line sonarjs/no-trivial-assertions
     assert.ok(true);
   });
 
@@ -429,6 +438,7 @@ describe("node-stream coverage extras", () => {
     b1.destroy();
     source.end("world");
     await Promise.allSettled([collectChunks(b1), collectChunks(b2)]);
+    // eslint-disable-next-line sonarjs/no-trivial-assertions
     assert.ok(true);
   });
   it("fires manual coverage edges for tee", () => {
@@ -442,6 +452,7 @@ describe("node-stream coverage extras", () => {
     b2.emit("close");
     b1.destroy();
     b2.destroy();
+    // eslint-disable-next-line sonarjs/no-trivial-assertions
     assert.ok(true);
   });
 
@@ -479,6 +490,7 @@ describe("node-stream coverage extras", () => {
     b1.emit("drain");
     b1.destroy();
     b2.destroy();
+    // eslint-disable-next-line sonarjs/no-trivial-assertions
     assert.ok(true);
   });
 

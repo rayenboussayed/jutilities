@@ -1,18 +1,45 @@
-import {
-  isDecorationContext,
-  isNil,
-  isRawMemberApplication,
-} from "./is.js";
 import type {
   AnyFunction,
   HandleAsyncFunction,
   MaybePromise,
 } from "./types/type.js";
+
+import {
+  isDecorationContext,
+  isNil,
+  isRawMemberApplication,
+} from "./is.js";
 import {
   createHofAsync,
   createHofSync,
   type HofKind,
 } from "./libs/create-hof.js";
+
+export interface AssertKind<T extends AnyFunction = AnyFunction> extends HofKind<T> {
+  options: Options<this["fn"]>;
+}
+
+/**
+ * Fail-fast invariants: violated preconditions throw immediately with a
+ * readable message instead of corrupting downstream state.
+ */
+
+/**
+ * Per-call validator for the `withAssert*` wrappers, keyed over the wrapped
+ * function type: it receives the call arguments and the (possibly awaited)
+ * result, returns normally to pass the result through, or throws to replace
+ * the result with its error — so validators reuse the module's guards
+ * (`assert`, `assertNotNil`).
+ * @template T - The wrapped function being gated.
+ */
+export type OnResultFn<T extends AnyFunction = AnyFunction> = (options: {
+  parameters: Parameters<T>;
+  result: Awaited<ReturnType<T>>;
+}) => HandleAsyncFunction<T, MaybePromise<void>, void>;
+
+export type Options<T extends AnyFunction = AnyFunction> = {
+  onResult: OnResultFn<T>;
+};
 
 /**
  * Thrown by every invariant guard in this module. Extends `TypeError` so
@@ -22,8 +49,8 @@ import {
 export class AssertError extends TypeError {}
 
 /**
- * Fail-fast invariants: violated preconditions throw immediately with a
- * readable message instead of corrupting downstream state.
+ * Contract-enforcing wrappers: gate a wrapped function's result on a
+ * caller-provided validator before it escapes to the caller.
  */
 
 /**
@@ -45,25 +72,6 @@ export function assert(
 ): asserts condition {
   if (!condition) {
     throw new AssertError(name ? `${name}: ${message}` : message);
-  }
-}
-
-/**
- * Asserts a non-null, non-undefined value, narrowing it for the rest of the
- * scope.
- *
- * Note: falsy-but-non-nil values (`0`, `""`, `false`, `NaN`) pass — only
- * `null`/`undefined` fail.
- * @param value - The value to check.
- * @param name - The value's description used in the error message.
- * @throws `AssertError` reporting that `name` must not be null or undefined.
- */
-export function assertNotNil<T>(
-  value: T,
-  name = "value",
-): asserts value is NonNullable<T> {
-  if (isNil(value)) {
-    throw new AssertError(`${name}: must not be null or undefined`);
   }
 }
 
@@ -97,29 +105,22 @@ export function assertNever(
 }
 
 /**
- * Contract-enforcing wrappers: gate a wrapped function's result on a
- * caller-provided validator before it escapes to the caller.
+ * Asserts a non-null, non-undefined value, narrowing it for the rest of the
+ * scope.
+ *
+ * Note: falsy-but-non-nil values (`0`, `""`, `false`, `NaN`) pass — only
+ * `null`/`undefined` fail.
+ * @param value - The value to check.
+ * @param name - The value's description used in the error message.
+ * @throws `AssertError` reporting that `name` must not be null or undefined.
  */
-
-/**
- * Per-call validator for the `withAssert*` wrappers, keyed over the wrapped
- * function type: it receives the call arguments and the (possibly awaited)
- * result, returns normally to pass the result through, or throws to replace
- * the result with its error — so validators reuse the module's guards
- * (`assert`, `assertNotNil`).
- * @template T - The wrapped function being gated.
- */
-export type OnResultFn<T extends AnyFunction = AnyFunction> = (options: {
-  parameters: Parameters<T>;
-  result: Awaited<ReturnType<T>>;
-}) => HandleAsyncFunction<T, MaybePromise<void>, void>;
-
-export type Options<T extends AnyFunction = AnyFunction> = {
-  onResult: OnResultFn<T>;
-};
-
-export interface AssertKind<T extends AnyFunction = AnyFunction> extends HofKind<T> {
-  options: Options<this["fn"]>;
+export function assertNotNil<T>(
+  value: T,
+  name = "value",
+): asserts value is NonNullable<T> {
+  if (isNil(value)) {
+    throw new AssertError(`${name}: must not be null or undefined`);
+  }
 }
 
 
@@ -197,6 +198,35 @@ export const withAssertSync = createHofSync<AssertKind>(
  */
 
 /**
+ * Enforces the sync/async discipline knob of
+ * {@link ./decorators/hof.ts | DecoratorGuard}: compares the member value's
+ * async-ness against `require` and throws a readable `AssertError` naming the
+ * member. Called by every converting decorator before touching the member.
+ * @param guard - The caller-provided guard (may be undefined).
+ * @param isAsync - Whether the member value reports `isAsyncFunction`.
+ * @param factoryName - The reporting decorator's name for the error message.
+ * @param memberName - The decorated member's name for the error message.
+ * @throws `AssertError` when `require` disagrees with the member's async-ness.
+ */
+export function assertGuardConsistency(
+  guard: undefined | { require?: "async" | "sync" },
+  isAsync: boolean,
+  factoryName: string,
+  memberName: string,
+): void {
+  if (guard?.require === "sync" && isAsync) {
+    throw new AssertError(
+      `${factoryName}: member "${memberName}" is an async function, but require: "sync" was requested`,
+    );
+  }
+  if (guard?.require === "async" && !isAsync) {
+    throw new AssertError(
+      `${factoryName}: member "${memberName}" is not an async function, but require: "async" was requested`,
+    );
+  }
+}
+
+/**
  * Fails fast when a decorator factory was applied paren-less (the decoration
  * context arrived where options are expected). This turns silent member
  * corruption into a readable `AssertError` at class-definition time.
@@ -231,35 +261,6 @@ export function assertNotRawMemberApplication(
   if (isRawMemberApplication(rest)) {
     throw new AssertError(
       `${factoryName}: applied without parentheses — call the factory with its options first, then decorate`,
-    );
-  }
-}
-
-/**
- * Enforces the sync/async discipline knob of
- * {@link ./decorators/hof.ts | DecoratorGuard}: compares the member value's
- * async-ness against `require` and throws a readable `AssertError` naming the
- * member. Called by every converting decorator before touching the member.
- * @param guard - The caller-provided guard (may be undefined).
- * @param isAsync - Whether the member value reports `isAsyncFunction`.
- * @param factoryName - The reporting decorator's name for the error message.
- * @param memberName - The decorated member's name for the error message.
- * @throws `AssertError` when `require` disagrees with the member's async-ness.
- */
-export function assertGuardConsistency(
-  guard: { require?: "sync" | "async" } | undefined,
-  isAsync: boolean,
-  factoryName: string,
-  memberName: string,
-): void {
-  if (guard?.require === "sync" && isAsync) {
-    throw new AssertError(
-      `${factoryName}: member "${memberName}" is an async function, but require: "sync" was requested`,
-    );
-  }
-  if (guard?.require === "async" && !isAsync) {
-    throw new AssertError(
-      `${factoryName}: member "${memberName}" is not an async function, but require: "async" was requested`,
     );
   }
 }

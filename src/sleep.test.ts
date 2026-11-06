@@ -1,5 +1,6 @@
-import { describe, it } from "vitest";
 import assert from "node:assert/strict";
+import { describe, it } from "vitest";
+
 import { sleepAsync, sleepSync } from "./sleep.js";
 
 describe("sleepAsync", () => {
@@ -148,7 +149,7 @@ describe("sleepSync", () => {
     sleepSync({ sleep: 30 });
     // still in the same synchronous execution: the timer could not have run
     assert.strictEqual(fired, false);
-    await new Promise((r) => setTimeout(r, 0));
+    await new Promise((resolve) => setTimeout(resolve, 0));
     assert.strictEqual(fired, true);
   });
 });

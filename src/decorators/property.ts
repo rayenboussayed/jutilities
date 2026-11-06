@@ -1,8 +1,9 @@
-import { isFunction } from "../is.js";
-import type { DecoratorGuard, HofOptionsOf } from "./hof.js";
-import { memberEnhancer } from "./hof.js";
 import type { HofFlavor, HofFn } from "../libs/create-hof.js";
+import type { DecoratorGuard, HofOptionsOf } from "./hof.js";
+
 import { assertNotRawApplication } from "../assert.js";
+import { isFunction } from "../is.js";
+import { memberEnhancer } from "./hof.js";
 
 /**
  * Field decorators for function-valued state.
@@ -58,7 +59,6 @@ export function decorateProperty<
 ): (
   hofOptions?: HofOptionsOf<H>,
 ) => FieldDecoratorOf;
-
 export function decorateProperty(
   hof: (fn: any, hofOptions?: any) => any,
   options?: DecoratorGuard,

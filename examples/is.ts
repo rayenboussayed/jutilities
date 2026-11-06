@@ -1,6 +1,7 @@
 /* eslint-disable deslint/no-prod-console -- examples are demo scripts; printing is their purpose */
-import { isAsyncFunction, isEmpty, isEmptyRecord, isNil, isObject, isPromise, isRecord, isThenable } from "jutilities/is";
 import type { HandleAsyncFunction } from "jutilities/types/type";
+
+import { isAsyncFunction, isEmpty, isEmptyRecord, isNil, isObject, isPromise, isRecord, isThenable } from "jutilities/is";
 
 
 /**
@@ -25,7 +26,7 @@ console.log("isThenable({ then(){}}) :", isThenable({ then: () => {} }));
 console.log("isPromise(Promise.resolve()) :", isPromise(Promise.resolve()));
 console.log("isPromise({ then(){}})      :", isPromise({ then: () => {} }));
 console.log("isPromise({then,catch,finally}) :",
-  isPromise({ then: () => {}, catch: () => {}, finally: () => {} }));
+  isPromise({ catch: () => {}, finally: () => {}, then: () => {} }));
 
 /**
  * Canonical `async` function for constructor-name detection.

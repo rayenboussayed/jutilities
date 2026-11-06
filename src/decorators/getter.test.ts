@@ -1,5 +1,7 @@
-import { describe, it } from "vitest";
+/* eslint-disable sonarjs/void-use */
 import assert from "node:assert/strict";
+import { describe, it } from "vitest";
+
 import { withCacheAsync, withCacheSync } from "../cache.js";
 import { lazy } from "../lazy.js";
 import { withLoggerSync } from "../logger.js";
@@ -13,7 +15,7 @@ import { decorateGetter } from "./getter.js";
 
 describe("decorateGetter", () => {
   it("wraps a getter through withCacheSync (memoizes once for the whole class)", () => {
-    const store = new Map<string | number, unknown>();
+    const store = new Map<number | string, unknown>();
     const cached = decorateGetter(withCacheSync);
     class Reports {
       loads = 0;
@@ -35,7 +37,7 @@ describe("decorateGetter", () => {
   });
 
   it("forwards this into the wrapped getter body", () => {
-    const store = new Map<string | number, unknown>();
+    const store = new Map<number | string, unknown>();
     const cached = decorateGetter(withCacheSync);
     class Stats {
       calls = 0;
@@ -111,6 +113,7 @@ describe("decorateGetter", () => {
             return 1;
           }
         }
+        // eslint-disable-next-line sonarjs/constructor-for-side-effects
         new Binder();
       },
       (error) =>
@@ -125,7 +128,6 @@ describe("decorateGetter", () => {
     const cached = decorateGetter(withCacheSync);
     class Temperatures {
       writes = 0;
-      #celsius = 0;
       @cached({ cacheStore: new Map(), extraKeys: ["getter-setter"] })
       get celsius() {
         return this.#celsius;
@@ -134,6 +136,7 @@ describe("decorateGetter", () => {
         this.writes++;
         this.#celsius = value;
       }
+      #celsius = 0;
     }
     const temps = new Temperatures();
     temps.celsius = 21;
@@ -173,7 +176,7 @@ describe("decorateGetter", () => {
       hof: (value: unknown) => unknown,
       options: unknown,
     ) => () => unknown;
-    const context = { kind: "getter", name: "val", addInitializer() {} };
+    const context = { addInitializer() {}, kind: "getter", name: "val" };
     assert.throws(
       () => void raw((value: unknown) => value, context)(),
       (error) =>
@@ -184,6 +187,7 @@ describe("decorateGetter", () => {
 });
 
 describe("decorateGetter: kind-based conversion contract", () => {
+  // eslint-disable-next-line sonarjs/assertions-in-tests
   it("rejects a legacy (non-factory) HOF at compile time", () => {
     // A hand-written fn-first function carries no `__kind` brand, so the
     // converter cannot recover its option bag — rejected.
@@ -195,6 +199,7 @@ describe("decorateGetter: kind-based conversion contract", () => {
     });
   });
 
+  // eslint-disable-next-line sonarjs/assertions-in-tests
   it("rejects an unknown option key at compile time", () => {
     const cached = decorateGetter(withCacheSync);
     void (() => {

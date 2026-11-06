@@ -43,12 +43,10 @@
     "check": "npm run typecheck && npm run lint && npm run test && npm run build && npm run examples",
     "test": "vitest run --coverage",
     "typecheck": "tsc --noEmit",
-    "lint": "eslint . --fix --max-warnings 0",
+    "lint": "eslint . --cache --max-warnings 0",
     "build": "tsc -p tsconfig.build.json",
     "examples": "npm run build && node --import tsx examples/run-all.ts",
-    "prepare": "husky && node scripts/link-self.mjs",
-    "test:watch": "vitest",
-    "test:coverage": "vitest run --coverage"
+    "prepare": "husky && node scripts/link-self.mjs"
   },
   "engines": {
     "node": ">=22.13.0"
@@ -59,9 +57,16 @@
     "@eslint/js": "^10.0.1",
     "@types/node": "^26.6.5",
     "@vitest/coverage-v8": "^3.2.7",
+    "@vitest/eslint-plugin": "^1.6.28",
     "eslint": "^10.13.0",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-de-morgan": "^2.3.0",
     "eslint-plugin-jsdoc": "^65.3.8",
     "eslint-plugin-n": "^18.4.1",
+    "eslint-plugin-perfectionist": "^5.13.0",
+    "eslint-plugin-regexp": "^3.3.3",
+    "eslint-plugin-security": "^4.2.1",
+    "eslint-plugin-sonarjs": "^4.2.2",
     "globals": "^17.13.0",
     "husky": "^9.1.7",
     "jiti": "^2.7.0",
@@ -71,6 +76,7 @@
     "vitest": "^3.2.7"
   },
   "dependencies": {
+    "eslint-plugin-promise": "^7.3.0",
     "expired-map": "^1.0.0"
   }
 }

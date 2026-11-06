@@ -1,5 +1,11 @@
 /* eslint-disable deslint/no-prod-console -- examples are demo scripts; printing is their purpose */
 
+import { withCacheAsync, withCacheSync } from "jutilities/cache";
+import { decorateMethod } from "jutilities/decorators/method";
+import { withDelayAsync } from "jutilities/delay";
+import { withAsync } from "jutilities/libs/with";
+import { withLoggerSync } from "jutilities/logger";
+import { withRetryAsync } from "jutilities/retry";
 /**
  * Runnable demo for `decorateMethod` (`jutilities/decorators/method`): any
  * fn-first HOF built by this package converts into a reusable method
@@ -13,12 +19,6 @@
  * pinned in `src/decorators/method.test.ts`, not here.
  */
 import assert from "node:assert/strict";
-import { withCacheAsync, withCacheSync } from "jutilities/cache";
-import { withDelayAsync } from "jutilities/delay";
-import { withLoggerSync } from "jutilities/logger";
-import { withRetryAsync } from "jutilities/retry";
-import { withAsync } from "jutilities/libs/with";
-import { decorateMethod } from "jutilities/decorators/method";
 
 // Hoist the factory so each decoration applies it exactly once.
 const memoizeSync = decorateMethod(withCacheSync, { require: "sync" });
@@ -30,10 +30,9 @@ let slugComputations = 0;
 let fetches = 0;
 
 class Store {
-  @memoizeSync({ extraKeys: ["store"] })
-  slug(name: string): string {
-    slugComputations++;
-    return name.toLowerCase();
+  @logged()
+  audit(action: string): string {
+    return `audited ${action}`;
   }
 
   // No options → the default retry policy (10 retries with built-in
@@ -45,14 +44,15 @@ class Store {
     return await Promise.resolve(`user:${name}`);
   }
 
+  @memoizeSync({ extraKeys: ["store"] })
+  slug(name: string): string {
+    slugComputations++;
+    return name.toLowerCase();
+  }
+
   @delayIt({ delay: 5 })
   async waitForIt(): Promise<string> {
     return await Promise.resolve("done");
-  }
-
-  @logged()
-  audit(action: string): string {
-    return `audited ${action}`;
   }
 }
 

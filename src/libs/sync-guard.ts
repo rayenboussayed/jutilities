@@ -12,29 +12,6 @@ const violationTags: readonly string[] = [
 ];
 
 /**
- * Checks if a returned value is a native-style promise or generator shape the
- * sync flavor must not leak to callers. Plain thenables without the Promise
- * tag are treated as ordinary sync values, matching the old compile-time gate.
- * @param value - Result of a wrapped sync call.
- * @returns `true` for Promise or generator/async-generator objects.
- */
-export function isSyncReturnViolation(value: unknown): boolean {
-  if (value == null) return false;
-
-  let tag: string | undefined;
-  try {
-    tag = Object.prototype.toString.call(value);
-  } catch {
-    return false;
-  }
-  if (tag !== undefined && violationTags.includes(tag)) return true;
-
-  // Native async functions in cross-realm environments can tag differently;
-  // instanceof catches the local runtime Promise implementation.
-  return typeof Promise === "function" && value instanceof Promise;
-}
-
-/**
  * Throws a {@link TypeError} when a sync wrapper sees a promise-like or
  * generator value.
  * @param value - The value returned by the wrapped function.
@@ -81,16 +58,39 @@ export function guardSyncFunction<TF extends AnyFunction>(fn: TF): TF {
   }
 
   Object.defineProperty(guarded, "length", {
-    value: fn.length,
     configurable: true,
+    value: fn.length,
   });
   Object.defineProperty(guarded, "name", {
-    value: fn.name,
     configurable: true,
+    value: fn.name,
   });
   Object.defineProperty(guarded, "toString", {
-    value: () => Function.prototype.toString.call(fn),
     configurable: true,
+    value: () => Function.prototype.toString.call(fn),
   });
   return guarded;
+}
+
+/**
+ * Checks if a returned value is a native-style promise or generator shape the
+ * sync flavor must not leak to callers. Plain thenables without the Promise
+ * tag are treated as ordinary sync values, matching the old compile-time gate.
+ * @param value - Result of a wrapped sync call.
+ * @returns `true` for Promise or generator/async-generator objects.
+ */
+export function isSyncReturnViolation(value: unknown): boolean {
+  if (value == null) return false;
+
+  let tag: string | undefined;
+  try {
+    tag = Object.prototype.toString.call(value);
+  } catch {
+    return false;
+  }
+  if (tag !== undefined && violationTags.includes(tag)) return true;
+
+  // Native async functions in cross-realm environments can tag differently;
+  // instanceof catches the local runtime Promise implementation.
+  return typeof Promise === "function" && value instanceof Promise;
 }

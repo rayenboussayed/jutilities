@@ -1,11 +1,12 @@
-import { describe, it } from "vitest";
 import assert from "node:assert/strict";
+import { describe, it } from "vitest";
+
+import { createHofSync, type HofKind } from "./create-hof.js";
 import {
   assertSyncReturn,
   guardSyncFunction,
   isSyncReturnViolation,
 } from "./sync-guard.js";
-import { createHofSync, type HofKind } from "./create-hof.js";
 
 interface MarkerKind extends HofKind {
   options: object;
@@ -101,14 +102,14 @@ describe("guardSyncFunction", () => {
   it("survives hostile proxy own-key layouts without throwing", () => {
     const target = () => "safe";
     const withoutDescriptor = new Proxy(target, {
-      ownKeys: () => ["ghost"],
       getOwnPropertyDescriptor: () => undefined,
+      ownKeys: () => ["ghost"],
     });
     const explodingDescriptor = new Proxy(target, {
-      ownKeys: () => ["ghost"],
       getOwnPropertyDescriptor: () => {
         throw new TypeError("hostile descriptor");
       },
+      ownKeys: () => ["ghost"],
     });
 
     assert.doesNotThrow(() => guardSyncFunction(withoutDescriptor));

@@ -29,6 +29,7 @@ function listExamples(): string[] {
     .filter((name) => name.endsWith(".ts") && name !== "run-all.ts")
     .sort();
   const inFolder = (folder: string) =>
+    // eslint-disable-next-line security/detect-non-literal-fs-filename
     readdirSync(join(here, folder))
       .filter((name) => name.endsWith(".ts"))
       .sort()

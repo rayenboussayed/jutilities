@@ -1,7 +1,9 @@
+/* eslint-disable sonarjs/void-use */
 /* eslint-disable deslint/no-prod-console -- examples are demo scripts; printing is their purpose */
-import assert from "node:assert/strict";
-import { Json, superjson } from "jutilities/json";
 import type { JsonHandler, JsonStringified } from "jutilities/json";
+
+import { Json, superjson } from "jutilities/json";
+import assert from "node:assert/strict";
 
 
 /**
@@ -12,18 +14,18 @@ import type { JsonHandler, JsonStringified } from "jutilities/json";
 
 // ---- value families native JSON cannot carry ---------------------------------
 const value = {
-  map: new Map([["k", "v"]]),
-  set: new Set([1, 2, 3]),
-  date: new Date(0),
-  invalidDate: new Date(Number.NaN),
   big: 9007199254740993n, // exceeds Number.MAX_SAFE_INTEGER
-  notANumber: Number.NaN,
-  minusZero: -0,
-  inf: Infinity,
-  negInf: -Infinity,
-  re: /jutilities/g,
-  url: new URL("https://example.com/p?a=1"),
   bytes: Uint8Array.from([1, 2, 3, 4]),
+  date: new Date(0),
+  inf: Infinity,
+  invalidDate: new Date(Number.NaN),
+  map: new Map([["k", "v"]]),
+  minusZero: -0,
+  negInf: -Infinity,
+  notANumber: Number.NaN,
+  re: /jutilities/g,
+  set: new Set([1, 2, 3]),
+  url: new URL("https://example.com/p?a=1"),
 };
 
 const text = superjson.stringify(value);
@@ -34,14 +36,14 @@ console.log("envelopes in flight:", text.slice(0, 72) + "…");
  * defaults its payload to `unknown`, so the demo pins the type explicitly.
  */
 type ValueShape = {
-  map: Map<string, string>;
-  set: Set<number>;
-  date: Date;
-  invalidDate: Date;
   big: bigint;
-  inf: number;
-  negInf: number;
   bytes: Uint8Array;
+  date: Date;
+  inf: number;
+  invalidDate: Date;
+  map: Map<string, string>;
+  negInf: number;
+  set: Set<number>;
 };
 
 const back = superjson.parse<ValueShape>(text);
@@ -62,7 +64,7 @@ console.log("bigint survives:", back.big === 9007199254740993n);
 console.log("typed array survives:", back.bytes instanceof Uint8Array);
 
 // ---- errors keep cause chains (but subclass identity is lost) ----------------
-const err = superjson.parse<{ message: string; cause: { message: string } }>(
+const err = superjson.parse<{ cause: { message: string }; message: string; }>(
   superjson.stringify(new Error("outer", { cause: new Error("inner") })),
 );
 console.log("error round-trip:", err.message, "->", err.cause.message);
@@ -86,8 +88,8 @@ class Upper {
 function upperJson(): Json {
   return new Json().addHandler("upper", {
     isApplicable: (_key, value2): value2 is Upper => value2 instanceof Upper,
+    parse: (_key, text2) => new Upper(text2 as string),
     stringify: (_key, up) => up.text,
-    parse: (_key, text2) => new Upper(text2),
   });
 }
 
@@ -117,6 +119,11 @@ const rebuilt = roundTrip(boxed);
 assert.deepStrictEqual(rebuilt, boxed);
 console.log("round-tripped:", rebuilt);
 
+interface Point {
+  x: number;
+  y: number;
+}
+
 // ---- generic handler factory --------------------------------------------------
 /**
  * Builds a handler that round-trips values of a given type `T`, where the
@@ -132,14 +139,9 @@ function stringHandler<T>(
 ): JsonHandler<T, string> {
   return {
     isApplicable: (_key, value): value is T => value !== null && typeof value === "object",
-    stringify: (_key, value) => encode(value),
     parse: (_key, text) => decode(text),
+    stringify: (_key, value) => encode(value),
   };
-}
-
-interface Point {
-  x: number;
-  y: number;
 }
 
 const pointHandler = stringHandler<Point>(
@@ -176,8 +178,8 @@ function typedUpperJson<T extends { text: string }>() {
   return new Json().addHandler<T, string>("upper", {
     isApplicable: (_key, value): value is T =>
       typeof value === "object" && value !== null && "text" in value,
-    stringify: (_key, value) => (value as T).text,
     parse: (_key, text) => ({ text } as T),
+    stringify: (_key, value) => (value as T).text,
   });
 }
 

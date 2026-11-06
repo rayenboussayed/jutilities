@@ -1,12 +1,12 @@
 /* eslint-disable deslint/no-prod-console -- examples are demo scripts; printing is their purpose */
 
+import { withCacheAsync, withCacheSync } from "jutilities/cache";
 /**
  * Demonstrates `withAsync` / `withSync`: composing several fn-first HOFs into
  * one wrapper (the first HOF is the outermost layer), with one shared options
  * bag and one shared bypass for the whole stack.
  */
 import { withAsync, withSync } from "jutilities/libs/with";
-import { withCacheAsync, withCacheSync } from "jutilities/cache";
 import { withLoggerAsync } from "jutilities/logger";
 import { withRetryAsync } from "jutilities/retry";
 import { sleepAsync } from "jutilities/sleep";
@@ -28,9 +28,9 @@ async function loadProfile(id: string): Promise<string> {
 const resilient = withAsync(withLoggerAsync, withCacheAsync, withRetryAsync);
 
 const getProfile = resilient(loadProfile, {
-  name: "profile:load", // read by the logger layer
   extraKeys: ["demo"], // read by the cache layer
-  onError: async ({ retries, error }) => {
+  name: "profile:load", // read by the logger layer
+  onError: async ({ error, retries }) => {
     // read by the retry layer
     console.log(`  attempt ${retries + 1} failed:`, (error as Error).message);
     await sleepAsync({ sleep: 10 });

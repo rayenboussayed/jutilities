@@ -7,17 +7,29 @@
  */
 import { withLoggerAsync } from "jutilities/logger";
 import { withRetryAsync } from "jutilities/retry";
-import { sleepAsync } from "jutilities/sleep";
 import { abort } from "jutilities/signal";
-
-/** A queued unit of work; `remainingFailures` simulates a flaky worker. */
-type Job = { id: number; label: string; remainingFailures: number };
+import { sleepAsync } from "jutilities/sleep";
 
 /** A job that exhausted its retries, with the final reason. */
 type DeadLetter = { job: Job; reason: string };
 
+/** A queued unit of work; `remainingFailures` simulates a flaky worker. */
+type Job = { id: number; label: string; remainingFailures: number };
+
 /** Shared progress counters for the demo. */
 const stats = { settled: 0 };
+
+/**
+ * Retry policy: two retries with backoff, then give up (dead-letter).
+ * @param root0 - The retry policy context.
+ * @param root0.retries - Current retry count.
+ * @param root0.error - The attempt's error.
+ */
+async function onJobError({ error, retries }: { error: unknown; retries: number; }): Promise<void> {
+  if (retries >= 2) throw error; // poison policy: two retries, then dead-letter
+  console.log(`    job backoff after attempt ${retries + 1}:`, (error as Error).message);
+  await sleepAsync({ sleep: 30 });
+}
 
 /**
  * Simulated job execution that fails while `remainingFailures` is positive.
@@ -31,18 +43,6 @@ async function process(job: Job): Promise<string> {
     throw new Error(`${job.label} failed (${job.remainingFailures} failures left)`);
   }
   return `${job.label} done`;
-}
-
-/**
- * Retry policy: two retries with backoff, then give up (dead-letter).
- * @param root0 - The retry policy context.
- * @param root0.retries - Current retry count.
- * @param root0.error - The attempt's error.
- */
-async function onJobError({ retries, error }: { retries: number; error: unknown }): Promise<void> {
-  if (retries >= 2) throw error; // poison policy: two retries, then dead-letter
-  console.log(`    job backoff after attempt ${retries + 1}:`, (error as Error).message);
-  await sleepAsync({ sleep: 30 });
 }
 
 const runJob = withRetryAsync(withLoggerAsync(process, { name: "worker.process" }), {
@@ -95,7 +95,7 @@ const queue: Job[] = Array.from({ length: 8 }, (_, index) => ({
 const total = queue.length; // workers shift() entries — snapshot before draining
 const deadLetter: DeadLetter[] = [];
 const controller = new AbortController();
-abort({ signal: controller.signal, onAbort: () => console.log("shutdown: abort signal received") });
+abort({ onAbort: () => console.log("shutdown: abort signal received"), signal: controller.signal });
 
 const running = [
   worker("worker-a", queue, deadLetter, controller.signal),

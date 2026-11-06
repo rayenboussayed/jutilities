@@ -1,5 +1,6 @@
-import { describe, it } from "vitest";
 import assert from "node:assert/strict";
+import { describe, it } from "vitest";
+
 import { Json, superjson } from "./json.js";
 
 /**
@@ -84,8 +85,8 @@ describe("Json without handlers matches native JSON", () => {
     const noop = {
       isApplicable: (key: string, v: any): v is null =>
         key.startsWith("!") && v === null,
-      stringify: (_key: string, v: unknown) => v,
       parse: (_key: string, v: unknown) => v,
+      stringify: (_key: string, v: unknown) => v,
     };
     assert.strictEqual(json.addHandler("a", noop), json);
     assert.strictEqual(json.removeHandler("missing"), json);
@@ -96,13 +97,13 @@ describe("Json without handlers matches native JSON", () => {
     const json = new Json()
       .addHandler("x", {
         isApplicable: (_k: string, v: any): v is number => v === 1,
-        stringify: () => "first",
         parse: () => 1,
+        stringify: () => "first",
       })
       .addHandler("x", {
         isApplicable: (_k: string, v: any): v is number => v === 1,
-        stringify: () => "second",
         parse: () => 1,
+        stringify: () => "second",
       });
     assert.strictEqual(json.stringify(1), '{"__type":"x","value":"second"}');
   });
@@ -120,8 +121,8 @@ describe("custom handlers", () => {
   function upperJson() {
     return new Json().addHandler("upper", {
       isApplicable: (_k, v): v is Upper => v instanceof Upper,
-      stringify: (_k, v) => v.text,
       parse: (_k, v: string) => new Upper(v),
+      stringify: (_k, v) => v.text,
     });
   }
 
@@ -131,8 +132,8 @@ describe("custom handlers", () => {
     assert.ok(back instanceof Upper);
     assert.strictEqual(back.text, "hi");
 
-    const nested = json.parse<{ u: Upper; list: Upper[] }>(
-      json.stringify({ u: new Upper("a"), list: [new Upper("b")] }),
+    const nested = json.parse<{ list: Upper[]; u: Upper; }>(
+      json.stringify({ list: [new Upper("b")], u: new Upper("a") }),
     );
     assert.ok(nested.u instanceof Upper);
     assert.ok(nested.list[0] instanceof Upper);
@@ -162,7 +163,7 @@ describe("custom handlers", () => {
 
   it("handler wins over user replacer for claimed values", () => {
     const json = upperJson();
-    const text = json.stringify({ u: new Upper("a"), n: 1 }, (_k, v) =>
+    const text = json.stringify({ n: 1, u: new Upper("a") }, (_k, v) =>
       typeof v === "number" ? 99 : v,
     );
     assert.match(text as string, /"n":99/);
@@ -222,12 +223,12 @@ describe("superjson: number (non-finite and -0)", () => {
 
   it("claims ±Infinity nested, as Map keys, and as Set members", () => {
     const back = rt({
-      pos: Infinity,
-      neg: -Infinity,
       map: new Map<number, string>([
-        [Infinity, "pos"],
         [-Infinity, "neg"],
+        [Infinity, "pos"],
       ]),
+      neg: -Infinity,
+      pos: Infinity,
       set: new Set<number>([-Infinity]),
     });
     assert.strictEqual(back.pos, Infinity);
@@ -240,7 +241,7 @@ describe("superjson: number (non-finite and -0)", () => {
   it("leaves finite numbers (incl. 0) untouched", () => {
     assert.strictEqual(superjson.stringify(0), "0");
     assert.strictEqual(superjson.stringify(1.5), "1.5");
-    assert.deepStrictEqual(rt({ n: 0, m: 1.5 }), { n: 0, m: 1.5 });
+    assert.deepStrictEqual(rt({ m: 1.5, n: 0 }), { m: 1.5, n: 0 });
   });
 
   it("parses hand-written number envelopes", () => {
@@ -289,18 +290,22 @@ describe("superjson: symbol", () => {
 
 describe("superjson: boxed primitives", () => {
   it("round-trips Number/String/Boolean objects with prototype", () => {
+    // eslint-disable-next-line sonarjs/no-primitive-wrappers
     const n = rt(new Number(5));
     assert.ok(n instanceof Number);
     assert.strictEqual(n.valueOf(), 5);
 
+    // eslint-disable-next-line sonarjs/no-primitive-wrappers
     const s = rt(new String("hi"));
     assert.ok(s instanceof String);
     assert.strictEqual(s.valueOf(), "hi");
 
+    // eslint-disable-next-line sonarjs/no-primitive-wrappers
     const b = rt(new Boolean(true));
     assert.ok(b instanceof Boolean);
     assert.strictEqual(b.valueOf(), true);
 
+    // eslint-disable-next-line sonarjs/no-primitive-wrappers
     const f = rt(new Boolean(false));
     assert.ok(f instanceof Boolean);
     assert.strictEqual(f.valueOf(), false);
@@ -396,6 +401,7 @@ describe("superjson: map and set", () => {
 
   it("round-trips sets preserving order and objects", () => {
     const d = new Date("2024-05-06T07:08:09.000Z");
+    // eslint-disable-next-line perfectionist/sort-sets
     const back = rt(new Set<unknown>([1, "two", { a: 1 }, d]));
     assert.ok(back instanceof Set);
     assert.deepStrictEqual([...back], [1, "two", { a: 1 }, d]);
@@ -479,6 +485,7 @@ describe("superjson: typed arrays and DataView", () => {
     for (const [tag, value] of cases) {
       assert.match(
         superjson.stringify(value) as string,
+        // eslint-disable-next-line security/detect-non-literal-regexp
         new RegExp(`"__type":"${tag}"`),
         tag,
       );
@@ -583,7 +590,7 @@ describe("superjson: error", () => {
   it("documents AggregateError loss (errors array is non-enumerable, dropped)", () => {
     const back = rt(new AggregateError([new Error("a"), "b"], "agg"));
     // read the assertions' targets before the negative instanceof narrowing
-    const { name, message, errors } = back;
+    const { errors, message, name } = back;
     assert.ok(back instanceof Error);
     assert.ok(!(back instanceof AggregateError));
     assert.strictEqual(name, "AggregateError");
@@ -602,6 +609,7 @@ describe("superjson: regexp", () => {
   });
 
   it("round-trips flagless and special-char patterns", () => {
+    // eslint-disable-next-line regexp/no-useless-non-capturing-group
     const back = rt(/(?:a.b)\d+/);
     assert.strictEqual(back.source, "(?:a.b)\\d+");
     assert.strictEqual(back.flags, "");
@@ -658,7 +666,7 @@ describe("superjson: replacer and reviver interplay", () => {
   const iso = "2024-01-02T03:04:05.000Z";
 
   it("user replacer transforms plain values alongside envelopes", () => {
-    const text = superjson.stringify({ n: 1, at: new Date(iso) }, (_k, v) =>
+    const text = superjson.stringify({ at: new Date(iso), n: 1 }, (_k, v) =>
       typeof v === "number" ? 99 : v,
     ) as string;
     assert.match(text, /"n":99/);
@@ -707,15 +715,15 @@ describe("superjson: edges and documented caveats", () => {
   it("kitchen sink: nested mix round-trips with prototypes", () => {
     const d = new Date("2024-01-02T03:04:05.000Z");
     const value = {
-      when: d,
-      m: new Map<string, unknown>([["k", [1n, /x/]]]),
-      s: new Set<unknown>([d]),
-      u: new URL("https://example.com/"),
-      buf: Buffer.from("hi"),
       big: 9007199254740993n,
+      buf: Buffer.from("hi"),
       err: new TypeError("t"),
-      sym: Symbol.for("k"),
+      m: new Map<string, unknown>([["k", [1n, /x/]]]),
       nan: NaN,
+      s: new Set<unknown>([d]),
+      sym: Symbol.for("k"),
+      u: new URL("https://example.com/"),
+      when: d,
     };
     const back = rt(value);
     assert.ok(back.when instanceof Date);

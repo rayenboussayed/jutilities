@@ -1,5 +1,6 @@
-import { describe, it } from "vitest";
 import assert from "node:assert/strict";
+import { describe, it } from "vitest";
+
 import {
   isAsyncFunction,
   isAsyncGeneratorFunction,
@@ -13,9 +14,9 @@ import {
   isNull,
   isObject,
   isPromise,
+  isRawMemberApplication,
   isRecord,
   isThenable,
-  isRawMemberApplication,
   isUndefined,
 } from "./is.js";
 
@@ -86,7 +87,7 @@ describe("isEmptyString", () => {
     assert.strictEqual(isEmptyString([]), false);
     assert.strictEqual(isEmptyString({}), false);
      
-    assert.strictEqual(isEmptyString(new String("")), false);
+    assert.strictEqual(isEmptyString(Object("")), false);
   });
 });
 
@@ -257,9 +258,9 @@ describe("isPromise", () => {
 
   it("returns true for thenables with catch and finally functions", () => {
     const fake = {
-      then: () => {},
       catch: () => {},
       finally: () => {},
+      then: () => {},
     };
     assert.strictEqual(isPromise(fake), true);
   });
@@ -267,11 +268,11 @@ describe("isPromise", () => {
   it("returns false for bare thenables without catch/finally", () => {
     assert.strictEqual(isPromise({ then: () => {} }), false);
     assert.strictEqual(
-      isPromise({ then: () => {}, catch: () => {} }),
+      isPromise({ catch: () => {}, then: () => {} }),
       false,
     );
     assert.strictEqual(
-      isPromise({ then: () => {}, finally: () => {} }),
+      isPromise({ finally: () => {}, then: () => {} }),
       false,
     );
   });
@@ -376,7 +377,7 @@ describe("isDecorationContext", () => {
     assert.strictEqual(isDecorationContext({ kind: "method" }), true);
     // A synthesized (partial) Stage 3 decoration context:
     assert.strictEqual(
-      isDecorationContext({ kind: "field", name: "f", addInitializer() {} }),
+      isDecorationContext({ addInitializer() {}, kind: "field", name: "f" }),
       true,
     );
   });

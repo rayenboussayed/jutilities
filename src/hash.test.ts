@@ -1,5 +1,6 @@
-import { describe, it } from "vitest";
 import assert from "node:assert/strict";
+import { describe, it } from "vitest";
+
 import { djb2, fnv1a64, sdbm } from "./hash.js";
 
 describe("djb2", () => {

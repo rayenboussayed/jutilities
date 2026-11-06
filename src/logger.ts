@@ -1,10 +1,11 @@
 import type { AnyFunction } from "./types/type.js";
+
+import { now } from "./libs/clock.js";
 import {
   createHofAsync,
   createHofSync,
   type HofKind,
 } from "./libs/create-hof.js";
-import { now } from "./libs/clock.js";
 
 /**
  * Sync and async higher-order loggers that trace a function's invocation and
@@ -27,17 +28,17 @@ import { now } from "./libs/clock.js";
  * non-`Promise` thenable logs that object without awaiting it.
  */
 
+export interface LoggerKind<T extends AnyFunction = AnyFunction> extends HofKind<T> {
+  options: Options;
+}
+
 export type Options = {
-  name?: string;
   logger?: {
     debug: (...args: any[]) => void;
     error: (...args: any[]) => void;
   };
+  name?: string;
 };
-
-export interface LoggerKind<T extends AnyFunction = AnyFunction> extends HofKind<T> {
-  options: Options;
-}
 
 /**
  * The sink both wrappers log through: the injectable `options.logger`, or
@@ -57,15 +58,22 @@ function labelOf(fn: AnyFunction, name?: string): string {
 }
 
 /**
- * Logs the invocation line and starts the duration measurement.
+ * Logs the failure line with the elapsed duration.
  * @param logger - The sink to log through.
  * @param label - The wrapper's label.
- * @param args - The call arguments.
- * @returns The start timestamp of the measured call.
+ * @param startTime - The start timestamp of the measured call.
+ * @param error - The thrown value.
  */
-function logStart(logger: LoggerSink, label: string, args: unknown[]): number {
-  logger.debug(`[${new Date()}] ${label} Execution, Args:`, ...args);
-  return now();
+function logError(
+  logger: LoggerSink,
+  label: string,
+  startTime: number,
+  error: unknown,
+): void {
+  logger.error(
+    `[${new Date()}] ${label} Execution ${now() - startTime}ms, Error:`,
+    error,
+  );
 }
 
 /**
@@ -88,22 +96,15 @@ function logResult(
 }
 
 /**
- * Logs the failure line with the elapsed duration.
+ * Logs the invocation line and starts the duration measurement.
  * @param logger - The sink to log through.
  * @param label - The wrapper's label.
- * @param startTime - The start timestamp of the measured call.
- * @param error - The thrown value.
+ * @param args - The call arguments.
+ * @returns The start timestamp of the measured call.
  */
-function logError(
-  logger: LoggerSink,
-  label: string,
-  startTime: number,
-  error: unknown,
-): void {
-  logger.error(
-    `[${new Date()}] ${label} Execution ${now() - startTime}ms, Error:`,
-    error,
-  );
+function logStart(logger: LoggerSink, label: string, args: unknown[]): number {
+  logger.debug(`[${new Date()}] ${label} Execution, Args:`, ...args);
+  return now();
 }
 
 /**
@@ -127,7 +128,7 @@ function logError(
  * @returns The wrapped function (typeof `fn`) with logging around each call.
  */
 export const withLoggerSync = createHofSync<LoggerKind>(
-  (fn, { name: fnName, logger = console } = {}) => {
+  (fn, { logger = console, name: fnName } = {}) => {
     const label = labelOf(fn, fnName);
 
     return function (
@@ -168,7 +169,7 @@ export const withLoggerSync = createHofSync<LoggerKind>(
  * @returns The wrapped function (typeof `fn`) with logging around each await.
  */
 export const withLoggerAsync = createHofAsync<LoggerKind>(
-  (fn, { name: fnName, logger = console } = {}) => {
+  (fn, { logger = console, name: fnName } = {}) => {
     const label = labelOf(fn, fnName);
 
     return async function (

@@ -1,5 +1,7 @@
-import { describe, it } from "vitest";
+/* eslint-disable sonarjs/void-use */
 import assert from "node:assert/strict";
+import { describe, it } from "vitest";
+
 import { withCacheAsync, withCacheSync } from "../cache.js";
 import { withLoggerAsync, withLoggerSync } from "../logger.js";
 import { decorateClass } from "./class.js";
@@ -10,23 +12,23 @@ import { decorateClass } from "./class.js";
 
 describe("decorateClass", () => {
   it("single enhancer wraps every own prototype method with shared options", () => {
-    const store = new Map<string | number, unknown>();
+    const store = new Map<number | string, unknown>();
     const cached = decorateClass(withCacheSync);
     @cached({ cacheStore: store, extraKeys: ["class-single"] })
     class Users {
-      nameLoads = 0;
       countLoads = 0;
       ctorRuns = 0;
+      nameLoads = 0;
       constructor() {
         this.ctorRuns++;
-      }
-      name(id: string) {
-        this.nameLoads++;
-        return `u-${id}`;
       }
       count() {
         this.countLoads++;
         return 1;
+      }
+      name(id: string) {
+        this.nameLoads++;
+        return `u-${id}`;
       }
     }
     const first = new Users();
@@ -50,20 +52,20 @@ describe("decorateClass", () => {
   });
 
   it("detect pair: sync members take the sync slot, async members the async slot", async () => {
-    const store = new Map<string | number, unknown>();
+    const store = new Map<number | string, unknown>();
     const pair = decorateClass({
-      sync: withCacheSync,
       async: withCacheAsync,
+      sync: withCacheSync,
     });
     @pair({ cacheStore: store, extraKeys: ["class-pair"] })
     class Repo {
+      asyncLoads = 0;
       syncLoads = 0;
+
       fast() {
         this.syncLoads++;
         return "fast";
       }
-
-      asyncLoads = 0;
       async slow() {
         this.asyncLoads++;
         return "slow";
@@ -80,9 +82,9 @@ describe("decorateClass", () => {
   });
 
   it("pick 'sync' forces every member through the sync slot", async () => {
-    const store = new Map<string | number, unknown>();
+    const store = new Map<number | string, unknown>();
     const forcedSync = decorateClass(
-      { sync: withCacheSync, async: withCacheAsync },
+      { async: withCacheAsync, sync: withCacheSync },
       { pick: "sync" },
     );
     @forcedSync({ cacheStore: store, extraKeys: ["class-pick-sync"] })
@@ -117,7 +119,7 @@ describe("decorateClass", () => {
 
   it("pick 'async' forces every member through the async slot", async () => {
     const forcedAsync = decorateClass(
-      { sync: withCacheSync, async: withCacheAsync },
+      { async: withCacheAsync, sync: withCacheSync },
       { pick: "async" },
     );
     // Declared sync, pushed through the async slot: the async wrapper resolves
@@ -152,6 +154,7 @@ describe("decorateClass", () => {
             return 1;
           }
         }
+        // eslint-disable-next-line sonarjs/constructor-for-side-effects
         new Nowrap();
       },
       (error) =>
@@ -173,6 +176,7 @@ describe("decorateClass", () => {
             return 1;
           }
         }
+        // eslint-disable-next-line sonarjs/constructor-for-side-effects
         new Bad();
       },
       (error) =>
@@ -185,14 +189,15 @@ describe("decorateClass", () => {
     const cached = decorateClass(withCacheSync);
     @cached({ cacheStore: new Map(), extraKeys: ["class-static-skip"] })
     class Registry {
+      // eslint-disable-next-line sonarjs/public-static-readonly
       static ticks = 0;
-      instancePing() {
-        return "ping";
-      }
-
       static bust() {
         Registry.ticks++;
         return Registry.ticks;
+      }
+
+      instancePing() {
+        return "ping";
       }
     }
     const registry = new Registry();
@@ -206,14 +211,14 @@ describe("decorateClass", () => {
     @cached({ cacheStore: new Map(), extraKeys: ["class-getter-skip"] })
     class Greeters {
       labelLoads = 0;
-      ping() {
-        return "ping";
-      }
-
       get label() {
         // Accessors stay original: every read executes the getter again.
         this.labelLoads++;
         return `L-${this.labelLoads}`;
+      }
+
+      ping() {
+        return "ping";
       }
     }
     const greeter = new Greeters();
@@ -250,7 +255,7 @@ describe("decorateClass", () => {
     // synthesized: the factory receives (class, context) as its options rest.
     const factory = decorateClass(withLoggerSync) as (...args: any[]) => unknown;
     const member = class Source {};
-    const context = { kind: "class", name: "Source", addInitializer() {} };
+    const context = { addInitializer() {}, kind: "class", name: "Source" };
     assert.throws(
       () => void factory(member, context),
       (error) =>
@@ -264,7 +269,7 @@ describe("decorateClass", () => {
     // in the options slot is the raw application fingerprint.
     const raw = decorateClass as unknown as (...args: any[]) => unknown;
     const member = class Raw {};
-    const context = { kind: "class", name: "Raw", addInitializer() {} };
+    const context = { addInitializer() {}, kind: "class", name: "Raw" };
     assert.throws(
       () => void raw(member, context),
       (error) =>
@@ -273,6 +278,7 @@ describe("decorateClass", () => {
     );
   });
 
+  // eslint-disable-next-line sonarjs/assertions-in-tests
   it("compile pin: paren-less class application is type-rejected", () => {
     // Analysis-time probe: the body never runs; tsc must reject the bare
     // factory application on the class slot.
@@ -291,6 +297,7 @@ describe("decorateClass", () => {
 });
 
 describe("decorateClass: kind-based conversion contract", () => {
+  // eslint-disable-next-line sonarjs/assertions-in-tests
   it("rejects a legacy (non-factory) HOF at compile time", () => {
     // A hand-written fn-first function carries no `__kind` brand, so the
     // converter cannot recover its option bag — rejected.
@@ -308,8 +315,9 @@ describe("decorateClass: kind-based conversion contract", () => {
     });
   });
 
+  // eslint-disable-next-line sonarjs/assertions-in-tests
   it("rejects an unknown option key at compile time", () => {
-    const pair = decorateClass({ sync: withCacheSync, async: withCacheAsync });
+    const pair = decorateClass({ async: withCacheAsync, sync: withCacheSync });
     void (() => {
       // @ts-expect-error - the option bag is typed from the HOFs' kinds.
       @pair({ bogus: true })
@@ -323,7 +331,7 @@ describe("decorateClass: kind-based conversion contract", () => {
   });
 
   it("merges both slots' option bags into one shared bag", async () => {
-    const pair = decorateClass({ sync: withCacheSync, async: withLoggerAsync });
+    const pair = decorateClass({ async: withLoggerAsync, sync: withCacheSync });
     const lines: unknown[][] = [];
     const originalDebug = console.debug;
     console.debug = (...parts: unknown[]) => {
@@ -401,6 +409,7 @@ describe("decorateClass: coverage extras", () => {
     );
   });
 
+  // eslint-disable-next-line sonarjs/no-duplicate-test-title
   it("skips non-function own prototype members", () => {
     const decorated = decorateClass(withCacheSync);
     class Base {
@@ -409,9 +418,9 @@ describe("decorateClass: coverage extras", () => {
       }
     }
     Object.defineProperty(Base.prototype, "tag", {
+      configurable: true,
       value: 1,
       writable: true,
-      configurable: true,
     });
     const Enhancer = decorated as (options?: unknown) => (cls: unknown) => unknown;
     const Result = Enhancer()(Base) as any;

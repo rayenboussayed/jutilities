@@ -39,7 +39,7 @@ console.log("inferred-name result:", tracedGreet());
  * @returns The literal `"resolved"` after a short simulated delay.
  */
 async function job(): Promise<string> {
-  await new Promise((r) => setTimeout(r, 10));
+  await new Promise((resolve) => setTimeout(resolve, 10));
   return "resolved";
 }
 

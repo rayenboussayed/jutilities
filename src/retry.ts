@@ -1,15 +1,16 @@
-import { sleepSync } from "./sleep.js";
 import type {
   AnyFunction,
   HandleAsyncFunction,
   MaybePromise,
 } from "./types/type.js";
+
+import { now } from "./libs/clock.js";
 import {
   createHofAsync,
   createHofSync,
   type HofKind,
 } from "./libs/create-hof.js";
-import { now } from "./libs/clock.js";
+import { sleepSync } from "./sleep.js";
 
 /**
  * The default `onError` policy: exponential back-off (2^retries × the last
@@ -23,11 +24,11 @@ import { now } from "./libs/clock.js";
  * @param root0.retries - How many retries have run so far.
  */
 export const defaultOnError: OnErrorFn = ({
-  totalRetryExecution,
-  startFnExecution,
   endFnExecution,
   error,
   retries,
+  startFnExecution,
+  totalRetryExecution,
 }) => {
   if (retries >= 10) throw error;
   if (totalRetryExecution >= 60_000) throw error;
@@ -36,18 +37,19 @@ export const defaultOnError: OnErrorFn = ({
   const exponentialDelay = 2 ** retries * lastAttemptDuration;
   const remainingBudget = 60_000 - totalRetryExecution;
   const maxDelay = Math.min(exponentialDelay, remainingBudget);
+  // eslint-disable-next-line sonarjs/pseudo-random
   const jitteredDelay = Math.random() * maxDelay;
   sleepSync({ sleep: jitteredDelay });
 };
 
 export type OnErrorFn<T extends AnyFunction = AnyFunction> = (options: {
+  endFnExecution: number;
+  error: unknown;
   parameters: Parameters<T>;
+  retries: number;
+  startFnExecution: number;
   startRetryExecution: number;
   totalRetryExecution: number;
-  startFnExecution: number;
-  endFnExecution: number;
-  retries: number;
-  error: unknown;
 }) => HandleAsyncFunction<T, MaybePromise<void>, void>;
 
 export type Options<T extends AnyFunction = AnyFunction> = {
@@ -79,13 +81,13 @@ function attemptPayload(
   retries: number,
 ) {
   return {
-    parameters,
-    startRetryExecution,
-    totalRetryExecution: endFnExecution - startRetryExecution,
-    startFnExecution,
     endFnExecution,
     error,
+    parameters,
     retries,
+    startFnExecution,
+    startRetryExecution,
+    totalRetryExecution: endFnExecution - startRetryExecution,
   };
 }
 

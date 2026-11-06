@@ -1,5 +1,7 @@
-import { describe, it } from "vitest";
+/* eslint-disable sonarjs/void-use */
 import assert from "node:assert/strict";
+import { describe, it } from "vitest";
+
 import { withCacheSync } from "../cache.js";
 import { withLoggerSync } from "../logger.js";
 import { decorateProperty } from "./property.js";
@@ -12,7 +14,7 @@ import { decorateProperty } from "./property.js";
 
 describe("decorateProperty", () => {
   it("wraps a function-valued field through withCacheSync with shared options", () => {
-    const store = new Map<string | number, unknown>();
+    const store = new Map<number | string, unknown>();
     const cached = decorateProperty(withCacheSync);
     class Adder {
       addRuns = 0;
@@ -29,7 +31,7 @@ describe("decorateProperty", () => {
   });
 
   it("each instance gets a freshly enhanced function (per-instance enhancement)", () => {
-    const store = new Map<string | number, unknown>();
+    const store = new Map<number | string, unknown>();
     const cached = decorateProperty(withCacheSync);
     class Multiplier {
       factor = 3;
@@ -61,7 +63,7 @@ describe("decorateProperty", () => {
   });
 
   it("lexical this is preserved across arrow-function fields (withCacheSync wrapper)", () => {
-    const store = new Map<string | number, unknown>();
+    const store = new Map<number | string, unknown>();
     const cached = decorateProperty(withCacheSync);
     class Ratios {
       factor = 2;
@@ -75,7 +77,7 @@ describe("decorateProperty", () => {
   });
 
   it("guards pass for matching sync/async members", () => {
-    const store = new Map<string | number, unknown>();
+    const store = new Map<number | string, unknown>();
     const requireSync = decorateProperty(withCacheSync, { require: "sync" });
     const requireAsync = decorateProperty(withCacheSync, { require: "async" });
     class Ok {
@@ -155,7 +157,7 @@ describe("decorateProperty", () => {
     const member = function member() {
       return 1;
     };
-    const context = { kind: "getter", name: "member", addInitializer() {} };
+    const context = { addInitializer() {}, kind: "getter", name: "member" };
     assert.throws(
       () => void factory(member, context),
       (error) =>
@@ -173,7 +175,7 @@ describe("decorateProperty", () => {
       hof: (value: unknown) => unknown,
       options: unknown,
     ) => () => unknown;
-    const context = { kind: "field", name: "go", addInitializer() {} };
+    const context = { addInitializer() {}, kind: "field", name: "go" };
     assert.throws(
       () => void raw((value: unknown) => value, context)(),
       (error) =>
@@ -182,6 +184,7 @@ describe("decorateProperty", () => {
     );
   });
 
+  // eslint-disable-next-line sonarjs/assertions-in-tests
   it("compile pin: bare field application is type-rejected", () => {
     // Analysis-time probe: the body never runs; tsc must reject the bare
     // factory application on the field slot (TS1270). Runtime cannot self-
@@ -200,6 +203,7 @@ describe("decorateProperty", () => {
 });
 
 describe("decorateProperty: kind-based conversion contract", () => {
+  // eslint-disable-next-line sonarjs/assertions-in-tests
   it("rejects a legacy (non-factory) HOF at compile time", () => {
     // A hand-written fn-first function carries no `__kind` brand, so the
     // converter cannot recover its option bag — rejected.
@@ -211,6 +215,7 @@ describe("decorateProperty: kind-based conversion contract", () => {
     });
   });
 
+  // eslint-disable-next-line sonarjs/assertions-in-tests
   it("rejects an unknown option key at compile time", () => {
     const memoize = decorateProperty(withCacheSync);
     void (() => {

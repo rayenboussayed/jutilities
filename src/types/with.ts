@@ -7,4 +7,4 @@
  * signal-aware helper in this package follows.
  * @template T - The rest of the options object (an object type by default).
  */
-export type WithSignal<T = object> = { signal?: AbortSignal } & T;
+export type WithSignal<T = object> = T & { signal?: AbortSignal };

@@ -7,8 +7,8 @@
  * through per-loop relayed signals).
  */
 import { withLoggerAsync } from "jutilities/logger";
-import { sleepAsync } from "jutilities/sleep";
 import { abort } from "jutilities/signal";
+import { sleepAsync } from "jutilities/sleep";
 import { withTimeoutAsync } from "jutilities/timeout";
 
 /** A schedulable task: tick number plus the loop's cancellation signal. */
@@ -59,15 +59,15 @@ async function metricsFlush(tick: number, signal: AbortSignal): Promise<string> 
  * @param root0.signal - Parent shutdown signal.
  * @returns Resolves once the parent signal aborted.
  */
-async function schedule({ name, intervalMs, task, signal }: {
-  name: string;
+async function schedule({ intervalMs, name, signal, task }: {
   intervalMs: number;
-  task: Task;
+  name: string;
   signal: AbortSignal;
+  task: Task;
 }): Promise<void> {
   const loop = new AbortController();
-  const removeRelay = abort({ signal, onAbort: () => loop.abort(signal.reason) });
-  const guarded = withTimeoutAsync(task, { timeoutMs: 200, signal: loop.signal });
+  const removeRelay = abort({ onAbort: () => loop.abort(signal.reason), signal });
+  const guarded = withTimeoutAsync(task, { signal: loop.signal, timeoutMs: 200 });
   let tick = 0;
   try {
     while (!signal.aborted) {
@@ -90,22 +90,22 @@ async function schedule({ name, intervalMs, task, signal }: {
 
 const controller = new AbortController();
 const removeAbortLog = abort({
-  signal: controller.signal,
   onAbort: () => console.log("scheduler hub: abort signal received"),
+  signal: controller.signal,
 });
 
 const loops = Promise.all([
   schedule({
-    name: "heartbeat",
     intervalMs: 60,
-    task: withLoggerAsync(heartbeat, { name: "heartbeat" }),
+    name: "heartbeat",
     signal: controller.signal,
+    task: withLoggerAsync(heartbeat, { name: "heartbeat" }),
   }),
   schedule({
-    name: "metrics-flush",
     intervalMs: 120,
-    task: withLoggerAsync(metricsFlush, { name: "metrics" }),
+    name: "metrics-flush",
     signal: controller.signal,
+    task: withLoggerAsync(metricsFlush, { name: "metrics" }),
   }),
 ]);
 

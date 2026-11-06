@@ -1,5 +1,6 @@
-import { describe, it, afterEach } from "vitest";
 import assert from "node:assert/strict";
+import { afterEach, describe, it } from "vitest";
+
 import { withLoggerAsync, withLoggerSync } from "./logger.js";
 
 describe("withLoggerSync", () => {
@@ -164,7 +165,7 @@ describe("withLoggerSync", () => {
   it("skipHof: true resolves to fn itself at wrap time", () => {
     const fn = (x: number) => x + 1;
     assert.strictEqual(
-      withLoggerSync(fn, { skipHof: true, name: "never" }),
+      withLoggerSync(fn, { name: "never", skipHof: true }),
       fn,
     );
   });
@@ -196,6 +197,7 @@ describe("withLoggerAsync", () => {
   /**
    * Swaps `console.debug` for a capturing stub and resets the log buffer.
    */
+  // eslint-disable-next-line sonarjs/no-identical-functions
   function capture() {
     logs = [];
     console.debug = (...args: unknown[]) => {
@@ -287,7 +289,7 @@ describe("withLoggerAsync", () => {
   it("skipHof: true resolves to fn itself at wrap time", async () => {
     const fn = async (x: number) => x + 1;
     assert.strictEqual(
-      withLoggerAsync(fn, { skipHof: true, name: "never" }),
+      withLoggerAsync(fn, { name: "never", skipHof: true }),
       fn,
     );
   });

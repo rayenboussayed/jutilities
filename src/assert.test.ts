@@ -1,12 +1,13 @@
-import { describe, it } from "vitest";
 import assert from "node:assert/strict";
+import { describe, it } from "vitest";
+
 import {
-  assert as assertTruthy,
   assertGuardConsistency,
   assertNever,
   assertNotNil,
   assertNotRawApplication,
   assertNotRawMemberApplication,
+  assert as assertTruthy,
   withAssertAsync,
   withAssertSync,
 } from "./assert.js";
@@ -23,7 +24,7 @@ describe("assert", () => {
   it("throws a TypeError for falsy values with the default message", () => {
     assert.throws(
       () => assertTruthy(0),
-      { name: "TypeError", message: /Assertion failed/ },
+      { message: /Assertion failed/, name: "TypeError" },
     );
     assert.throws(() => assertTruthy(false), { name: "TypeError" });
     assert.throws(() => assertTruthy(""), /Assertion failed/);
@@ -114,7 +115,7 @@ describe("assertNotRawApplication", () => {
     assert.throws(
       () =>
         assertNotRawApplication(
-          { kind: "method", name: "load", addInitializer() {} },
+          { addInitializer() {}, kind: "method", name: "load" },
           "decorateMethod",
         ),
       /decorateMethod: applied without parentheses — decorate with decorateMethod\(...options\) instead/,
@@ -208,8 +209,8 @@ describe("withAssertSync", () => {
     });
 
     assert.throws(() => wrapped(), {
-      name: "TypeError",
       message: /user: must not be null or undefined/,
+      name: "TypeError",
     });
   });
 
@@ -217,8 +218,8 @@ describe("withAssertSync", () => {
     const fn = (x: number) => x + 1;
     assert.strictEqual(
       withAssertSync(fn, {
-        skipHof: true,
         onResult: ({ result }) => assertNotNil(result, "never-called"),
+        skipHof: true,
       }),
       fn,
     );
@@ -294,8 +295,8 @@ describe("withAssertAsync", () => {
     const fn = async (x: number) => x + 1;
     assert.strictEqual(
       withAssertAsync(fn, {
-        skipHof: true,
         onResult: ({ result }) => assertNotNil(result, "never-called"),
+        skipHof: true,
       }),
       fn,
     );

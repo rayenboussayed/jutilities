@@ -1,5 +1,8 @@
 /* eslint-disable deslint/no-prod-console -- examples are demo scripts; printing is their purpose */
 
+import { withCacheAsync, withCacheSync } from "jutilities/cache";
+import { decorateClass } from "jutilities/decorators/class";
+import { withLoggerSync } from "jutilities/logger";
 /**
  * Runnable demo for `decorateClass` (`jutilities/decorators/class`): apply a
  * fn-first HOF — or a `{ sync, async }` pair resolved per member — to every
@@ -13,18 +16,22 @@
  * `#private` members) are pinned in `src/decorators/class.test.ts`, not here.
  */
 import assert from "node:assert/strict";
-import { withCacheAsync, withCacheSync } from "jutilities/cache";
-import { withLoggerSync } from "jutilities/logger";
-import { decorateClass } from "jutilities/decorators/class";
 
 // Pair mode: declared-async members take the async slot, others the sync slot.
-const cached = decorateClass({ sync: withCacheSync, async: withCacheAsync });
+const cached = decorateClass({ async: withCacheAsync, sync: withCacheSync });
 
 // Single mode: one enhancer (logging) wrapped around every sync member.
 const logged = decorateClass(withLoggerSync);
 
 let mounts = 0;
 let remoteCalls = 0;
+
+@logged()
+class Pulse {
+  greet(name: string): string {
+    return `hi ${name}`;
+  }
+}
 
 @cached({ cacheStore: new Map(), extraKeys: ["users"] })
 class Users {
@@ -36,13 +43,6 @@ class Users {
   async loadUser(name: string): Promise<string> {
     remoteCalls++;
     return await Promise.resolve(`user:${name}`);
-  }
-}
-
-@logged()
-class Pulse {
-  greet(name: string): string {
-    return `hi ${name}`;
   }
 }
 

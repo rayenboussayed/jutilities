@@ -11,6 +11,7 @@ console.log("sdbm('hello')    :", sdbm("hello"));
 console.log("fnv1a64('hello') :", fnv1a64("hello"));
 
 // deterministic for identical inputs, different across algorithms:
+// eslint-disable-next-line sonarjs/no-identical-expressions
 console.log("stable:", djb2("cache-key") === djb2("cache-key"));
 
 // ---- seed chaining (domain separation) ---------------------------------------

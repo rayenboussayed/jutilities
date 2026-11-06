@@ -3,45 +3,8 @@ import type {
   AnyFunction,
   MaybePromise,
 } from "../types/type.js";
+
 import { assertSyncReturn, guardSyncFunction } from "./sync-guard.js";
-
-/**
- * Mixes the shared `skipHof` bypass slot into a fn-first HOF's options object.
- *
- * Semantics of `skipHof` (consumed by the `createHofSync` /
- * `createHofAsync` factories below):
- * - `true` — the HOF resolves to the original function untouched, at wrap
- *   time.
- * - a function — a per-call predicate receiving the call arguments: a truthy
- *   result bypasses the enhancement for that single call (`fn` runs raw, with
- *   the same `this` and arguments); a falsy result applies the enhancement as
- *   usual. Async HOFs may pass an async predicate (`MaybePromise<boolean>`).
- * - omitted / `false` — the enhancement applies normally.
- * @template T - The rest of the options object (an object type by default).
- * @template Fn - The wrapped function type, used to type the predicate's
- * arguments and (for async HOFs) its possible promise return.
- */
-export type WithSkipHof<T = object, Fn extends AnyFunction = AnyFunction> = {
-  skipHof?:
-    | boolean
-    | ((
-        ...args: Parameters<Fn>
-      ) => ReturnType<Fn> extends Promise<any>
-        ? MaybePromise<boolean>
-        : boolean);
-} & T;
-
-/**
- * A type-level function from the wrapped function type (`fn`) to the HOF's
- * options type (`options`). Declare one per HOF as
- * `interface MyKind extends HofKind { options: MyOptions<this["fn"]> }`;
- * {@link ApplyKind} then resolves it for a concrete function.
- * @template T - The function-type upper bound.
- */
-export interface HofKind<T extends AnyFunction = AnyFunction> {
-  readonly fn: T;
-  readonly options: unknown;
-}
 
 /**
  * Resolves a {@link HofKind}'s `options` for the concrete function type `TF`.
@@ -51,6 +14,19 @@ export interface HofKind<T extends AnyFunction = AnyFunction> {
 export type ApplyKind<K extends HofKind, TF extends AnyFunction> = (K & {
   readonly fn: TF;
 })["options"];
+
+/**
+ * Recovers the flavor of a HOF — `"sync"`, `"async"` or `"any"` — from its
+ * type-only `__flavor` tag. The tag is what lets a consumer branch on the
+ * flavor (e.g. a decorator refusing a member whose async-ness contradicts
+ * the HOF's slot) instead of guessing from the signature shape.
+ * @template H - The HOF type to probe.
+ */
+export type FlavorOf<H> = H extends {
+  readonly __flavor: infer F extends HofFlavor;
+}
+  ? F
+  : never;
 
 /**
  * The core handler a HOF supplies to {@link createHofSync} /
@@ -75,13 +51,6 @@ export type Hof<K extends HofKind, TF extends AnyFunction = AnyFunction> = (
 ) => AnyFunction;
 
 /**
- * The flavors a HOF can have: `"sync"` (wraps non-promise-returning
- * functions), `"async"` (wraps promise-returning ones) and `"any"` (wraps
- * either).
- */
-export type HofFlavor = "sync" | "async" | "any";
-
-/**
  * The constraint a HOF of the given flavor puts on the function it wraps: an
  * async HOF only accepts promise-returning functions, the other flavors
  * accept any callable.
@@ -92,16 +61,11 @@ export type HofConstraint<F extends HofFlavor> = F extends "async"
   : AnyFunction;
 
 /**
- * The function slot a HOF of the given flavor accepts: a sync HOF only
- * accepts any callable and preserves its full type signature; call-time
- * guarding rejects promise-returning values (the flavor no longer narrows
- * the accepted function type at compile time).
- * callable.
- * @template TF - The wrapped-function type.
- * @template F - The HOF flavor.
+ * The flavors a HOF can have: `"sync"` (wraps non-promise-returning
+ * functions), `"async"` (wraps promise-returning ones) and `"any"` (wraps
+ * either).
  */
-export type HofSlot<TF extends AnyFunction, F extends HofFlavor> =
-  F extends HofFlavor ? TF : TF;
+export type HofFlavor = "any" | "async" | "sync";
 
 /**
  * Public shape of a built HOF: the callable plus the type-only brand that
@@ -122,11 +86,35 @@ export interface HofFn<K extends HofKind, F extends HofFlavor = "any"> {
       HofSlot<TF, F>
     >,
   ): HofSlot<TF, F>;
-  /** Type-only brand (never set at runtime) so composers can recover `K`. */
-  readonly __kind: K;
   /** Type-only flavor tag: which member shapes this HOF may wrap. */
   readonly __flavor: F;
+  /** Type-only brand (never set at runtime) so composers can recover `K`. */
+  readonly __kind: K;
 }
+
+/**
+ * A type-level function from the wrapped function type (`fn`) to the HOF's
+ * options type (`options`). Declare one per HOF as
+ * `interface MyKind extends HofKind { options: MyOptions<this["fn"]> }`;
+ * {@link ApplyKind} then resolves it for a concrete function.
+ * @template T - The function-type upper bound.
+ */
+export interface HofKind<T extends AnyFunction = AnyFunction> {
+  readonly fn: T;
+  readonly options: unknown;
+}
+
+/**
+ * The function slot a HOF of the given flavor accepts: a sync HOF only
+ * accepts any callable and preserves its full type signature; call-time
+ * guarding rejects promise-returning values (the flavor no longer narrows
+ * the accepted function type at compile time).
+ * callable.
+ * @template TF - The wrapped-function type.
+ * @template F - The HOF flavor.
+ */
+export type HofSlot<TF extends AnyFunction, F extends HofFlavor> =
+  F extends HofFlavor ? TF : TF;
 
 /**
  * Recovers the kind `K` a HOF was built with, from its type-only
@@ -139,17 +127,74 @@ export type KindOf<H> = H extends { readonly __kind: infer K extends HofKind }
   : never;
 
 /**
- * Recovers the flavor of a HOF — `"sync"`, `"async"` or `"any"` — from its
- * type-only `__flavor` tag. The tag is what lets a consumer branch on the
- * flavor (e.g. a decorator refusing a member whose async-ness contradicts
- * the HOF's slot) instead of guessing from the signature shape.
- * @template H - The HOF type to probe.
+ * Mixes the shared `skipHof` bypass slot into a fn-first HOF's options object.
+ *
+ * Semantics of `skipHof` (consumed by the `createHofSync` /
+ * `createHofAsync` factories below):
+ * - `true` — the HOF resolves to the original function untouched, at wrap
+ *   time.
+ * - a function — a per-call predicate receiving the call arguments: a truthy
+ *   result bypasses the enhancement for that single call (`fn` runs raw, with
+ *   the same `this` and arguments); a falsy result applies the enhancement as
+ *   usual. Async HOFs may pass an async predicate (`MaybePromise<boolean>`).
+ * - omitted / `false` — the enhancement applies normally.
+ * @template T - The rest of the options object (an object type by default).
+ * @template Fn - The wrapped function type, used to type the predicate's
+ * arguments and (for async HOFs) its possible promise return.
  */
-export type FlavorOf<H> = H extends {
-  readonly __flavor: infer F extends HofFlavor;
+export type WithSkipHof<T = object, Fn extends AnyFunction = AnyFunction> = T & {
+  skipHof?:
+    | ((
+        ...args: Parameters<Fn>
+      ) => ReturnType<Fn> extends Promise<any>
+        ? MaybePromise<boolean>
+        : boolean)
+    | boolean;
+};
+
+/**
+ * Builds an async fn-first HOF from a core handler. See
+ * {@link createHofSync} for the shared bypass semantics; the only difference
+ * is the per-call predicate, which may be async (its result is awaited
+ * before deciding whether to bypass).
+ * @template K - The HOF's kind (options as a function of the wrapped fn).
+ * @param handler - The core handler building the enhanced wrapper; called
+ * exactly once per wrap.
+ * @returns The new fn-first HOF taking `(fn, options)`.
+ */
+export function createHofAsync<K extends HofKind>(
+  handler: Hof<K, AnyAsyncFunction>,
+) {
+  const hof = <TF extends AnyAsyncFunction>(
+    fn: TF,
+    options: WithSkipHof<ApplyKind<K, TF>, TF> = {},
+  ) => {
+    if (options.skipHof === true) return fn;
+
+    // Built once per wrap: wrap-time state lives in the handler's closure,
+    // never per call.
+    const enhanced = handler(fn, options);
+
+    // The handler echoed `fn` back — nothing to enhance, so return it
+    // unchanged (also means nothing to bypass per call).
+    if (enhanced === fn) return fn;
+    if (typeof options.skipHof !== "function") return enhanced;
+
+    // The dispatch wrapper is async so per-call predicates may await and
+    // wrapped calls always settle through a promise.
+    return async function (
+      this: ThisParameterType<TF>,
+      ...args: Parameters<TF>
+    ) {
+      return typeof options.skipHof === "function" &&
+        (await options.skipHof(...args))
+        ? fn.apply(this, args)
+        : enhanced.apply(this, args);
+    } as TF;
+  };
+
+  return hof as unknown as HofFn<K, "async">;
 }
-  ? F
-  : never;
 
 /**
  * Builds a sync fn-first HOF from a core handler.
@@ -206,48 +251,4 @@ export function createHofSync<K extends HofKind>(
   };
 
   return hof as unknown as HofFn<K, "sync">;
-}
-
-/**
- * Builds an async fn-first HOF from a core handler. See
- * {@link createHofSync} for the shared bypass semantics; the only difference
- * is the per-call predicate, which may be async (its result is awaited
- * before deciding whether to bypass).
- * @template K - The HOF's kind (options as a function of the wrapped fn).
- * @param handler - The core handler building the enhanced wrapper; called
- * exactly once per wrap.
- * @returns The new fn-first HOF taking `(fn, options)`.
- */
-export function createHofAsync<K extends HofKind>(
-  handler: Hof<K, AnyAsyncFunction>,
-) {
-  const hof = <TF extends AnyAsyncFunction>(
-    fn: TF,
-    options: WithSkipHof<ApplyKind<K, TF>, TF> = {},
-  ) => {
-    if (options.skipHof === true) return fn;
-
-    // Built once per wrap: wrap-time state lives in the handler's closure,
-    // never per call.
-    const enhanced = handler(fn, options);
-
-    // The handler echoed `fn` back — nothing to enhance, so return it
-    // unchanged (also means nothing to bypass per call).
-    if (enhanced === fn) return fn;
-    if (typeof options.skipHof !== "function") return enhanced;
-
-    // The dispatch wrapper is async so per-call predicates may await and
-    // wrapped calls always settle through a promise.
-    return async function (
-      this: ThisParameterType<TF>,
-      ...args: Parameters<TF>
-    ) {
-      return typeof options.skipHof === "function" &&
-        (await options.skipHof(...args))
-        ? fn.apply(this, args)
-        : enhanced.apply(this, args);
-    } as TF;
-  };
-
-  return hof as unknown as HofFn<K, "async">;
 }

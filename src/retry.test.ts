@@ -1,5 +1,7 @@
-import { describe, it } from "vitest";
+/* eslint-disable sonarjs/void-use */
 import assert from "node:assert/strict";
+import { describe, it } from "vitest";
+
 import { withRetryAsync, withRetrySync } from "./retry.js";
 
 describe("withRetryAsync", () => {
@@ -43,8 +45,8 @@ describe("withRetryAsync", () => {
       assert.ok(s.error instanceof Error);
     }
     for (const s of seen as {
-      startFnExecution: number;
       endFnExecution: number;
+      startFnExecution: number;
     }[]) {
       assert.strictEqual(typeof s.startFnExecution, "number");
       assert.strictEqual(typeof s.endFnExecution, "number");
@@ -115,7 +117,7 @@ describe("withRetryAsync", () => {
       },
       {
         onError: async () => {
-          await new Promise((r) => setTimeout(r, 10));
+          await new Promise((resolve) => setTimeout(resolve, 10));
           order.push("onError");
         },
       },

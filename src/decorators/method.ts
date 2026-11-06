@@ -1,8 +1,9 @@
+import type { FlavorOf, HofFlavor, HofFn } from "../libs/create-hof.js";
 import type { AnyFunction } from "../types/type.js";
 import type { DecoratorGuard, GatedMember, HofOptionsOf } from "./hof.js";
-import { memberEnhancer } from "./hof.js";
-import type { FlavorOf, HofFlavor, HofFn } from "../libs/create-hof.js";
+
 import { assertNotRawApplication } from "../assert.js";
+import { memberEnhancer } from "./hof.js";
 
 /**
  * Method decorators from fn-first enhancers.
@@ -63,7 +64,6 @@ export function decorateMethod<
 ): (
   hofOptions?: HofOptionsOf<H>,
 ) => MethodDecoratorOf<FlavorOf<H>>;
-
 export function decorateMethod(
   hof: (fn: any, hofOptions?: any) => any,
   options?: DecoratorGuard,

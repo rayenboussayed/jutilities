@@ -22,7 +22,7 @@ async function flaky(): Promise<string> {
 }
 
 const resilient = withRetryAsync(flaky, {
-  onError: async ({ retries, error }) => {
+  onError: async ({ error, retries }) => {
     console.log(`attempt ${retries + 1} failed:`, (error as Error).message);
     if (retries >= 4) throw error; // give up -> error becomes the rejection
     await sleepAsync({ sleep: 50 }); // exponential backoff belongs in onError

@@ -1,12 +1,14 @@
-import { describe, it } from "vitest";
+/* eslint-disable sonarjs/void-use */
 import assert from "node:assert/strict";
+import { describe, it } from "vitest";
+
 import { withCacheAsync, withCacheSync } from "../cache.js";
-import { lazy } from "../lazy.js";
 import { withDelayAsync } from "../delay.js";
+import { lazy } from "../lazy.js";
+import { withAsync } from "../libs/with.js";
 import { withLoggerAsync, withLoggerSync } from "../logger.js";
 import { withRetryAsync } from "../retry.js";
 import { withTimeoutAsync } from "../timeout.js";
-import { withAsync } from "../libs/with.js";
 import { decorateMethod } from "./method.js";
 
 // Hoisted converters: TS rejects inline chained calls (`@f(h)(opts)`)
@@ -19,7 +21,7 @@ export const delayIt = decorateMethod(withDelayAsync);
 
 describe("decorateMethod", () => {
   it("wraps a sync method through withCacheSync and memoizes per args", () => {
-    const store = new Map<string | number, unknown>();
+    const store = new Map<number | string, unknown>();
     class Users {
       loads = 0;
       @memoizeSync({ cacheStore: store, extraKeys: ["method-basic"] })
@@ -93,7 +95,7 @@ describe("decorateMethod", () => {
   });
 
   it("shared-store pitfall: memoization is prototype-wide", () => {
-    const store = new Map<string | number, unknown>();
+    const store = new Map<number | string, unknown>();
     class Cacher {
       loads = 0;
       @memoizeSync({ cacheStore: store, extraKeys: ["method-shared"] })
@@ -123,6 +125,7 @@ describe("decorateMethod", () => {
             return "declared async";
           }
         }
+        // eslint-disable-next-line sonarjs/constructor-for-side-effects
         new Mixed();
       },
       (error) =>
@@ -143,6 +146,7 @@ describe("decorateMethod", () => {
             return 1;
           }
         }
+        // eslint-disable-next-line sonarjs/constructor-for-side-effects
         new Mixed();
       },
       (error) =>
@@ -212,6 +216,7 @@ describe("decorateMethod", () => {
             return 1;
           }
         }
+        // eslint-disable-next-line sonarjs/constructor-for-side-effects
         new Oops();
       },
       (error) =>
@@ -220,6 +225,7 @@ describe("decorateMethod", () => {
     );
   });
 
+  // eslint-disable-next-line sonarjs/assertions-in-tests
   it("compile pin: single-call guard usage is type-rejected", () => {
     // Analysis-time probe: passing the guard inline means the decorator
     // shape still hangs on the factory's fluent options call — rejected.
@@ -243,7 +249,7 @@ describe("decorateMethod", () => {
     const member = function member() {
       return 1;
     };
-    const context = { kind: "method", name: "member", addInitializer() {} };
+    const context = { addInitializer() {}, kind: "method", name: "member" };
     assert.throws(
       () => void factory(member, context),
       (error) =>
@@ -254,6 +260,7 @@ describe("decorateMethod", () => {
 });
 
 describe("decorateMethod: kind-based conversion contract", () => {
+  // eslint-disable-next-line sonarjs/assertions-in-tests
   it("rejects a legacy (non-factory) HOF at compile time", () => {
     // A hand-written fn-first function carries no `__kind` brand, so the
     // converter cannot recover its option bag — rejected.
@@ -281,6 +288,7 @@ describe("decorateMethod: kind-based conversion contract", () => {
     );
   });
 
+  // eslint-disable-next-line sonarjs/assertions-in-tests
   it("rejects a sync member under an async HOF at compile time", () => {
     void (() => {
       class Pinned {
@@ -294,6 +302,7 @@ describe("decorateMethod: kind-based conversion contract", () => {
     });
   });
 
+  // eslint-disable-next-line sonarjs/assertions-in-tests
   it("rejects an unknown option key at compile time", () => {
     void (() => {
       class Pinned {

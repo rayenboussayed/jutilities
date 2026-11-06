@@ -1,5 +1,8 @@
 /* eslint-disable deslint/no-prod-console -- examples are demo scripts; printing is their purpose */
 
+import { withCacheSync } from "jutilities/cache";
+import { decorateProperty } from "jutilities/decorators/property";
+import { withDelayAsync } from "jutilities/delay";
 /**
  * Runnable demo for `decorateProperty` (`jutilities/decorators/property`):
  * function-valued fields get their INITIAL VALUE wrapped through the HOF, once
@@ -15,9 +18,6 @@
  * alongside the flat demos by `examples/run-all.ts`.
  */
 import assert from "node:assert/strict";
-import { withCacheSync } from "jutilities/cache";
-import { withDelayAsync } from "jutilities/delay";
-import { decorateProperty } from "jutilities/decorators/property";
 
 // Guards check the field's initial function async-ness at construction time
 // (not at class definition, unlike the method/class/getter kinds).
@@ -27,15 +27,15 @@ const memoized = decorateProperty(withCacheSync, { require: "sync" });
 let halvings = 0;
 
 class Scheduler {
-  @delayed({ delay: 5 })
-  run = async (name: string): Promise<string> => {
-    return await Promise.resolve(`drained ${name}`);
-  };
-
   @memoized({ extraKeys: ["scheduler"] })
   halve = (value: number): number => {
     halvings++;
     return value / 2;
+  };
+
+  @delayed({ delay: 5 })
+  run = async (name: string): Promise<string> => {
+    return await Promise.resolve(`drained ${name}`);
   };
 }
 

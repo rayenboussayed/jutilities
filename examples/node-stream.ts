@@ -1,12 +1,5 @@
 /* eslint-disable deslint/no-prod-console -- examples are demo scripts; printing is their purpose */
 
-/**
- * Demonstrates the Node stream helpers: `tee` (backpressure-aware duplication),
- * `stream2buffer`, `buffer2stream`, and both size reporters
- * (`streamSizeTransform` as a pipeline stage, `streamSize` as a generator).
- */
-import { pipeline } from "node:stream/promises";
-import { Readable, Writable } from "node:stream";
 import {
   buffer2stream,
   stream2buffer,
@@ -14,6 +7,13 @@ import {
   streamSizeTransform,
   tee,
 } from "jutilities/node-stream";
+import { Readable, Writable } from "node:stream";
+/**
+ * Demonstrates the Node stream helpers: `tee` (backpressure-aware duplication),
+ * `stream2buffer`, `buffer2stream`, and both size reporters
+ * (`streamSizeTransform` as a pipeline stage, `streamSize` as a generator).
+ */
+import { pipeline } from "node:stream/promises";
 
 /**
  * A tiny readable emitting the given words as buffer chunks.
@@ -39,7 +39,7 @@ const sink = new Writable({
 await pipeline(
   disk,
   streamSizeTransform({
-    onSize: ({ size, done }) => console.log("pipe tier hits size:", size, done ? "(final)" : ""),
+    onSize: ({ done, size }) => console.log("pipe tier hits size:", size, done ? "(final)" : ""),
   }),
   sink,
 );
@@ -51,7 +51,7 @@ console.log("branch two sank bytes:", seen);
 // ---- streamSize: pass chunks through while reporting cumulative size ----------
 const marks: string[] = [];
 for await (const chunk of streamSize(sourceStream(["one", "two", "three"]), {
-  onSize: ({ size, done }) => marks.push(size + (done ? "*" : "")),
+  onSize: ({ done, size }) => marks.push(size + (done ? "*" : "")),
 })) {
   console.log("passed through chunk:", chunk.toString());
 }

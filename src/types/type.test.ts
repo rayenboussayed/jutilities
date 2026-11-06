@@ -1,12 +1,15 @@
-import { describe, it } from "vitest";
+/* eslint-disable sonarjs/void-use */
 import assert from "node:assert/strict";
+import { describe, it } from "vitest";
+
 import type {
   AnyAsyncFunction,
   AnyFunction,
   AnySyncFunction,
   HandleAsyncFunction,
 } from "./type.js";
-import { withCacheSync, withCacheAsync } from "../cache.js";
+
+import { withCacheAsync, withCacheSync } from "../cache.js";
 import { lazy } from "../lazy.js";
 
 describe("HandleAsyncFunction", () => {
@@ -18,6 +21,7 @@ describe("HandleAsyncFunction", () => {
     >;
 
     const branch: Branch = "sync";
+    // eslint-disable-next-line sonarjs/no-trivial-assertions
     assert.strictEqual(branch, "sync");
   });
 
@@ -29,6 +33,7 @@ describe("HandleAsyncFunction", () => {
     >;
 
     const branch: Branch = "async";
+    // eslint-disable-next-line sonarjs/no-trivial-assertions
     assert.strictEqual(branch, "async");
   });
 });
@@ -86,6 +91,7 @@ describe("generic wrap matrix", () => {
     const escaped: "abc" = withTypeArgument("abc");
     void escaped;
 
+    // eslint-disable-next-line sonarjs/no-trivial-assertions
     assert.ok(true);
   });
 });

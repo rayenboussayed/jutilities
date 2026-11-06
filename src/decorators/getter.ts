@@ -1,7 +1,8 @@
-import type { DecoratorGuard, HofOptionsOf } from "./hof.js";
-import { memberEnhancer } from "./hof.js";
 import type { HofFlavor, HofFn } from "../libs/create-hof.js";
+import type { DecoratorGuard, HofOptionsOf } from "./hof.js";
+
 import { assertNotRawApplication } from "../assert.js";
+import { memberEnhancer } from "./hof.js";
 
 /**
  * Getter decorators from fn-first enhancers.
@@ -57,7 +58,6 @@ export function decorateGetter<
 ): (
   hofOptions?: HofOptionsOf<H>,
 ) => GetterDecoratorOf;
-
 export function decorateGetter(
   hof: (fn: any, hofOptions?: any) => any,
   options?: DecoratorGuard,

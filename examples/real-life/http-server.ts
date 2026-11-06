@@ -1,5 +1,19 @@
 /* eslint-disable deslint/no-prod-console -- examples are demo scripts; printing is their purpose */
 
+import {
+  assert,
+  AssertError,
+  assertNotNil,
+  withAssertAsync,
+} from "jutilities/assert";
+import { withCacheAsync } from "jutilities/cache";
+import { isRecord } from "jutilities/is";
+import { superjson } from "jutilities/json";
+import { withLoggerAsync } from "jutilities/logger";
+import { stream2buffer } from "jutilities/node-stream";
+import { withRetryAsync } from "jutilities/retry";
+import { sleepAsync } from "jutilities/sleep";
+import { withTimeoutAsync } from "jutilities/timeout";
 /**
  * Real-life scenario: a miniature HTTP API on `node:http` whose handlers are
  * hardened with jutilities wrappers — result gating, per-route caching,
@@ -11,27 +25,13 @@ import {
   type Server,
   type ServerResponse,
 } from "node:http";
-import {
-  AssertError,
-  assert,
-  assertNotNil,
-  withAssertAsync,
-} from "jutilities/assert";
-import { withCacheAsync } from "jutilities/cache";
-import { superjson } from "jutilities/json";
-import { isRecord } from "jutilities/is";
-import { withLoggerAsync } from "jutilities/logger";
-import { stream2buffer } from "jutilities/node-stream";
-import { withRetryAsync } from "jutilities/retry";
-import { sleepAsync } from "jutilities/sleep";
-import { withTimeoutAsync } from "jutilities/timeout";
 
 /** A minimal user record served by the API. */
-type User = { id: number; name: string; email: string };
+type User = { email: string; id: number; name: string; };
 
 /** In-memory "database" backing the `/users/:id` route. */
 const users = new Map<number, User>([
-  [1, { id: 1, name: "Ada", email: "ada@example.com" }],
+  [1, { email: "ada@example.com", id: 1, name: "Ada" }],
 ]);
 
 let upstreamAttempts = 0;
@@ -49,7 +49,7 @@ async function fetchUpstream(): Promise<string> {
 }
 
 const resilientFetch = withRetryAsync(fetchUpstream, {
-  onError: async ({ retries, error }) => {
+  onError: async ({ error, retries }) => {
     console.log(`    upstream attempt ${retries + 1} failed:`, (error as Error).message);
     if (retries >= 4) throw error; // give up -> error becomes the rejection
     await sleepAsync({ sleep: 40 }); // backoff between attempts
@@ -61,7 +61,7 @@ const resilientFetch = withRetryAsync(fetchUpstream, {
  * @param id - The user id to find.
  * @returns The user, or `undefined` when absent.
  */
-async function findUser(id: number): Promise<User | undefined> {
+async function findUser(id: number): Promise<undefined | User> {
   await sleepAsync({ sleep: 10 });
   return users.get(id);
 }
@@ -79,10 +79,10 @@ let reportComputations = 0;
  * @param region - The region to aggregate.
  * @returns The aggregated report row.
  */
-async function buildReport(region: string): Promise<{ region: string; orders: number; cents: number }> {
+async function buildReport(region: string): Promise<{ cents: number; orders: number; region: string; }> {
   reportComputations += 1;
   await sleepAsync({ sleep: 60 });
-  return { region, orders: 3, cents: 4_200 };
+  return { cents: 4_200, orders: 3, region };
 }
 
 /** Cached + logged report handler: the second call is a cache hit. */
@@ -93,16 +93,6 @@ const slow = withTimeoutAsync(async () => {
   await sleepAsync({ sleep: 500 });
   return "too late";
 }, { timeoutMs: 80 });
-
-/**
- * Renders a route error for a response body (the timeout wrapper rejects with
- * `signal?.reason`, i.e. `undefined` when no signal is wired).
- * @param error - The caught route error.
- * @returns A readable one-line description.
- */
-function renderError(error: unknown): string {
-  return error instanceof Error ? error.message : "request deadline exceeded";
-}
 
 /**
  * Routes one request; every handler failure funnels through the bottom catch.
@@ -168,6 +158,16 @@ function listen(server: Server): Promise<number> {
 }
 
 /**
+ * Renders a route error for a response body (the timeout wrapper rejects with
+ * `signal?.reason`, i.e. `undefined` when no signal is wired).
+ * @param error - The caught route error.
+ * @returns A readable one-line description.
+ */
+function renderError(error: unknown): string {
+  return error instanceof Error ? error.message : "request deadline exceeded";
+}
+
+/**
  * Stops the server and force-closes lingering keep-alive sockets so the demo
  * process can exit.
  * @param server - The running server.
@@ -204,15 +204,15 @@ try {
   await show("GET   /flaky (retried)", "/flaky");
   await show("GET   /slow (deadline)", "/slow");
   await show("POST  /echo", "/echo", {
+    body: superjson.stringify({ at: new Date(0), n: 42n, tags: new Set(["core"]) }),
     method: "POST",
-    body: superjson.stringify({ at: new Date(0), tags: new Set(["core"]), n: 42n }),
   });
 
   const echoed = await fetch(`${base}/echo`, {
+    body: superjson.stringify({ at: new Date(0), n: 42n, tags: new Set(["core"]) }),
     method: "POST",
-    body: superjson.stringify({ at: new Date(0), tags: new Set(["core"]), n: 42n }),
   });
-  const back = superjson.parse<{ at: Date; tags: Set<string>; n: bigint }>(await echoed.text());
+  const back = superjson.parse<{ at: Date; n: bigint; tags: Set<string>; }>(await echoed.text());
   console.log("echo round-trip restored:", back.at instanceof Date, back.tags instanceof Set, typeof back.n === "bigint");
   console.log("report computations:", reportComputations, "(1 computation -> cached)");
 } finally {

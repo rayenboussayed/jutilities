@@ -1,5 +1,6 @@
 import type { AnyFunction } from "./types/type.js";
 import type { WithSignal } from "./types/with.js";
+
 import {
   createHofAsync,
   createHofSync,
@@ -7,13 +8,13 @@ import {
 } from "./libs/create-hof.js";
 import { sleepAsync, sleepSync } from "./sleep.js";
 
-export type Options = WithSignal<{
-  delay?: number;
-}>;
-
 export interface DelayKind<T extends AnyFunction = AnyFunction> extends HofKind<T> {
   options: Options;
 }
+
+export type Options = WithSignal<{
+  delay?: number;
+}>;
 
 
 /**
@@ -42,13 +43,13 @@ export interface DelayKind<T extends AnyFunction = AnyFunction> extends HofKind<
  * nothing to delay.
  */
 export const withDelayAsync = createHofAsync<DelayKind>(
-  (fn, { signal, delay = 0 }) => {
+  (fn, { delay = 0, signal }) => {
     if (delay <= 0) return fn;
     return async function (
       this: ThisParameterType<DelayKind["fn"]>,
       ...args: Parameters<DelayKind["fn"]>
     ) {
-      await sleepAsync({ sleep: delay, signal });
+      await sleepAsync({ signal, sleep: delay });
       return fn.apply(this, args);
     };
   },
@@ -74,13 +75,13 @@ export const withDelayAsync = createHofAsync<DelayKind>(
  * delay.
  */
 export const withDelaySync = createHofSync<DelayKind>(
-  (fn, { signal, delay = 0 }) => {
+  (fn, { delay = 0, signal }) => {
     if (delay <= 0) return fn;
     return function (
       this: ThisParameterType<DelayKind["fn"]>,
       ...args: Parameters<DelayKind["fn"]>
     ) {
-      sleepSync({ sleep: delay, signal });
+      sleepSync({ signal, sleep: delay });
       return fn.apply(this, args);
     };
   },

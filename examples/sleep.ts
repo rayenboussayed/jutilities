@@ -11,7 +11,7 @@ const controller = new AbortController();
 const started = performance.now();
 setTimeout(() => controller.abort(), 30);
 try {
-  await sleepAsync({ sleep: 1000, signal: controller.signal });
+  await sleepAsync({ signal: controller.signal, sleep: 1000 });
 } catch (reason) {
   console.log("woke early after ~ms:", Math.round(performance.now() - started));
   console.log("abort rejects with the reason itself:", (reason as Error).name === "AbortError");

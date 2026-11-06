@@ -1,62 +1,16 @@
-import type { AnyFunction } from "../types/type.js";
-import { isAsyncFunction, isFunction } from "../is.js";
-import type { HofOptionsOf } from "./hof.js";
 import type {
   HofFlavor,
   HofFn,
 } from "../libs/create-hof.js";
+import type { AnyFunction } from "../types/type.js";
+import type { HofOptionsOf } from "./hof.js";
+
 import { assertNotRawApplication, assertNotRawMemberApplication } from "../assert.js";
+import { isAsyncFunction, isFunction } from "../is.js";
 
 /**
  * Class-level enhancer fan-out.
  */
-
-/**
- * The callable shape an enhancer slot is applied through: a fn-first HOF that
- * takes the member and the shared option bag.
- */
-export type EnhancerFn = (
-  fn: AnyFunction,
-  hofOptions?: unknown,
-) => AnyFunction;
-
-/**
- * A HOF ensemble for {@link decorateClass}: one enhancer for every own
- * prototype method, or a sync/async pair resolved per method via
- * `pick` (default `"detect"` through {@link ../is.ts | isAsyncFunction}).
- * @template HS - The sync slot's HOF type.
- * @template HA - The async slot's HOF type.
- */
-export type EnhancerPair<
-  HS extends HofFn<any, "sync"> | HofFn<any, "any"> = HofFn<any, "sync"> |
-  HofFn<any, "any">,
-  HA extends HofFn<any, "async"> | HofFn<any, "any"> = HofFn<any, "async"> |
-  HofFn<any, "any">,
-> = {
-  /** Enhancer applied to non-`async` members. */
-  sync?: HS;
-  /** Enhancer applied to declared-`async` members. */
-  async?: HA;
-};
-
-/**
- * The option bag a {@link decorateClass} pair receives: the intersection of
- * both slots' option bags (each slot reads its own keys, the shared bag
- * carries their union).
- * @template HS - The sync slot's HOF type.
- * @template HA - The async slot's HOF type.
- */
-export type EnhancerOptions<
-  HS extends HofFn<any, "sync"> | HofFn<any, "any">,
-  HA extends HofFn<any, "async"> | HofFn<any, "any">,
-> = HofOptionsOf<HS> & HofOptionsOf<HA>;
-
-/**
- * How {@link decorateClass} chooses the enhancer for each own prototype
- * method: `"detect"` per member (pair mode), or force a single slot for every
- * member (pair mode), or apply one HOF everywhere (single mode).
- */
-export type ClassPick = "sync" | "async" | "detect";
 
 /**
  * Standard Stage 3 class decorator shape returned by {@link decorateClass}:
@@ -68,6 +22,53 @@ export type ClassDecoratorOf =
     cls: Class_,
     context: ClassDecoratorContext<Class_>,
   ) => Class_;
+
+/**
+ * How {@link decorateClass} chooses the enhancer for each own prototype
+ * method: `"detect"` per member (pair mode), or force a single slot for every
+ * member (pair mode), or apply one HOF everywhere (single mode).
+ */
+export type ClassPick = "async" | "detect" | "sync";
+
+/**
+ * The callable shape an enhancer slot is applied through: a fn-first HOF that
+ * takes the member and the shared option bag.
+ */
+export type EnhancerFn = (
+  fn: AnyFunction,
+  hofOptions?: unknown,
+) => AnyFunction;
+
+/**
+ * The option bag a {@link decorateClass} pair receives: the intersection of
+ * both slots' option bags (each slot reads its own keys, the shared bag
+ * carries their union).
+ * @template HS - The sync slot's HOF type.
+ * @template HA - The async slot's HOF type.
+ */
+export type EnhancerOptions<
+  HS extends HofFn<any, "any"> | HofFn<any, "sync">,
+  HA extends HofFn<any, "any"> | HofFn<any, "async">,
+> = HofOptionsOf<HA> & HofOptionsOf<HS>;
+
+/**
+ * A HOF ensemble for {@link decorateClass}: one enhancer for every own
+ * prototype method, or a sync/async pair resolved per method via
+ * `pick` (default `"detect"` through {@link ../is.ts | isAsyncFunction}).
+ * @template HS - The sync slot's HOF type.
+ * @template HA - The async slot's HOF type.
+ */
+export type EnhancerPair<
+  HS extends HofFn<any, "any"> | HofFn<any, "sync"> = HofFn<any, "any"> |
+  HofFn<any, "sync">,
+  HA extends HofFn<any, "any"> | HofFn<any, "async"> = HofFn<any, "any"> |
+  HofFn<any, "async">,
+> = {
+  /** Enhancer applied to declared-`async` members. */
+  async?: HA;
+  /** Enhancer applied to non-`async` members. */
+  sync?: HS;
+};
 
 /**
  * Applies a fn-first HOF (or a sync/async pair of them) to every OWN prototype
@@ -113,13 +114,12 @@ export type ClassDecoratorOf =
  * member.
  */
 export function decorateClass<
-  HS extends HofFn<any, "sync"> | HofFn<any, "any">,
-  HA extends HofFn<any, "async"> | HofFn<any, "any">,
+  HS extends HofFn<any, "any"> | HofFn<any, "sync">,
+  HA extends HofFn<any, "any"> | HofFn<any, "async">,
 >(
   enhancers: EnhancerPair<HS, HA>,
   options?: { pick?: ClassPick },
 ): (hofOptions?: EnhancerOptions<HS, HA>) => ClassDecoratorOf;
-
 /**
  * Single-HOF variant of {@link decorateClass}: the one HOF is applied to
  * every own prototype method. See the primary signature for full details.
@@ -139,7 +139,6 @@ export function decorateClass<
 ): (
   hofOptions?: HofOptionsOf<H>,
 ) => ClassDecoratorOf;
-
 export function decorateClass(
   enhancers: unknown,
   options?: { pick?: ClassPick },
@@ -165,7 +164,7 @@ export function decorateClass(
         continue;
       }
         const hof = resolveEnhancer(
-          enhancers as EnhancerPair | EnhancerFn,
+          enhancers as EnhancerFn | EnhancerPair,
           options?.pick ?? "detect",
           value,
           String(key),
@@ -190,7 +189,7 @@ export function decorateClass(
  * @returns The HOF to apply.
  */
 export function resolveEnhancer(
-  enhancers: EnhancerPair | EnhancerFn,
+  enhancers: EnhancerFn | EnhancerPair,
   pick: ClassPick,
   fn: (...args: any[]) => unknown,
   name: string,
@@ -203,14 +202,17 @@ export function resolveEnhancer(
   const chosen =
     pick === "async"
       ? pair.async
+      // eslint-disable-next-line sonarjs/no-nested-conditional
       : pick === "sync"
         ? pair.sync
+        // eslint-disable-next-line sonarjs/no-nested-conditional
         : isAsyncFunction(fn)
           ? pair.async
           : pair.sync;
   if (typeof chosen !== "function") {
     throw new TypeError(
       `decorateClass: method "${name}" needs a ${
+        // eslint-disable-next-line sonarjs/no-nested-conditional
         pick === "detect" ? (isAsyncFunction(fn) ? "async" : "sync") : pick
       } enhancer, but the pair does not provide one`,
     );

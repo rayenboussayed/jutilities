@@ -1,13 +1,4 @@
 import type {
-  AnyAsyncFunction,
-  AnyFunction,
-} from "../types/type.js";
-import { isAsyncFunction } from "../is.js";
-import {
-  assertGuardConsistency,
-  assertNotRawMemberApplication,
-} from "../assert.js";
-import type {
   ApplyKind,
   FlavorOf,
   HofConstraint,
@@ -15,10 +6,49 @@ import type {
   KindOf,
   WithSkipHof,
 } from "../libs/create-hof.js";
+import type {
+  AnyAsyncFunction,
+  AnyFunction,
+} from "../types/type.js";
+
+import {
+  assertGuardConsistency,
+  assertNotRawMemberApplication,
+} from "../assert.js";
+import { isAsyncFunction } from "../is.js";
 
 /**
  * Decorator conversion contract.
  */
+
+/**
+ * Optional sync/async discipline knob accepted by `decorateMethod`,
+ * `decorateGetter` and `decorateProperty`. When set, the decorator verifies
+ * the member value at decorate time (not call time) via
+ * {@link ../is.ts | isAsyncFunction} and fails fast with a `TypeError` naming
+ * the offending member.
+ * @remarks `isAsyncFunction` relies on runtime constructor names, so lowered
+ * async functions (transpilers/minifiers) may evade the check.
+ */
+export type DecoratorGuard = {
+  /**
+   * Require the member to be `"sync"` (non-`async`) or `"async"` (declared
+   * `async`) at decorate time.
+   */
+  require?: "async" | "sync";
+};
+
+/**
+ * The member shape a converted HOF may wrap, narrowed by its flavor: an
+ * async HOF refuses a non-promise-returning member at compile time; a sync
+ * HOF preserves the full member type at compile time and relies on runtime
+ * guarding to reject promise-like or generator results.
+ * @template F - The HOF flavor.
+ * @template M - The member type.
+ */
+export type GatedMember<F extends HofFlavor, M extends AnyFunction> =
+  F extends "async" ? AnyAsyncFunction & M
+  : M;
 
 /**
  * The options bag a converted HOF receives, resolved from the HOF's kind for
@@ -43,35 +73,6 @@ export type HofOptions<
  * @template H - The converted HOF type.
  */
 export type HofOptionsOf<H> = HofOptions<H, HofConstraint<FlavorOf<H>>>;
-
-/**
- * The member shape a converted HOF may wrap, narrowed by its flavor: an
- * async HOF refuses a non-promise-returning member at compile time; a sync
- * HOF preserves the full member type at compile time and relies on runtime
- * guarding to reject promise-like or generator results.
- * @template F - The HOF flavor.
- * @template M - The member type.
- */
-export type GatedMember<F extends HofFlavor, M extends AnyFunction> =
-  F extends "async" ? M & AnyAsyncFunction
-  : M;
-
-/**
- * Optional sync/async discipline knob accepted by `decorateMethod`,
- * `decorateGetter` and `decorateProperty`. When set, the decorator verifies
- * the member value at decorate time (not call time) via
- * {@link ../is.ts | isAsyncFunction} and fails fast with a `TypeError` naming
- * the offending member.
- * @remarks `isAsyncFunction` relies on runtime constructor names, so lowered
- * async functions (transpilers/minifiers) may evade the check.
- */
-export type DecoratorGuard = {
-  /**
-   * Require the member to be `"sync"` (non-`async`) or `"async"` (declared
-   * `async`) at decorate time.
-   */
-  require?: "sync" | "async";
-};
 
 /**
  * The shared skeleton of a member decorator: it validates the factory call

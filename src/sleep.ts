@@ -1,4 +1,5 @@
 import type { WithSignal } from "./types/with.js";
+
 import { abort } from "./signal.js";
 
 export type Options = WithSignal<{
@@ -29,7 +30,7 @@ export function sleepAsync({ signal, sleep = 0 }: Options = {}) {
 
   return new Promise<void>((resolve, reject) => {
     const onAbort = () => reject(signal?.reason);
-    const removeAbort = abort({ signal, onAbort });
+    const removeAbort = abort({ onAbort, signal });
     const timeout = setTimeout(() => {
       removeAbort();
       resolve();

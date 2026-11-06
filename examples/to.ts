@@ -1,11 +1,11 @@
 /* eslint-disable deslint/no-prod-console -- examples are demo scripts; printing is their purpose */
 
+import { fromBase64 } from "jutilities/from";
 /**
  * Demonstrates `toBase64` / `toArray` and their `fromBase64` counterpart
  * (round-trips, viewed-slice handling, and reference semantics).
  */
-import { toBase64, toArray } from "jutilities/to";
-import { fromBase64 } from "jutilities/from";
+import { toArray, toBase64 } from "jutilities/to";
 
 // ---- toBase64 / fromBase64 round-trip ----------------------------------------
 const payload = new TextEncoder().encode("jutilities");

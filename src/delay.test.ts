@@ -1,5 +1,6 @@
-import { describe, it } from "vitest";
 import assert from "node:assert/strict";
+import { describe, it } from "vitest";
+
 import { withDelayAsync, withDelaySync } from "./delay.js";
 
 describe("withDelayAsync", () => {
@@ -152,7 +153,7 @@ describe("withDelayAsync", () => {
       return x;
     }
     assert.strictEqual(
-      withDelayAsync(fn, { skipHof: true, delay: 100 }),
+      withDelayAsync(fn, { delay: 100, skipHof: true }),
       fn,
     );
   });
@@ -286,7 +287,7 @@ describe("withDelaySync", () => {
       return x;
     }
     assert.strictEqual(
-      withDelaySync(fn, { skipHof: true, delay: 100 }),
+      withDelaySync(fn, { delay: 100, skipHof: true }),
       fn,
     );
   });

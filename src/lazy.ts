@@ -1,9 +1,20 @@
+import type { AnyFunction } from "./types/type.js";
+
 import { djb2 } from "./hash.js";
 import {
   type HofFn,
   type HofKind,
 } from "./libs/create-hof.js";
-import type { AnyFunction } from "./types/type.js";
+
+/**
+ * The {@link HofKind} of {@link lazy}: its options are resolved from the
+ * concrete wrapped function type.
+ * @template T - The function type upper bound.
+ */
+export interface LazyKind<T extends AnyFunction = AnyFunction>
+  extends HofKind<T> {
+  options: LazyOptions<this["fn"]>;
+}
 
 /**
  * Options accepted by {@link lazy}.
@@ -17,18 +28,8 @@ export type LazyOptions<T extends AnyFunction = AnyFunction> = {
    * The predicate is synchronous — `lazy` is a sync wrapper, so a returned
    * promise counts as truthy and bypasses the call.
    */
-  skipHof?: boolean | ((...args: Parameters<T>) => boolean);
+  skipHof?: ((...args: Parameters<T>) => boolean) | boolean;
 };
-
-/**
- * The {@link HofKind} of {@link lazy}: its options are resolved from the
- * concrete wrapped function type.
- * @template T - The function type upper bound.
- */
-export interface LazyKind<T extends AnyFunction = AnyFunction>
-  extends HofKind<T> {
-  options: LazyOptions<this["fn"]>;
-}
 
 /**
  * Memoizes a function's results keyed by a hash of its source and arguments.
@@ -50,11 +51,12 @@ export const lazy = lazyFactory as unknown as (<T extends AnyFunction>(
  * focused on the sync and async HOF families.
  * @param fn - The initializer to memoize.
  * @param options - Wrapper options, especially `skipHof`.
+ * @param options.skipHof - Whether to bypass HOF decoration.
  * @returns The wrapped memoizing function or the raw initializer.
  */
 function lazyFactory(
   fn: AnyFunction,
-  options: { skipHof?: boolean | ((...args: any[]) => boolean) } = {},
+  options: { skipHof?: ((...args: any[]) => boolean) | boolean } = {},
 ) {
   if (options.skipHof === true) return fn;
 
@@ -65,7 +67,7 @@ function lazyFactory(
     this: unknown,
     ...args: any[]
   ) {
-    const storeKey = djb2(JSON.stringify({ functionString, args }));
+    const storeKey = djb2(JSON.stringify({ args, functionString }));
 
     const storedValue = store.get(storeKey);
     if (storedValue) return storedValue;

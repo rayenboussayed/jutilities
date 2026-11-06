@@ -25,7 +25,7 @@ console.log("unwrap shortcut returns the original fn:", unwrapped === fast);
  * @returns `"done"` after a full second.
  */
 async function slow(): Promise<string> {
-  await new Promise((r) => setTimeout(r, 1000));
+  await new Promise((resolve) => setTimeout(resolve, 1000));
   return "done";
 }
 

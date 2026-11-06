@@ -31,11 +31,18 @@ import { toBase64 } from "./to.js";
 export type JsonHandler<TA = any, TS = any> = {
   /** Type guard deciding whether the raw value belongs to this handler. */
   isApplicable: (key: string, value: any) => value is TA;
-  /** Converts the tagged value into a JSON-safe form. */
-  stringify: (key: string, value: TA) => TS;
   /** Rebuilds the runtime value from its JSON-safe form. */
   parse: (key: string, value: TS) => TA;
+  /** Converts the tagged value into a JSON-safe form. */
+  stringify: (key: string, value: TA) => TS;
 };
+
+/**
+ * Phantom-typed JSON string: a string that is known (at compile time) to
+ * serialize a value of type `T`.
+ * @template T - The type of the original value.
+ */
+export type JsonStringified<T> = string & { __source: T };
 
 /**
  * The universal envelope shape stored for every handler match.
@@ -44,22 +51,14 @@ export type JsonHandler<TA = any, TS = any> = {
 export type Tagged<T = unknown> = { __type: string; value: T };
 
 /**
- * Type guard for the `{ __type, value }` envelope of a given handler key.
- * @param v - The candidate value.
- * @param type - The exact `__type` value to match.
- * @returns `true` when `v` is a record with this `__type` and a `value`
- * property.
+ * Constructor shape required by the generic typed-array handler factory.
+ * @template T - The typed array / view type the constructor builds.
  */
-export function isTagged(v: any, type: string): v is Tagged {
-  return isRecord(v) && v["__type"] === type && "value" in v;
-}
-
-/**
- * Phantom-typed JSON string: a string that is known (at compile time) to
- * serialize a value of type `T`.
- * @template T - The type of the original value.
- */
-export type JsonStringified<T> = string & { __source: T };
+export type TypedArrayCtor<T> = {
+  new (buffer: ArrayBuffer, byteOffset: number, length: number): T;
+  BYTES_PER_ELEMENT: number;
+  prototype: T;
+};
 
 /**
  * Configurable JSON-like (de)serializer with a registry of typed handlers.
@@ -96,6 +95,40 @@ export class Json {
   }
 
   /**
+   * Parses JSON text produced by this class (or any JSON), restoring envelopes
+   * through registered handlers.
+   *
+   * The user reviver is invoked only for values no handler claimed — including
+   * envelope children — never for the envelope value itself. Keys whose parsed
+   * result is `undefined` are restored after parsing (a reviver returning
+   * `undefined` would otherwise delete them), so `undefined` round-trips.
+   * @template T - The expected parsed type.
+   * @param text - JSON text (plain string or {@link JsonStringified}).
+   * @param reviver - Optional per-key transform for values no handler
+   * claimed (same signature as `JSONHandler.parse`).
+   * @returns The rebuilt value, typed as `T`.
+   */
+  parse<T = unknown>(
+    text: JsonStringified<T> | string,
+    reviver?: JsonHandler["parse"],
+  ) {
+    const handlers = this.handlers;
+    const undefs: [any, string][] = [];
+    const result = JSON.parse(text, function (this, key, value) {
+      for (const [type, handler] of handlers) {
+        if (!isTagged(value, type)) continue;
+        const out = handler.parse(key, value.value);
+        if (out === undefined) undefs.push([this, key]);
+        return out;
+      }
+      return reviver ? reviver.call(this, key, value) : value;
+    });
+    // eslint-disable-next-line security/detect-object-injection
+    for (const [holder, key] of undefs) holder[key] = undefined;
+    return result as T;
+  }
+
+  /**
    * Deletes the handler registered under a `__type` key.
    *
    * Removing an unknown/already-removed key is a silent no-op.
@@ -122,12 +155,13 @@ export class Json {
   stringify<T>(
     value: T,
     replacer?: JsonHandler["stringify"],
-    space?: string | number,
+    space?: number | string,
   ) {
     const handlers = this.handlers;
     return JSON.stringify(
       value,
       function (this, key, value) {
+        // eslint-disable-next-line security/detect-object-injection
         const raw = this[key];
         for (const [type, handler] of handlers) {
           if (!handler.isApplicable(key, raw)) continue;
@@ -141,50 +175,18 @@ export class Json {
       space,
     ) as JsonStringified<T>;
   }
-
-  /**
-   * Parses JSON text produced by this class (or any JSON), restoring envelopes
-   * through registered handlers.
-   *
-   * The user reviver is invoked only for values no handler claimed — including
-   * envelope children — never for the envelope value itself. Keys whose parsed
-   * result is `undefined` are restored after parsing (a reviver returning
-   * `undefined` would otherwise delete them), so `undefined` round-trips.
-   * @template T - The expected parsed type.
-   * @param text - JSON text (plain string or {@link JsonStringified}).
-   * @param reviver - Optional per-key transform for values no handler
-   * claimed (same signature as `JSONHandler.parse`).
-   * @returns The rebuilt value, typed as `T`.
-   */
-  parse<T = unknown>(
-    text: string | JsonStringified<T>,
-    reviver?: JsonHandler["parse"],
-  ) {
-    const handlers = this.handlers;
-    const undefs: [any, string][] = [];
-    const result = JSON.parse(text, function (this, key, value) {
-      for (const [type, handler] of handlers) {
-        if (!isTagged(value, type)) continue;
-        const out = handler.parse(key, value.value);
-        if (out === undefined) undefs.push([this, key]);
-        return out;
-      }
-      return reviver ? reviver.call(this, key, value) : value;
-    });
-    for (const [holder, key] of undefs) holder[key] = undefined;
-    return result as T;
-  }
 }
 
 /**
- * Constructor shape required by the generic typed-array handler factory.
- * @template T - The typed array / view type the constructor builds.
+ * Type guard for the `{ __type, value }` envelope of a given handler key.
+ * @param v - The candidate value.
+ * @param type - The exact `__type` value to match.
+ * @returns `true` when `v` is a record with this `__type` and a `value`
+ * property.
  */
-export type TypedArrayCtor<T> = {
-  new (buffer: ArrayBuffer, byteOffset: number, length: number): T;
-  prototype: T;
-  BYTES_PER_ELEMENT: number;
-};
+export function isTagged(v: any, type: string): v is Tagged {
+  return isRecord(v) && v["__type"] === type && "value" in v;
+}
 
 /**
  * Builds a JSON handler for any typed array family over `ArrayBuffer` views.
@@ -203,8 +205,6 @@ export const typedArray = <T extends ArrayBufferView>(
 ): JsonHandler<T, string> => ({
   isApplicable: (_, v): v is T =>
     Object.prototype.isPrototypeOf.call(Ctor.prototype, v),
-  stringify: (_, v) =>
-    toBase64(new Uint8Array(v.buffer, v.byteOffset, v.byteLength)),
   parse: (_, v) => {
     // A fresh, exactly sized copy: the decoded buffer may be a slice of
     // Node's shared pool, so its byteOffset is not necessarily 0.
@@ -215,6 +215,8 @@ export const typedArray = <T extends ArrayBufferView>(
       bytes.byteLength / Ctor.BYTES_PER_ELEMENT,
     );
   },
+  stringify: (_, v) =>
+    toBase64(new Uint8Array(v.buffer, v.byteOffset, v.byteLength)),
 });
 
 /**
@@ -239,68 +241,71 @@ export const typedArray = <T extends ArrayBufferView>(
 export const superjson = new Json()
   .addHandler("undefined", {
     isApplicable: (_, v): v is undefined => v === undefined,
-    stringify: () => null,
     parse: () => undefined,
+    stringify: () => null,
   })
   .addHandler("number", {
     // NaN, Infinity, -Infinity, -0
     isApplicable: (_, v): v is number =>
       typeof v === "number" && (!Number.isFinite(v) || Object.is(v, -0)),
-    stringify: (_, v) => (Object.is(v, -0) ? "-0" : String(v)),
     parse: (_, v) => (v === "-0" ? -0 : Number(v)),
+    stringify: (_, v) => (Object.is(v, -0) ? "-0" : String(v)),
   })
   .addHandler("bigint", {
     isApplicable: (_, v): v is bigint => typeof v === "bigint",
+    parse: (_, v) => BigInt(v as any),
     stringify: (_, v) => v.toString(),
-    parse: (_, v) => BigInt(v),
   })
   .addHandler("symbol", {
     // only globally registered symbols (Symbol.for) can round-trip
     isApplicable: (_, v): v is symbol =>
       typeof v === "symbol" && Symbol.keyFor(v) !== undefined,
+    parse: (_, v) => Symbol.for(v as string),
     stringify: (_, v) => Symbol.keyFor(v)!,
-    parse: (_, v) => Symbol.for(v),
   })
   .addHandler("numberobject", {
     isApplicable: (_, v) => v instanceof Number,
-    stringify: (_, v) => String(v.valueOf()),
+    // eslint-disable-next-line sonarjs/no-primitive-wrappers
     parse: (_, v) => new Number(v),
+    stringify: (_, v) => String(v.valueOf()),
   })
   .addHandler("stringobject", {
     isApplicable: (_, v) => v instanceof String,
-    stringify: (_, v) => v.valueOf(),
+    // eslint-disable-next-line sonarjs/no-primitive-wrappers
     parse: (_, v) => new String(v),
+    stringify: (_, v) => v.valueOf(),
   })
   .addHandler("booleanobject", {
     isApplicable: (_, v) => v instanceof Boolean,
-    stringify: (_, v) => v.valueOf(),
+    // eslint-disable-next-line sonarjs/no-primitive-wrappers
     parse: (_, v) => new Boolean(v),
+    stringify: (_, v) => v.valueOf(),
   })
   .addHandler("invaliddate", {
     isApplicable: (_, v): v is Date => v instanceof Date && Number.isNaN(v.getTime()),
-    stringify: () => null,
     parse: () => new Date(NaN),
+    stringify: () => null,
   })
   .addHandler("date", {
     isApplicable: (_, v): v is Date => v instanceof Date,
+    parse: (_, v) => new Date(v as any),
     stringify: (_, v) => v.toISOString(),
-    parse: (_, v) => new Date(v),
   })
   .addHandler("map", {
     isApplicable: (_, v): v is Map<any, any> => v instanceof Map,
+    parse: (_, v) => new Map(v as any),
     stringify: (_, v) => Array.from(v.entries()),
-    parse: (_, v) => new Map(v),
   })
   .addHandler("set", {
     isApplicable: (_, v): v is Set<any> => v instanceof Set,
+    parse: (_, v) => new Set(v as any),
     stringify: (_, v) => Array.from(v),
-    parse: (_, v) => new Set(v),
   })
   .addHandler("buffer", {
     isApplicable: (_, v): v is Buffer =>
       typeof window === "undefined" && Buffer.isBuffer(v),
+    parse: (_, v) => Buffer.from(v as any, "base64"),
     stringify: (_, v) => toBase64(v),
-    parse: (_, v) => Buffer.from(v, "base64"),
   })
   .addHandler("uint8array", typedArray(Uint8Array))
   .addHandler("uint8clampedarray", typedArray(Uint8ClampedArray))
@@ -315,26 +320,19 @@ export const superjson = new Json()
   .addHandler("biguint64array", typedArray(BigUint64Array))
   .addHandler("dataview", {
     isApplicable: (_, v): v is DataView => v instanceof DataView,
+    parse: (_, v) => new DataView(new Uint8Array(fromBase64(v as any)).buffer),
     stringify: (_, v) =>
       toBase64(new Uint8Array(v.buffer, v.byteOffset, v.byteLength)),
-    parse: (_, v) => new DataView(new Uint8Array(fromBase64(v)).buffer),
   })
   .addHandler("arraybuffer", {
     isApplicable: (_, v): v is ArrayBuffer => v instanceof ArrayBuffer,
+    parse: (_, v) => new Uint8Array(fromBase64(v as any)).buffer,
     stringify: (_, v) => toBase64(new Uint8Array(v)),
-    parse: (_, v) => new Uint8Array(fromBase64(v)).buffer,
   })
   .addHandler("error", {
     isApplicable: (_, v): v is Error => Error.isError(v),
-      stringify: (_, v) => ({
-        ...v,
-      name: v.name,
-      message: v.message,
-      stack: v.stack,
-      cause: v.cause,
-    }),
-    parse: (_, v) => {
-        const { name, message, stack, cause, ...rest } = v;
+      parse: (_, v) => {
+        const { cause, message, name, stack, ...rest } = v as any;
         const e = new Error(
           message,
           cause !== undefined ? { cause } : undefined,
@@ -343,26 +341,34 @@ export const superjson = new Json()
         if (stack) e.stack = stack;
         return Object.assign(e, rest);
     },
+    stringify: (_, v) => ({
+        ...v,
+      cause: v.cause,
+      message: v.message,
+      name: v.name,
+      stack: v.stack,
+    }),
   })
   .addHandler("regexp", {
     isApplicable: (_, v): v is RegExp => v instanceof RegExp,
-    stringify: (_, v) => ({ source: v.source, flags: v.flags }),
-    parse: (_, v) => new RegExp(v.source, v.flags),
+    // eslint-disable-next-line security/detect-non-literal-regexp
+    parse: (_, v) => new RegExp((v as any).source, (v as any).flags),
+    stringify: (_, v) => ({ flags: v.flags, source: v.source }),
   })
   .addHandler("url", {
     isApplicable: (_, v): v is URL => v instanceof URL,
+    parse: (_, v) => new URL(v as any),
     stringify: (_, v) => v.href,
-    parse: (_, v) => new URL(v),
   })
   .addHandler("urlsearchparams", {
     isApplicable: (_, v): v is URLSearchParams =>
       typeof URLSearchParams !== "undefined" && v instanceof URLSearchParams,
+    parse: (_, v) => new URLSearchParams(v as any),
     stringify: (_, v) => v.toString(),
-    parse: (_, v) => new URLSearchParams(v),
   })
   .addHandler("headers", {
     isApplicable: (_, v): v is Headers =>
       typeof Headers !== "undefined" && v instanceof Headers,
+    parse: (_, v) => new Headers(v as any),
     stringify: (_, v) => [...v.entries()],
-    parse: (_, v) => new Headers(v),
   });

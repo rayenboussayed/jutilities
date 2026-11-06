@@ -1,6 +1,6 @@
-import { describe, it } from "vitest";
 import assert from "node:assert/strict";
-import { withCacheAsync, withCacheSync } from "./cache.js";
+import { describe, it } from "vitest";
+
 import type {
   CacheKeyParams,
   CacheStore,
@@ -9,20 +9,22 @@ import type {
   ShouldCacheParams,
 } from "./cache.js";
 
+import { withCacheAsync, withCacheSync } from "./cache.js";
+
 /**
  * Tiny Map-backed cache store used as `cacheStore` in these tests.
  * @returns The store object (with its internal Map exposed for assertions).
  */
 export function memoryStore() {
-  const m = new Map<string | number, unknown>();
+  const m = new Map<number | string, unknown>();
   return {
-    map: m,
-    get: (key: string | number) => m.get(key) as never,
-    set: (key: string | number, value: unknown) => {
-      m.set(key, value);
-    },
-    delete: (key: string | number) => {
+    delete: (key: number | string) => {
       m.delete(key);
+    },
+    get: (key: number | string) => m.get(key) as never,
+    map: m,
+    set: (key: number | string, value: unknown) => {
+      m.set(key, value);
     },
   };
 }
@@ -96,7 +98,7 @@ describe("withCacheSync", () => {
   it("default keygen keeps NaN and null distinct (JSON.stringify collapsed them)", () => {
     let count = 0;
     const store = memoryStore();
-    const wrapped = withCacheSync((x: number | null) => {
+    const wrapped = withCacheSync((x: null | number) => {
       count++;
       return x === null ? "null-shot" : "nan-shot";
     }, { cacheStore: store as never });
@@ -220,7 +222,7 @@ describe("withCacheSync", () => {
     wrapped(5);
     wrapped(5);
     assert.deepStrictEqual(
-      (seen as { parameters: unknown; function: string; extraKeys: unknown })
+      (seen as { extraKeys: unknown; function: string; parameters: unknown; })
         .parameters,
       [5],
     );
@@ -428,12 +430,12 @@ describe("withCacheAsync", () => {
   it("supports async cacheStore and async shouldCache/generateCacheKey", async () => {
     const m = new Map<string, unknown>();
     const asyncStore = {
+      delete: async (k: string) => {
+        m.delete(k);
+      },
       get: async (k: string) => m.get(k) as never,
       set: async (k: string, v: unknown) => {
         m.set(k, v);
-      },
-      delete: async (k: string) => {
-        m.delete(k);
       },
     };
     let count = 0;
@@ -444,14 +446,14 @@ describe("withCacheAsync", () => {
       },
       {
         cacheStore: asyncStore as never,
-        shouldCache: async () => true,
         generateCacheKey: async ({
           parameters,
         }: {
-          parameters: unknown[];
-          function: string;
           extraKeys?: unknown[];
+          function: string;
+          parameters: unknown[];
         }) => `ak:${JSON.stringify(parameters[0])}`,
+        shouldCache: async () => true,
       },
     );
     assert.strictEqual(await wrapped(1), 2);
@@ -502,7 +504,7 @@ describe("withCacheAsync", () => {
     const wrapped = withCacheAsync(
       async (x: number) => {
         count++;
-        await new Promise((r) => setTimeout(r, 20));
+        await new Promise((resolve) => setTimeout(resolve, 20));
         return x;
       },
       { cacheStore: store as never },
@@ -543,11 +545,11 @@ describe("withCacheAsync", () => {
 
   it("store throwing propagates", async () => {
     const badStore = {
+      delete: () => {},
       get: () => {
         throw new Error("get boom");
       },
       set: () => {},
-      delete: () => {},
     };
     const wrapped = withCacheAsync(async () => 1, {
       cacheStore: badStore as never,

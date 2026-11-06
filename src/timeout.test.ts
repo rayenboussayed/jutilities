@@ -1,5 +1,7 @@
-import { describe, it } from "vitest";
+/* eslint-disable sonarjs/void-use */
 import assert from "node:assert/strict";
+import { describe, it } from "vitest";
+
 import { withTimeoutAsync } from "./timeout.js";
 
 describe("withTimeoutAsync", () => {
@@ -82,7 +84,7 @@ describe("withTimeoutAsync", () => {
      * first).
      */
     async function slow() {
-      await new Promise((r) => setTimeout(r, 1000));
+      await new Promise((resolve) => setTimeout(resolve, 1000));
       return "slow-done";
     }
     const wrapped = withTimeoutAsync(slow, { timeoutMs: 20 });
@@ -101,14 +103,14 @@ describe("withTimeoutAsync", () => {
      * @returns Always `1`, after flipping `finished` (after ~50ms).
      */
     async function slow() {
-      await new Promise((r) => setTimeout(r, 50));
+      await new Promise((resolve) => setTimeout(resolve, 50));
       finished = true;
       return 1;
     }
     const wrapped = withTimeoutAsync(slow, { timeoutMs: 10 });
     await assert.rejects(wrapped(), () => true);
     assert.strictEqual(finished, false);
-    await new Promise((r) => setTimeout(r, 80));
+    await new Promise((resolve) => setTimeout(resolve, 80));
     assert.strictEqual(finished, true);
   });
 
@@ -120,7 +122,7 @@ describe("withTimeoutAsync", () => {
      * @returns Always `1` (never observed — the rejection wins).
      */
     async function slow() {
-      await new Promise((r) => setTimeout(r, 1000));
+      await new Promise((resolve) => setTimeout(resolve, 1000));
       return 1;
     }
     const wrapped = withTimeoutAsync(slow, { signal: controller.signal });
@@ -137,7 +139,7 @@ describe("withTimeoutAsync", () => {
      * @returns Always `1` (never observed — the rejection wins).
      */
     async function slow() {
-      await new Promise((r) => setTimeout(r, 1000));
+      await new Promise((resolve) => setTimeout(resolve, 1000));
       return 1;
     }
     const wrapped = withTimeoutAsync(slow, {
@@ -160,7 +162,7 @@ describe("withTimeoutAsync", () => {
      * @returns Always `1` (never observed — the rejection wins).
      */
     async function slow() {
-      await new Promise((r) => setTimeout(r, 1000));
+      await new Promise((resolve) => setTimeout(resolve, 1000));
       return 1;
     }
     // abort controller with custom reason upfront? No - test timeout with signal present but not aborted:
@@ -198,7 +200,7 @@ describe("withTimeoutAsync", () => {
      * @returns `x` after ~1s (never observed — abort rejects both).
      */
     async function slow(x: number) {
-      await new Promise((r) => setTimeout(r, 1000));
+      await new Promise((resolve) => setTimeout(resolve, 1000));
       return x;
     }
     const wrapped = withTimeoutAsync(slow, { signal: controller.signal });
@@ -237,9 +239,9 @@ describe("withTimeoutAsync", () => {
     const controller = new AbortController();
     assert.strictEqual(
       withTimeoutAsync(fn, {
+        signal: controller.signal,
         skipHof: true,
         timeoutMs: 100,
-        signal: controller.signal,
       }),
       fn,
     );
@@ -254,10 +256,10 @@ describe("withTimeoutAsync", () => {
      */
     async function fn() {
       calls++;
-      await new Promise((r) => setTimeout(r, 30));
+      await new Promise((resolve) => setTimeout(resolve, 30));
       return 1;
     }
-    const wrapped = withTimeoutAsync(fn, { timeoutMs: 10, skipHof: () => true });
+    const wrapped = withTimeoutAsync(fn, { skipHof: () => true, timeoutMs: 10 });
 
     assert.strictEqual(await wrapped(), 1);
     assert.strictEqual(calls, 1);

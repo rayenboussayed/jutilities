@@ -2,7 +2,6 @@ import type {
   AnyAsyncFunction,
   AnyFunction,
 } from "../types/type.js";
-import { assertSyncReturn, guardSyncFunction } from "./sync-guard.js";
 import type {
   ApplyKind,
   HofFn,
@@ -11,7 +10,17 @@ import type {
   WithSkipHof,
 } from "./create-hof.js";
 
-type AnyHof = (fn: any, options?: any) => any;
+import { assertSyncReturn, guardSyncFunction } from "./sync-guard.js";
+
+/**
+ * The kind of a composed stack: its options are the merged option bags of
+ * every layer, resolved for the concrete wrapped function type.
+ * @template Hs - The stacked HOF types.
+ */
+export interface ComposedKind<Hs extends readonly unknown[] = readonly unknown[]>
+  extends HofKind {
+  options: MergeOptions<Hs, this["fn"]>;
+}
 
 /**
  * Intersection of every HOF's options, resolved for the concrete wrapped
@@ -24,15 +33,7 @@ export type MergeOptions<
   ? ApplyKind<KindOf<H>, TF> & MergeOptions<R, TF>
   : unknown;
 
-/**
- * The kind of a composed stack: its options are the merged option bags of
- * every layer, resolved for the concrete wrapped function type.
- * @template Hs - The stacked HOF types.
- */
-export interface ComposedKind<Hs extends readonly unknown[] = readonly unknown[]>
-  extends HofKind {
-  options: MergeOptions<Hs, this["fn"]>;
-}
+type AnyHof = (fn: any, options?: any) => any;
 
 /**
  * Composes async HOFs into one. The FIRST hof is the OUTERMOST layer:
@@ -53,9 +54,9 @@ export function withAsync<const Hs extends readonly HofFn<any, "async">[]>(
     fn: TF,
     options?: WithSkipHof<MergeOptions<Hs, TF>, TF>,
   ): TF => {
-    const { skipHof, ...rest } = (options ?? {}) as {
-      skipHof?: boolean | ((...args: Parameters<TF>) => boolean | Promise<boolean>);
-    } & Record<string, unknown>;
+    const { skipHof, ...rest } = (options ?? {}) as Record<string, unknown> & {
+      skipHof?: ((...args: Parameters<TF>) => boolean | Promise<boolean>) | boolean;
+    };
     if (skipHof === true) return fn;
 
     const layered = hofs.reduceRight<TF>((acc, hof) => hof(acc, rest), fn);
@@ -89,9 +90,9 @@ export function withSync<const Hs extends readonly HofFn<any, "sync">[]>(
   ): TF => {
     if (hofs.length === 0 || options?.skipHof === true) return fn as TF;
     const raw = guardSyncFunction(fn);
-    const { skipHof, ...rest } = (options ?? {}) as {
-      skipHof?: boolean | ((...args: Parameters<TF>) => boolean);
-    } & Record<string, unknown>;
+    const { skipHof, ...rest } = (options ?? {}) as Record<string, unknown> & {
+      skipHof?: ((...args: Parameters<TF>) => boolean) | boolean;
+    };
     const layered = hofs.reduceRight<TF>(
       (acc, hof) => (hof as AnyHof)(acc, rest),
       raw,

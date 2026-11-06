@@ -1,5 +1,6 @@
-import { describe, it } from "vitest";
 import assert from "node:assert/strict";
+import { describe, it } from "vitest";
+
 import { withCacheAsync, withCacheSync } from "../cache.js";
 import {
   createHofAsync,
@@ -7,11 +8,7 @@ import {
   type HofFn,
   type HofKind,
 } from "./create-hof.js";
-import { withAsync, withSync, type MergeOptions } from "./with.js";
-
-interface TraceKind extends HofKind {
-  options: { tag?: string };
-}
+import { type MergeOptions, withAsync, withSync } from "./with.js";
 
 interface AlphaKind extends HofKind {
   options: { alpha?: string };
@@ -21,25 +18,8 @@ interface BetaKind extends HofKind {
   options: { beta?: string };
 }
 
-/**
- * Builds a sync tracing HOF: the wrap records `build:<tag>`, every call
- * records `call:<tag>` before delegating to the wrapped function.
- * @param trace - Collector receiving the trace entries.
- * @param tag - Tag identifying the layer.
- * @returns The tracing HOF.
- */
-function tracerSync(trace: string[], tag: string) {
-  return createHofSync<TraceKind>((fn, options) => {
-    const label = options.tag ?? tag;
-    trace.push(`build:${label}`);
-    return function (
-      this: ThisParameterType<TraceKind["fn"]>,
-      ...args: Parameters<TraceKind["fn"]>
-    ) {
-      trace.push(`call:${label}`);
-      return fn.apply(this, args);
-    } as TraceKind["fn"];
-  });
+interface TraceKind extends HofKind {
+  options: { tag?: string };
 }
 
 /**
@@ -54,6 +34,27 @@ function tracerAsync(trace: string[], tag: string) {
     const label = options.tag ?? tag;
     trace.push(`build:${label}`);
     return async function (
+      this: ThisParameterType<TraceKind["fn"]>,
+      ...args: Parameters<TraceKind["fn"]>
+    ) {
+      trace.push(`call:${label}`);
+      return fn.apply(this, args);
+    } as TraceKind["fn"];
+  });
+}
+
+/**
+ * Builds a sync tracing HOF: the wrap records `build:<tag>`, every call
+ * records `call:<tag>` before delegating to the wrapped function.
+ * @param trace - Collector receiving the trace entries.
+ * @param tag - Tag identifying the layer.
+ * @returns The tracing HOF.
+ */
+function tracerSync(trace: string[], tag: string) {
+  return createHofSync<TraceKind>((fn, options) => {
+    const label = options.tag ?? tag;
+    trace.push(`build:${label}`);
+    return function (
       this: ThisParameterType<TraceKind["fn"]>,
       ...args: Parameters<TraceKind["fn"]>
     ) {

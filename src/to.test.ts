@@ -1,7 +1,8 @@
-import { describe, it } from "vitest";
 import assert from "node:assert/strict";
-import { toArray, toBase64, toSeconds } from "./to.js";
+import { describe, it } from "vitest";
+
 import { fromBase64 } from "./from.js";
+import { toArray, toBase64, toSeconds } from "./to.js";
 
 describe("toArray", () => {
   it("wraps scalars in a single-element array", () => {
@@ -47,6 +48,7 @@ describe("toArray", () => {
     scalarOut.push(2);
     assert.deepStrictEqual(scalarOut, [1, 2]);
     // scalar itself unaffected (primitives immutable)
+    // eslint-disable-next-line sonarjs/no-trivial-assertions
     assert.strictEqual(1, 1);
   });
 

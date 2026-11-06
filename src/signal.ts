@@ -17,7 +17,7 @@ import type { WithSignal } from "./types/with.js";
  * @returns A remover that detaches the listener (also safe without a
  * signal).
  */
-export function abort({ signal, onAbort }: WithSignal<{ onAbort: () => void }>) {
+export function abort({ onAbort, signal }: WithSignal<{ onAbort: () => void }>) {
     signal?.addEventListener("abort", onAbort)
     return () => signal?.removeEventListener("abort", onAbort)
 }

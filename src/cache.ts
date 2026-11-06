@@ -1,19 +1,21 @@
-import { djb2 } from "./hash.js";
-import { isEmpty } from "./is.js";
-import { superjson } from "./json.js";
+import { ExpiredMap } from "expired-map";
+
 import type {
   AnyFunction,
   HandleAsyncFunction,
   MaybePromise,
 } from "./types/type.js";
+
+import { djb2 } from "./hash.js";
+import { isEmpty } from "./is.js";
+import { superjson } from "./json.js";
 import {
   createHofAsync,
   createHofSync,
   type HofKind,
 } from "./libs/create-hof.js";
-import { ExpiredMap } from "expired-map";
 
-export type Key = string | number;
+export type Key = number | string;
 
 /**
  * The process-wide `ExpiredMap` singleton backing every cache wrapper in this
@@ -32,17 +34,17 @@ export const defaultGenerateCacheKey = (options: CacheKeyParams<AnyFunction>) =>
   djb2(superjson.stringify(options));
 
 export type CacheKeyParams<T extends AnyFunction> = {
-  parameters: Parameters<T>[];
-  function: string;
   extraKeys?: unknown[];
+  function: string;
+  parameters: Parameters<T>[];
 };
 
-export type ShouldCacheParams<T extends AnyFunction> = {
-  parameters: Parameters<T>[];
-  result: Awaited<ReturnType<T>>;
-};
+export interface CacheKind<T extends AnyFunction = AnyFunction> extends HofKind<T> {
+  options: Options<this["fn"]>;
+}
 
 export type CacheStore<T extends AnyFunction> = {
+  delete: (key: Key) => HandleAsyncFunction<T, MaybePromise<unknown>, unknown>;
   get: (
     key: Key,
   ) => HandleAsyncFunction<
@@ -54,23 +56,23 @@ export type CacheStore<T extends AnyFunction> = {
     key: Key,
     value: ReturnType<T>,
   ) => HandleAsyncFunction<T, MaybePromise<unknown>, unknown>;
-  delete: (key: Key) => HandleAsyncFunction<T, MaybePromise<unknown>, unknown>;
 };
 
 export type Options<T extends AnyFunction> = {
   cacheStore?: CacheStore<T>;
-  shouldCache?: (
-    options: ShouldCacheParams<T>,
-  ) => HandleAsyncFunction<T, MaybePromise<boolean>, boolean>;
+  extraKeys?: unknown[];
   generateCacheKey?: (
     options: CacheKeyParams<T>,
   ) => HandleAsyncFunction<T, MaybePromise<Key>, Key>;
-  extraKeys?: unknown[];
+  shouldCache?: (
+    options: ShouldCacheParams<T>,
+  ) => HandleAsyncFunction<T, MaybePromise<boolean>, boolean>;
 };
 
-export interface CacheKind<T extends AnyFunction = AnyFunction> extends HofKind<T> {
-  options: Options<this["fn"]>;
-}
+export type ShouldCacheParams<T extends AnyFunction> = {
+  parameters: Parameters<T>[];
+  result: Awaited<ReturnType<T>>;
+};
 
 
 /**
@@ -110,9 +112,9 @@ export const withCacheSync = createHofSync<CacheKind>(
     fn,
     {
       cacheStore = globalCache,
+      extraKeys,
       generateCacheKey = defaultGenerateCacheKey,
       shouldCache = () => true,
-      extraKeys,
     },
   ) => {
     const functionString = fn.toString();
@@ -122,9 +124,9 @@ export const withCacheSync = createHofSync<CacheKind>(
       ...args: Parameters<CacheKind["fn"]>
     ) {
       const cacheKey = generateCacheKey({
-        parameters: args,
-        function: functionString,
         extraKeys,
+        function: functionString,
+        parameters: args,
       });
 
       const cached = cacheStore.get(cacheKey);
@@ -174,9 +176,9 @@ export const withCacheAsync = createHofAsync<CacheKind>(
     fn,
     {
       cacheStore = globalCache,
+      extraKeys,
       generateCacheKey = defaultGenerateCacheKey,
       shouldCache = () => true,
-      extraKeys,
     },
   ) => {
     const functionString = fn.toString();
@@ -187,9 +189,9 @@ export const withCacheAsync = createHofAsync<CacheKind>(
       ...args: Parameters<CacheKind["fn"]>
     ) {
       const cacheKey = await generateCacheKey({
-        parameters: args,
-        function: functionString,
         extraKeys,
+        function: functionString,
+        parameters: args,
       });
 
       const pending = inFlight.get(cacheKey);
