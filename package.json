@@ -41,12 +41,14 @@
   ],
   "scripts": {
     "check": "npm run typecheck && npm run lint && npm run test && npm run build && npm run examples",
-    "test": "tsx --test \"src/**/*.test.ts\"",
+    "test": "vitest run --coverage",
     "typecheck": "tsc --noEmit",
     "lint": "eslint . --fix --max-warnings 0",
     "build": "tsc -p tsconfig.build.json",
     "examples": "npm run build && node --import tsx examples/run-all.ts",
-    "prepare": "husky && node scripts/link-self.mjs"
+    "prepare": "husky && node scripts/link-self.mjs",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage"
   },
   "engines": {
     "node": ">=22.13.0"
@@ -56,6 +58,7 @@
     "@deslint/eslint-plugin": "^0.10.0",
     "@eslint/js": "^10.0.1",
     "@types/node": "^26.6.5",
+    "@vitest/coverage-v8": "^3.2.7",
     "eslint": "^10.13.0",
     "eslint-plugin-jsdoc": "^65.3.8",
     "eslint-plugin-n": "^18.4.1",
@@ -64,7 +67,8 @@
     "jiti": "^2.7.0",
     "tsx": "^4.23.15",
     "typescript": "^6.0.3",
-    "typescript-eslint": "^8.71.2"
+    "typescript-eslint": "^8.71.2",
+    "vitest": "^3.2.7"
   },
   "dependencies": {
     "expired-map": "^1.0.0"

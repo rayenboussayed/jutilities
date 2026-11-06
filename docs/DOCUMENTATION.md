@@ -38,7 +38,7 @@ Every statement below is pinned by an executable test in `src/**/*.test.ts` — 
 14. [assert](#assert) — `assert`, `assertNotNil`, `assertNever`, `withAssertSync`/`withAssertAsync` + decorator contract guards
 15. [to](#to) / [from](#from) — `toArray`, `toBase64`, `fromBase64`
 16. [types](#types) — shared type utilities
-17. [create-hof](#create-hof) — `createHofSync`, `createHofAsync`
+17. [create-hof](#create-hof) — `createHofSync`, `createHofAsync`, `createHofAny`
 18. [with](#with) — `withAsync`, `withSync` (stack composition)
 19. [clock](#clock) — `now` (the shared timing helper)
 
@@ -50,7 +50,7 @@ Every statement below is pinned by an executable test in `src/**/*.test.ts` — 
 import { withCacheSync, withCacheAsync } from "jutilities/cache";
 
 function withCacheSync<T extends AnyFunction>(
-  fn: AnySyncFunction<T>,
+  fn: T,
   options?: {
     cacheStore?: CacheStore<T>;                  // get/set/delete object
     generateCacheKey?: (o: CacheKeyParams<T>) => string | number | Promise<string | number>;
@@ -149,7 +149,7 @@ function withRetryAsync<T extends AnyAsyncFunction>(
 ): T;
 
 function withRetrySync<T extends AnyFunction>(
-  fn: AnySyncFunction<T>,
+  fn: T,
   options?: {
     onError?: (o: /* same context, sync */) => void;
     skipHof?: false | ((...args: Parameters<T>) => boolean);
@@ -262,7 +262,7 @@ function withDelayAsync<T extends AnyAsyncFunction>(
 ): T; // the factory itself is synchronous
 
 function withDelaySync<T extends AnyFunction>(
-  fn: AnySyncFunction<T>,
+  fn: T,
   options?: { signal?: AbortSignal; delay?: number },
 ): T;
 ```
@@ -443,15 +443,17 @@ import { withLoggerAsync, withLoggerSync } from "jutilities/logger";
 
 type CallableLogger = { debug: (...args: any[]) => void; error: (...args: any[]) => void };
 
-function withLoggerSync<T extends AnyFunction>(fn: AnySyncFunction<T>, options?: { name?: string; logger?: CallableLogger }): T;
+function withLoggerSync<T extends AnyFunction>(fn: T, options?: { name?: string; logger?: CallableLogger }): T;
 function withLoggerAsync<T extends AnyAsyncFunction>(fn: T, options?: { name?: string; logger?: CallableLogger }): T;
 ```
 
 ### Behavior contract
 
 - **Split API** (mirrors `withCache*`): sync functions go through
-  `withLoggerSync`, declared-`async` functions through `withLoggerAsync` —
-  type-gated, no runtime promise sniffing.
+  `withLoggerSync`, async/promise-returning functions through
+  `withLoggerAsync`. The sync wrapper preserves generic signatures and
+  enforces a promise/generator check at call time (it does not narrow the
+  input type at compile time).
 - Two `logger.debug` lines per success (both variants): output goes through
   the injectable `options.logger` sink (defaults to `console`), and each line
   carries a `new Date()` timestamp prefix. Per call:
@@ -745,7 +747,7 @@ import {
 } from "jutilities/assert";
 
 function withAssertSync<T extends AnyFunction>(
-  fn: AnySyncFunction<T>,
+  fn: T,
   options: {
     onResult: (o: { parameters: Parameters<T>; result: ReturnType<T> }) => void;
     skipHof?: false | ((...args: Parameters<T>) => boolean); // shared bypass
@@ -889,8 +891,10 @@ import { WithSignal } from "jutilities/types/with";
 
 - `AnyFunction` — any callable (sync or async, generator or not).
 - `AnyAsyncFunction` — callables producing a promise.
-- `AnySyncFunction<T>` — anything whose return type is **not** a promise or
-  generator; the guard rails behind `withCacheSync`/`withRetrySync`.
+- `AnySyncFunction<T>` — a consumer-side conditional helper whose return type
+  excludes promises and generators. The package's sync HOF factories no longer
+  narrow their accepted function types with it; they infer the full callable
+  signature and reject promise/generator results at runtime.
 - `HandleAsyncFunction<T, TTrue, TFalse>` — picks `TTrue` when `T` returns a
   promise and `TFalse` otherwise: the hook return types in
   [cache](#cache) / [retry](#retry) / [assert](#assert) (`MaybePromise<…>` for
@@ -904,7 +908,8 @@ import { WithSignal } from "jutilities/types/with";
 ### Use cases
 
 1. **Constraining plugin inputs** — accept `AnySyncFunction` when your wrapper
-   cannot race promises.
+   needs a consumer-side return-type exclusion (the package's built-in sync
+   HOFs intentionally do not narrow this way).
 2. **Option-shape reuse** — `{ signal?: AbortSignal } & T` everywhere your API
    takes an AbortSignal.
 3. **Ergonomic monorepo types** — `MaybePromise` for adapter boundaries that may
@@ -936,7 +941,9 @@ Four converters that turn a fn-first HOF from this package (`withCacheSync`,
 Only HOFs built by [`createHofSync` / `createHofAsync`](#create-hof) (or
 composed by [`withAsync` / `withSync`](#with)) are convertible: they carry
 the `__kind` brand the converter needs to type the option bag. A hand-written
-fn-first function is rejected at compile time.
+fn-first function is rejected at compile time. Sync HOFs preserve member
+signatures and rely on runtime guards (or `require`) for promise/generator
+results; async HOFs remain compile-time checked.
 
 ### Behavior contract
 
@@ -972,12 +979,12 @@ fn-first function is rejected at compile time.
   `decorateClass` via its pair slots) assert when the class is *defined*;
   `decorateProperty` asserts when the field is *initialized*
   (i.e. construction), because field values only exist then.
-- **Type-layer discipline.** The HOF's *flavor* decides which members may be
-  decorated, and a mismatch is a compile error in **both** directions: a sync
-  HOF (`withCacheSync`) refuses a promise-returning member, an async HOF
-  (`withRetryAsync`) refuses a non-promise-returning one. An "any" HOF
-  (`lazy`) takes either. The runtime `require` guard then only protects
-  transpiled code, where the declared `async` is invisible to types.
+- **Flavor discipline.** The HOF's flavor decides which members may be
+  decorated. An async HOF refuses a non-promise-returning member at compile
+  time. A sync HOF preserves member signatures and relies on runtime guarding
+  (or `require: "sync"`) for promise/generator results. An "any" HOF (`lazy`)
+  takes either. The runtime `require` guard handles transpiled code, where
+  declared `async` is invisible to types, and accidental promise results.
 - **Runtime misfire protection.** Where they *can* occur, both paren-less
   shapes throw a `TypeError` naming the converter: the factory called with a
   raw `(member, context)` rest (pinned for all four kinds), and the converter
@@ -1197,6 +1204,12 @@ what makes them all share one shape: fn-first parameter, one options object,
   stay possible (`@retried()` decorators) even for HOFs whose declared options
   have required members — those members are still enforced for any passed
   literal.
+- A **sync-flavored** wrapper inferred on a generic function preserves the
+  full polymorphic signature end-to-end. The wrapper does not reject a
+  promise-returning function at compile time; instead every call is checked and
+  a promise/generator result throws a `TypeError`. Async work belongs in the
+  async flavor or in `lazy` (which intentionally accepts either flavor).
+  Sync predicates passed as `skipHof` are also validated at call time.
 
 ### Use cases
 
@@ -1245,7 +1258,7 @@ the same stack you would nest by hand, with the ordering rule stated once.
   call. Inner layers never see the slot.
 - **Sync and async are separate composers:** `withAsync` takes async HOFs
   (their predicate may be async and is awaited before deciding), `withSync`
-  takes sync HOFs and rejects an async function at compile time.
+  takes sync HOFs and rejects promise/generator results at call time.
 - **A layer's own behavior is untouched:** every layer is a normal fn-first
   HOF, so its own options, defaults, and shortcuts (e.g. `delay <= 0`) keep
   working inside the stack.

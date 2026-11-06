@@ -51,7 +51,7 @@ export type Tagged<T = unknown> = { __type: string; value: T };
  * property.
  */
 export function isTagged(v: any, type: string): v is Tagged {
-  return isRecord(v) && v.__type === type && "value" in v;
+  return isRecord(v) && v["__type"] === type && "value" in v;
 }
 
 /**

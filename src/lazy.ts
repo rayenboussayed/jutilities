@@ -1,6 +1,6 @@
 import { djb2 } from "./hash.js";
 import {
-  createHofSync,
+  createHofAny,
   type HofFn,
   type HofKind,
 } from "./libs/create-hof.js";
@@ -59,7 +59,7 @@ export interface LazyKind<T extends AnyFunction = AnyFunction>
  *   writing nothing). Omitted by default — the memoizing wrapper is applied.
  * @returns The wrapped function (typeof `fn`) reading/writing the memo store.
  */
-export const lazy = createHofSync<LazyKind>(
+export const lazy = createHofAny<LazyKind>(
   (fn) => {
     const functionString = fn.toString();
     const store = new Map<number, unknown>();

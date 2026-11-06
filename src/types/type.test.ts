@@ -1,4 +1,4 @@
-import { describe, it } from "node:test";
+import { describe, it } from "vitest";
 import assert from "node:assert/strict";
 import type {
   AnyAsyncFunction,
@@ -6,6 +6,8 @@ import type {
   AnySyncFunction,
   HandleAsyncFunction,
 } from "./type.js";
+import { withCacheSync, withCacheAsync } from "../cache.js";
+import { lazy } from "../lazy.js";
 
 describe("HandleAsyncFunction", () => {
   it("picks the sync branch for a plain function", () => {
@@ -49,5 +51,41 @@ describe("callable gates", () => {
     // @ts-expect-error - the async gate requires a promise return.
     const fn: AnyAsyncFunction = (value: number) => value;
     assert.ok(fn);
+  });
+});
+
+describe("generic wrap matrix", () => {
+  it("compile-only: generic signatures survive every flavor without casts", () => {
+    const identity = <T>(value: T): T => value;
+
+    // Async and `lazy` preserve generic signatures end-to-end:
+    const asyncWrapped = withCacheAsync(
+      async <T>(value: T): Promise<T> => value,
+    );
+    const lazyWrapped = lazy(identity);
+    const fromAsync: Promise<number> = asyncWrapped(7);
+    const fromLazy: { n: number } = lazyWrapped({ n: 7 });
+    void fromAsync;
+    void fromLazy;
+
+    // Sync HOFs also preserve the signature and infer T per call site:
+    const syncWrapped = withCacheSync(identity);
+    const fromSyncString: "abc" = syncWrapped("abc");
+    const fromSyncObject: { n: number } = syncWrapped({ n: 1 });
+    const fromSyncTrue: true = syncWrapped(true as const);
+    void fromSyncString;
+    void fromSyncObject;
+    void fromSyncTrue;
+
+    // Arity is enforced on the preserved signature:
+    // @ts-expect-error -- a generic identity wrapper requires its argument.
+    syncWrapped();
+
+    // Explicit type arguments are no longer necessary, but remain valid:
+    const withTypeArgument = withCacheSync<typeof identity>(identity);
+    const escaped: "abc" = withTypeArgument("abc");
+    void escaped;
+
+    assert.ok(true);
   });
 });

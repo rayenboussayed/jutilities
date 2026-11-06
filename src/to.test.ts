@@ -1,6 +1,6 @@
-import { describe, it } from "node:test";
+import { describe, it } from "vitest";
 import assert from "node:assert/strict";
-import { toArray, toBase64 } from "./to.js";
+import { toArray, toBase64, toSeconds } from "./to.js";
 import { fromBase64 } from "./from.js";
 
 describe("toArray", () => {
@@ -104,5 +104,14 @@ describe("toBase64 (browser branch via window stub)", () => {
     } finally {
       delete g.window;
     }
+  });
+});
+
+
+describe("toSeconds", () => {
+  it("rounds milliseconds to whole seconds", () => {
+    assert.strictEqual(toSeconds(0), 0);
+    assert.strictEqual(toSeconds(499), 0);
+    assert.strictEqual(toSeconds(1000), 1);
   });
 });

@@ -1,9 +1,9 @@
 import type {
   AnyAsyncFunction,
   AnyFunction,
-  AnySyncFunction,
   MaybePromise,
 } from "../types/type.js";
+import { assertSyncReturn, guardSyncFunction } from "./sync-guard.js";
 
 /**
  * Mixes the shared `skipHof` bypass slot into a fn-first HOF's options object.
@@ -93,14 +93,15 @@ export type HofConstraint<F extends HofFlavor> = F extends "async"
 
 /**
  * The function slot a HOF of the given flavor accepts: a sync HOF only
- * accepts non-promise-returning functions, the other flavors accept any
+ * accepts any callable and preserves its full type signature; call-time
+ * guarding rejects promise-returning values (the flavor no longer narrows
+ * the accepted function type at compile time).
  * callable.
  * @template TF - The wrapped-function type.
  * @template F - The HOF flavor.
  */
-export type HofSlot<TF extends AnyFunction, F extends HofFlavor> = F extends
-  "sync" ? AnySyncFunction<TF>
-  : TF;
+export type HofSlot<TF extends AnyFunction, F extends HofFlavor> =
+  F extends HofFlavor ? TF : TF;
 
 /**
  * Public shape of a built HOF: the callable plus the type-only brand that
@@ -166,31 +167,70 @@ export type FlavorOf<H> = H extends {
  * exactly once per wrap.
  * @returns The new fn-first HOF taking `(fn, options)`.
  */
-export function createHofSync<K extends HofKind>(
-  handler: Hof<K, AnySyncFunction>,
+/**
+ * Builds a flavor-agnostic fn-first HOF. Unlike the sync flavor this does not
+ * guard return values, because `lazy` deliberately memoizes sync and async
+ * functions alike. `skipHof` stays synchronous (a truthy result bypasses).
+ * @template K - The HOF's kind.
+ * @param handler - The core handler building the wrapper; called exactly once per wrap.
+ * @returns The instantiated HOF.
+ */
+export function createHofAny<K extends HofKind>(
+  handler: Hof<K, AnyFunction>,
 ) {
   const hof = <TF extends AnyFunction>(
-    fn: AnySyncFunction<TF>,
-    options: WithSkipHof<
-      ApplyKind<K, AnySyncFunction<TF>>,
-      AnySyncFunction<TF>
-    > = {},
+    fn: TF,
+    options: WithSkipHof<ApplyKind<K, TF>, TF> = {},
   ) => {
+    if (options.skipHof === true) return fn;
+    const enhanced = handler(fn, options);
+    if (enhanced === fn) return fn;
+    if (typeof options.skipHof !== "function") return enhanced;
+
+    const skipHof = options.skipHof as (...predicateArgs: Parameters<TF>) => boolean;
+    return function (this: ThisParameterType<TF>, ...args: Parameters<TF>) {
+      return skipHof(...args) ? fn.apply(this, args) : enhanced.apply(this, args);
+    } as TF;
+  };
+
+  return hof as unknown as HofFn<K, "any">;
+}
+
+/**
+ * Builds a sync-flavored fn-first HOF.
+ * @param handler - Core handler building the enhanced wrapper.
+ * @returns The new fn-first HOF.
+ */
+export function createHofSync<K extends HofKind>(
+  handler: Hof<K, AnyFunction>,
+) {
+  const hof = <TF extends AnyFunction>(
+    fn: TF,
+    options: WithSkipHof<ApplyKind<K, TF>, TF> = {},
+  ) => {
+    const guardedFn = guardSyncFunction(fn);
     if (options.skipHof === true) return fn;
 
     // Built once per wrap: wrap-time state lives in the handler's closure,
     // never per call.
-    const enhanced = handler(fn, options);
+    const enhanced = handler(guardedFn, options);
 
-    // The handler echoed `fn` back — nothing to enhance, so return it
-    // unchanged (also means nothing to bypass per call).
-    if (enhanced === fn) return fn;
-    if (typeof options.skipHof !== "function") return enhanced;
+    // The handler echoed the guarded function back — nothing to enhance, so
+    // return it unchanged (also means nothing to bypass per call).
+    if (enhanced === guardedFn) return fn;
+    if (typeof options.skipHof !== "function") {
+      return guardSyncFunction(enhanced);
+    }
 
+    const skipHof = options.skipHof as (...predicateArgs: Parameters<TF>) => boolean;
     return function (this: ThisParameterType<TF>, ...args: Parameters<TF>) {
-      return typeof options.skipHof === "function" && options.skipHof(...args)
-        ? fn.apply(this, args)
+      const bypass = skipHof(...args);
+      assertSyncReturn(bypass, "skipHof predicate");
+      const result = bypass
+        ? guardedFn.apply(this, args)
         : enhanced.apply(this, args);
+      assertSyncReturn(result, fn.name || "wrapped function");
+      return result;
     } as TF;
   };
 

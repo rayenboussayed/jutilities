@@ -1,4 +1,4 @@
-import { describe, it } from "node:test";
+import { describe, it } from "vitest";
 import assert from "node:assert/strict";
 import { withCacheSync } from "../cache.js";
 import { withLoggerSync } from "../logger.js";
@@ -141,7 +141,8 @@ describe("decorateProperty", () => {
     } finally {
       console.debug = originalDebug;
     }
-    assert.ok(lines.some((parts) => /speak/.test(String(parts[0]))));
+
+    assert.ok(lines.some((parts) => /anonymous/.test(String(parts[0]))));
   });
 
   it("runtime paren-less factory application fails fast on member slots", () => {

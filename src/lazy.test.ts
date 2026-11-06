@@ -1,4 +1,4 @@
-import { describe, it } from "node:test";
+import { describe, it } from "vitest";
 import assert from "node:assert/strict";
 import { lazy } from "./lazy.js";
 
@@ -69,7 +69,7 @@ describe("lazy", () => {
     assert.strictEqual(count, 1);
   });
 
-  it("TODO: falsy results are never cached (if cachedValue bug)", () => {
+  it("falsy results are never cached (truthy result cache gate)", () => {
     for (const falsy of [0, "", false, null, undefined]) {
       let count = 0;
       const fn = lazy(() => {
@@ -143,7 +143,7 @@ describe("lazy", () => {
   it("throws for circular args (JSON.stringify fails)", () => {
     const fn = lazy((o: unknown) => o);
     const circular: Record<string, unknown> = {};
-    circular.self = circular;
+    circular["self"] = circular;
     assert.throws(() => (fn as (o: unknown) => unknown)(circular));
   });
 
@@ -189,7 +189,7 @@ describe("lazy", () => {
     assert.strictEqual(count, 2);
   });
 
-  it("TODO: NaN result is never cached (falsy check)", () => {
+  it("NaN result is never cached (falsy result cache gate)", () => {
     let count = 0;
     const fn = lazy(() => {
       count++;

@@ -1,8 +1,8 @@
 import type {
   AnyAsyncFunction,
   AnyFunction,
-  AnySyncFunction,
 } from "../types/type.js";
+import { assertSyncReturn, guardSyncFunction } from "./sync-guard.js";
 import type {
   ApplyKind,
   HofFn,
@@ -74,8 +74,9 @@ export function withAsync<const Hs extends readonly HofFn<any, "async">[]>(
 
 /**
  * Sync counterpart of {@link withAsync}: same ordering and `skipHof` rules,
- * but the per-call predicate is sync and async functions are rejected at
- * compile time via the `AnySyncFunction<TF>` gate.
+ * and the same generic/type-preserving signature. Runtime guards reject
+ * promise-like and generator values on every call instead of narrowing the
+ * accepted function type at compile time.
  * @param hofs - The HOFs to stack, outermost first.
  * @returns A fn-first wrapper applying the whole stack.
  */
@@ -83,26 +84,32 @@ export function withSync<const Hs extends readonly HofFn<any, "sync">[]>(
   ...hofs: Hs
 ): HofFn<ComposedKind<Hs>, "sync"> {
   const composed = <TF extends AnyFunction>(
-    fn: AnySyncFunction<TF>,
+    fn: TF,
     options?: WithSkipHof<MergeOptions<Hs, TF>, TF>,
   ): TF => {
-    const raw = fn as TF;
+    if (hofs.length === 0 || options?.skipHof === true) return fn as TF;
+    const raw = guardSyncFunction(fn);
     const { skipHof, ...rest } = (options ?? {}) as {
       skipHof?: boolean | ((...args: Parameters<TF>) => boolean);
     } & Record<string, unknown>;
-    if (skipHof === true) return raw;
-
     const layered = hofs.reduceRight<TF>(
       (acc, hof) => (hof as AnyHof)(acc, rest),
       raw,
     );
 
-    if (layered === raw || typeof skipHof !== "function") return layered;
+    if (layered === raw) return fn;
+    if (typeof skipHof !== "function") {
+      return guardSyncFunction(layered);
+    }
 
     return function (this: ThisParameterType<TF>, ...args: Parameters<TF>) {
-      return skipHof(...args)
-        ? raw.apply(this, args)
-        : layered.apply(this, args);
+      const bypass = skipHof(...args);
+      assertSyncReturn(bypass, "skipHof predicate");
+      // Explicit bypass paths return the unwrapped function's raw result.
+      if (bypass) return fn.apply(this, args);
+      const result = layered.apply(this, args);
+      assertSyncReturn(result, fn.name || "wrapped function");
+      return result;
     } as TF;
   };
 

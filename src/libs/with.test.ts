@@ -1,4 +1,4 @@
-import { describe, it } from "node:test";
+import { describe, it } from "vitest";
 import assert from "node:assert/strict";
 import { withCacheAsync, withCacheSync } from "../cache.js";
 import {
@@ -306,6 +306,17 @@ describe("withSync", () => {
     assert.strictEqual(predicateCalls, 1);
   });
 
+  it("uses the fallback diagnostic name for an anonymous function", () => {
+    const wrapped = withSync(tracerSync([], "outer"))(
+      function () {
+        return 7;
+      },
+      { skipHof: () => false },
+    );
+
+    assert.strictEqual(wrapped(), 7);
+  });
+
   it("forwards this and args through the stack", () => {
     const trace: string[] = [];
     /**
@@ -328,6 +339,23 @@ describe("withSync", () => {
   it("returns fn unchanged for an empty stack", () => {
     const fn = (value: number) => value;
     assert.strictEqual(withSync()(fn), fn);
+  });
+
+  it("returns fn unchanged when the whole stack echoes it", () => {
+    const echo = createHofSync<TraceKind>((fn) => fn);
+    const fn = (value: number) => value;
+
+    assert.strictEqual(withSync(echo)(fn), fn);
+  });
+
+  it("rejects an asynchronous per-call predicate at call time", () => {
+    const fn = (value: number) => value;
+    const wrapped = withSync(tracerSync([], "outer"))(fn, {
+      // @ts-expect-error: sync composers accept synchronous skip predicates.
+      skipHof: async () => false,
+    });
+
+    assert.throws(() => wrapped(1), /skipHof predicate/);
   });
 
   it("keeps a real HOF's own behavior inside the stack", () => {
@@ -354,9 +382,14 @@ describe("type-level contracts", () => {
     assert.deepStrictEqual(options, { alpha: "A", beta: "B" });
   });
 
-  it("rejects an async function in the sync composer", () => {
-    // @ts-expect-error - a sync composer must not accept an async function.
-    withSync(tracerSync([], "outer"))(async () => 1);
+  it("guards an async function in the sync composer at call time", () => {
+    const wrapped = withSync(tracerSync([], "outer"))(async () => 1);
+    assert.throws(
+      () => wrapped(),
+      (error) =>
+        error instanceof TypeError &&
+        /promise or generator/.test((error as Error).message),
+    );
   });
 
   it("accepts an async function in the async composer", async () => {

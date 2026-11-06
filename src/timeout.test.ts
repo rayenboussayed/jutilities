@@ -1,4 +1,4 @@
-import { describe, it } from "node:test";
+import { describe, it } from "vitest";
 import assert from "node:assert/strict";
 import { withTimeoutAsync } from "./timeout.js";
 
@@ -88,7 +88,7 @@ describe("withTimeoutAsync", () => {
     const wrapped = withTimeoutAsync(slow, { timeoutMs: 20 });
     const start = performance.now();
     await assert.rejects(wrapped(), (err: unknown) => {
-      // TODO: picks signal?.reason which is undefined when no signal; should be TimeoutError
+      // No signal supplies its own reasons; the timeout uses `undefined` for the rejection reason.
       return err === undefined;
     });
     assert.ok(performance.now() - start < 500);

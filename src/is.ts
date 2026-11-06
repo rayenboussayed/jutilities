@@ -134,7 +134,6 @@ export function isThenable(v: unknown): v is PromiseLike<any> {
 export function isPromise(v: unknown): v is Promise<any> {
   if (v instanceof Promise) return true;
   if (!isThenable(v)) return false;
-  if (typeof v !== "object" && typeof v !== "function") return false;
   if (!("catch" in v) || typeof v.catch !== "function") return false;
   if (!("finally" in v) || typeof v.finally !== "function") return false;
   return true;

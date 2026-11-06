@@ -1,7 +1,6 @@
 import type {
   AnyAsyncFunction,
   AnyFunction,
-  AnySyncFunction,
 } from "../types/type.js";
 import { isAsyncFunction } from "../is.js";
 import {
@@ -46,15 +45,15 @@ export type HofOptions<
 export type HofOptionsOf<H> = HofOptions<H, HofConstraint<FlavorOf<H>>>;
 
 /**
- * The member shape a converted HOF may wrap, narrowed by its flavor: a sync
- * HOF refuses a promise-returning member, an async HOF refuses a
- * non-promise-returning one. Both mismatches are compile-time rejections.
+ * The member shape a converted HOF may wrap, narrowed by its flavor: an
+ * async HOF refuses a non-promise-returning member at compile time; a sync
+ * HOF preserves the full member type at compile time and relies on runtime
+ * guarding to reject promise-like or generator results.
  * @template F - The HOF flavor.
  * @template M - The member type.
  */
 export type GatedMember<F extends HofFlavor, M extends AnyFunction> =
-  F extends "sync" ? M & AnySyncFunction<M>
-  : F extends "async" ? M & AnyAsyncFunction
+  F extends "async" ? M & AnyAsyncFunction
   : M;
 
 /**

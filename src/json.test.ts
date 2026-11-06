@@ -1,4 +1,4 @@
-import { describe, it } from "node:test";
+import { describe, it } from "vitest";
 import assert from "node:assert/strict";
 import { Json, superjson } from "./json.js";
 
@@ -67,7 +67,7 @@ describe("Json without handlers matches native JSON", () => {
 
   it("throws on circular structures like native JSON", () => {
     const o: Record<string, unknown> = {};
-    o.self = o;
+    o["self"] = o;
     assert.throws(() => new Json().stringify(o), /circular/);
   });
 

@@ -1,4 +1,4 @@
-import { describe, it } from "node:test";
+import { describe, it } from "vitest";
 import assert from "node:assert/strict";
 import {
   assert as assertTruthy,
@@ -75,6 +75,7 @@ describe("assertNever", () => {
       /Non-exhaustive value reached: "leftover"/,
     );
     assert.throws(() => assertNever({ kind: "x" } as never), /Non-exhaustive value reached: \{"kind":"x"\}/);
+    assert.throws(() => assertNever(undefined as never), /Non-exhaustive value reached: undefined/);
   });
 
   it("renders BigInt payloads through the String fallback", () => {
@@ -82,6 +83,21 @@ describe("assertNever", () => {
     assert.throws(
       () => assertNever({ amount: 1n } as never),
       /Non-exhaustive value reached: \[object Object\]/,
+    );
+  });
+
+  it("renders a payload whose toJSON and toString both throw (typeof fallback)", () => {
+    class Revolting {
+      toJSON() {
+        throw new Error("json boom");
+      }
+      toString() {
+        throw new Error("string boom");
+      }
+    }
+    assert.throws(
+      () => assertNever(new Revolting() as never),
+      /Non-exhaustive value reached: object/,
     );
   });
 

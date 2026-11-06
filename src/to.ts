@@ -36,3 +36,12 @@ export function toBase64(bytes: Uint8Array) {
   for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]!);
   return btoa(bin);
 }
+
+/**
+ * Converts milliseconds to whole seconds.
+ * @param ms - Milliseconds to round.
+ * @returns Seconds.
+ */
+export function toSeconds(ms: number): number {
+  return Math.round(ms / 1000);
+}

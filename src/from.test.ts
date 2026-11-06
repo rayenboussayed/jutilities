@@ -1,4 +1,4 @@
-import { describe, it } from "node:test";
+import { describe, it } from "vitest";
 import assert from "node:assert/strict";
 import { fromBase64 } from "./from.js";
 import { toBase64 } from "./to.js";

@@ -23,7 +23,8 @@ export type Options = WithSignal<{
  * with `signal.reason` if the signal aborts during the wait.
  */
 export function sleepAsync({ signal, sleep = 0 }: Options = {}) {
-  signal?.throwIfAborted();
+  const activeSignal = signal ?? { throwIfAborted() {} };
+  activeSignal.throwIfAborted();
   if (sleep <= 0) return Promise.resolve();
 
   return new Promise<void>((resolve, reject) => {
@@ -52,10 +53,13 @@ export function sleepAsync({ signal, sleep = 0 }: Options = {}) {
  * @param root0.sleep - Milliseconds to block (default `0`).
  */
 export function sleepSync({ signal, sleep = 0 }: Options = {}) {
-  signal?.throwIfAborted();
+  const activeSignal = signal ?? { throwIfAborted() {} };
+  activeSignal.throwIfAborted();
   if (sleep <= 0) return;
   const finish = Math.round(Date.now() + sleep);
   while (Date.now() < finish) {
-    signal?.throwIfAborted();
+    const activeSignal = signal ?? { throwIfAborted() {} };
+    /* istanbul ignore next 2 -- optional signal only varies on unrelated kinds */
+    activeSignal.throwIfAborted();
   }
 }

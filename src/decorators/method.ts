@@ -13,9 +13,10 @@ import { assertNotRawApplication } from "../assert.js";
  * {@link decorateMethod}. Applies to any member whose value satisfies the
  * converter's gate and replaces it with the enhanced function.
  *
- * The gate narrows what the converted HOF may wrap: a sync HOF refuses a
- * promise-returning member, an async HOF refuses a non-promise-returning one
- * — both mismatches are compile-time rejections.
+ * The flavor decides what the converted HOF may wrap: an async HOF
+ * refuses a non-promise-returning member at compile time; a sync HOF preserves
+ * the member signature and relies on runtime guarding (or `require`) to
+ * reject promise/generator results.
  * @template F - The HOF flavor the gate follows.
  */
 export type MethodDecoratorOf<F extends HofFlavor = "any"> = <
@@ -34,8 +35,8 @@ export type MethodDecoratorOf<F extends HofFlavor = "any"> = <
  * Only HOFs built by {@link ../libs/create-hof.ts | createHofSync} /
  * `createHofAsync` are accepted — they carry the kind the converter needs to
  * type the option bag, and the flavor that decides which members may be
- * decorated: a sync HOF takes non-promise-returning members, an async HOF
- * takes promise-returning ones.
+ * decorated: a sync HOF preserves the member signature and relies on runtime
+ * guarding (or `require`), while an async HOF takes promise-returning members.
  * @example
  * ```ts
  * // Hoist the factory so each decoration applies it exactly once.

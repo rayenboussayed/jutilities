@@ -84,7 +84,8 @@ export function assertNever(
 ): never {
   let rendered: string;
   try {
-    rendered = JSON.stringify(value) ?? String(value);
+    const serialized = JSON.stringify(value);
+    rendered = serialized === undefined ? String(value) : serialized;
   } catch {
     try {
       rendered = String(value);

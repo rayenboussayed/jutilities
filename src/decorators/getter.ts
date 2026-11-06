@@ -28,9 +28,10 @@ export type GetterDecoratorOf = <This, Value>(
  * `this`. The HOF's option bag (one object, resolved from the HOF's kind) is
  * forwarded verbatim.
  *
- * A getter is always sync, so the HOF's flavor does not narrow the decorated
- * member — an async HOF is accepted and fails at decorate time when the
- * `require: "async"` guard is set.
+ * A getter's signature is preserved; sync HOFs rely on runtime guarding (or
+ * `require`) rather than rejecting at the type layer. An async HOF is still
+ * type-compatible only when the getter's return type is promise-like; the
+ * `require: "async"` guard can enforce this at decorate time.
  * @example
  * ```ts
  * // Hoist the factory so each decoration applies it exactly once.

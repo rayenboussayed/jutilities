@@ -110,9 +110,9 @@ function logError(
  * Logs the invocation arguments and completion (value + duration) of a
  * wrapped SYNC function.
  *
- * The first parameter is sync-gated (`AnySyncFunction<T>`), so the wrapper
- * feeds the sync slot of the decorator converters exactly like
- * {@link ./cache.ts | withCacheSync} does.
+ * The wrapper accepts the full callable signature and preserves it for
+ * callers; like the other sync HOFs it rejects promise/generator results at
+ * call time rather than narrowing the accepted function type at compile time.
  * @template T - The function being wrapped.
  * @param fn - The sync function being wrapped.
  * @param options - Options object.

@@ -1,4 +1,4 @@
-import { describe, it } from "node:test";
+import { describe, it } from "vitest";
 import assert from "node:assert/strict";
 import { withCacheAsync, withCacheSync } from "../cache.js";
 import { withLoggerAsync, withLoggerSync } from "../logger.js";
@@ -99,12 +99,14 @@ describe("decorateClass", () => {
       }
     }
     const mixed = new Mixed();
-    // The async member goes through the sync slot. withCacheSync refuses to
-    // store a promise (the isEmpty gate counts objects without keys as empty,
-    // and a pending promise has no own keys), so every call re-executes:
-    assert.strictEqual(await mixed.hop(), "once");
-    assert.strictEqual(await mixed.hop(), "once");
-    assert.strictEqual(mixed.loads, 2);
+    // The async member goes through the sync slot, which rejects promise
+    // values at call time instead of memoizing them.
+    assert.throws(
+      () => mixed.hop(),
+      (error) =>
+        error instanceof TypeError &&
+        /promise or generator/.test((error as Error).message),
+    );
     // The sync member memoizes normally through the same forced enhancer.
     assert.strictEqual(mixed.ping(), "same");
     assert.strictEqual(mixed.ping(), "same");
@@ -362,5 +364,60 @@ describe("decorateClass: kind-based conversion contract", () => {
     assert.strictEqual(instance.count(), 1);
     assert.strictEqual(instance.count(), 1);
     assert.strictEqual(instance.calls, 2);
+  });
+});
+
+
+describe("decorateClass: coverage extras", () => {
+  it("skips non-function own prototype members", () => {
+    const decorated = decorateClass(withCacheSync);
+    @decorated()
+    class Mixed {
+      marker = 42;
+
+      run() {
+        return this.marker;
+      }
+    }
+    const mixed = new Mixed();
+    assert.strictEqual(mixed.run(), 42);
+    assert.strictEqual(mixed.marker, 42);
+  });
+
+  it("reports a sync member missing its enhancer in pair mode", () => {
+    const decorated = decorateClass({ async: withCacheAsync }, { pick: "detect" });
+    assert.throws(
+      () =>
+        void (() => {
+          @decorated()
+          class MissingSync {
+            run() {
+              return "run";
+            }
+          }
+          return MissingSync;
+        })(),
+      /method "run" needs a sync enhancer, but the pair does not provide one/,
+    );
+  });
+
+  it("skips non-function own prototype members", () => {
+    const decorated = decorateClass(withCacheSync);
+    class Base {
+      run() {
+        return "run";
+      }
+    }
+    Object.defineProperty(Base.prototype, "tag", {
+      value: 1,
+      writable: true,
+      configurable: true,
+    });
+    const Enhancer = decorated as (options?: unknown) => (cls: unknown) => unknown;
+    const Result = Enhancer()(Base) as any;
+    assert.strictEqual(typeof Result, "function", "decorator should return the class");
+    const instance = new Result();
+    assert.strictEqual(instance.run(), "run");
+    assert.strictEqual(instance.tag, 1);
   });
 });

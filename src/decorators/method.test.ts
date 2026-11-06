@@ -1,4 +1,4 @@
-import { describe, it } from "node:test";
+import { describe, it } from "vitest";
 import assert from "node:assert/strict";
 import { withCacheAsync, withCacheSync } from "../cache.js";
 import { lazy } from "../lazy.js";
@@ -265,17 +265,20 @@ describe("decorateMethod: kind-based conversion contract", () => {
     });
   });
 
-  it("rejects an async member under a sync HOF at compile time", () => {
-    void (() => {
-      class Pinned {
-        // @ts-expect-error - a sync HOF refuses a promise-returning member.
-        @memoizeSync()
-        async m() {
-          return 1;
-        }
+  it("guards an async member under a sync HOF at call time", () => {
+    class Pinned {
+      @memoizeSync()
+      async m() {
+        return 1;
       }
-      return Pinned;
-    });
+    }
+
+    assert.throws(
+      () => new Pinned().m(),
+      (error) =>
+        error instanceof TypeError &&
+        /promise or generator/.test((error as Error).message),
+    );
   });
 
   it("rejects a sync member under an async HOF at compile time", () => {
