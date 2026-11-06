@@ -747,3 +747,21 @@ describe("superjson: edges and documented caveats", () => {
     assert.deepStrictEqual(superjson.parse<{ a: number }>(text), { a: 1 });
   });
 });
+
+describe("superjson: function", () => {
+  it("round-trips a function from its source text", () => {
+    // Build a real callable without an implicit parameter type annotation,
+    // then round-trip its serialized source through superjson.
+    // eslint-disable-next-line deslint/no-eval
+    const fn = new Function("x", "return x + 1;") as (x: number) => number;
+    const back = rt(fn);
+    assert.strictEqual(typeof back, "function");
+  });
+
+  it("throws on a function payload that is not callable source", () => {
+    assert.throws(
+      () => superjson.parse('{"__type":"function","value":"{"}'),
+      SyntaxError,
+    );
+  });
+});

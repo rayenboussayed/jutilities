@@ -209,11 +209,7 @@ export const typedArray = <T extends ArrayBufferView>(
     // A fresh, exactly sized copy: the decoded buffer may be a slice of
     // Node's shared pool, so its byteOffset is not necessarily 0.
     const bytes = new Uint8Array(fromBase64(v));
-    return new Ctor(
-      bytes.buffer,
-      0,
-      bytes.byteLength / Ctor.BYTES_PER_ELEMENT,
-    );
+    return new Ctor(bytes.buffer, 0, bytes.byteLength / Ctor.BYTES_PER_ELEMENT);
   },
   stringify: (_, v) =>
     toBase64(new Uint8Array(v.buffer, v.byteOffset, v.byteLength)),
@@ -230,7 +226,7 @@ export const typedArray = <T extends ArrayBufferView>(
  * `typeof window === "undefined"`), all typed arrays (10 ctors),
  * `DataView`, `ArrayBuffer`, `Error` (preserves name/message/stack/cause plus
  * own enumerable props, but NOT subclasses of `Error` — which always rebuild
- * as plain `Error`), `RegExp`, `URL`, `URLSearchParams`, `Headers`.
+ * as plain `Error`), `RegExp`, `URL`, `URLSearchParams`, `Headers`, `Function.
  *
  * Caveats (locked by tests):
  * - `ArrayBuffer`/`DataView`/typed-array `parse` views cover a fresh, exactly
@@ -282,7 +278,8 @@ export const superjson = new Json()
     stringify: (_, v) => v.valueOf(),
   })
   .addHandler("invaliddate", {
-    isApplicable: (_, v): v is Date => v instanceof Date && Number.isNaN(v.getTime()),
+    isApplicable: (_, v): v is Date =>
+      v instanceof Date && Number.isNaN(v.getTime()),
     parse: () => new Date(NaN),
     stringify: () => null,
   })
@@ -331,18 +328,23 @@ export const superjson = new Json()
   })
   .addHandler("error", {
     isApplicable: (_, v): v is Error => Error.isError(v),
-      parse: (_, v: Record<string, unknown> & { cause?: unknown; message: string; name: string; stack?: string; }) => {
-        const { cause, message, name, stack, ...rest } = v;
-        const e = new Error(
-          message,
-          cause !== undefined ? { cause } : undefined,
-        );
-        e.name = name;
-        if (stack) e.stack = stack;
-        return Object.assign(e, rest);
+    parse: (
+      _,
+      v: Record<string, unknown> & {
+        cause?: unknown;
+        message: string;
+        name: string;
+        stack?: string;
+      },
+    ) => {
+      const { cause, message, name, stack, ...rest } = v;
+      const e = new Error(message, cause !== undefined ? { cause } : undefined);
+      e.name = name;
+      if (stack) e.stack = stack;
+      return Object.assign(e, rest);
     },
     stringify: (_, v) => ({
-        ...v,
+      ...v,
       cause: v.cause,
       message: v.message,
       name: v.name,
@@ -371,4 +373,11 @@ export const superjson = new Json()
       typeof Headers !== "undefined" && v instanceof Headers,
     parse: (_, v: [string, string][]) => new Headers(v),
     stringify: (_, v) => [...v.entries()],
+  })
+  .addHandler("function", {
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
+    isApplicable: (_, v): v is Function => typeof v === "function",
+    // eslint-disable-next-line sonarjs/code-eval, deslint/no-eval
+    parse: (_, v: string) => new Function(`return ${v}`),
+    stringify: (_, v) => v.toString(),
   });
