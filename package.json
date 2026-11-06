@@ -1,6 +1,6 @@
 {
   "name": "jutilities",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "Small, typed, extensively documented TypeScript utilities for Node.js and Browser: caching, retries, timeouts, delays, abort-aware sleeps, streams, super-JSON serialization, hashing, and type guards. Subpath imports: no barrel, every utility is jutilities/<module>.",
   "keywords": [
     "utilities",
@@ -53,6 +53,8 @@
   },
   "type": "module",
   "devDependencies": {
+    "@commitlint/cli": "^21.2.4",
+    "@commitlint/config-conventional": "^21.2.4",
     "@deslint/eslint-plugin": "^0.10.0",
     "@eslint/js": "^10.0.1",
     "@types/node": "^26.6.5",
@@ -64,6 +66,7 @@
     "eslint-plugin-jsdoc": "^65.3.8",
     "eslint-plugin-n": "^18.4.1",
     "eslint-plugin-perfectionist": "^5.13.0",
+    "eslint-plugin-promise": "^7.3.0",
     "eslint-plugin-regexp": "^3.3.3",
     "eslint-plugin-security": "^4.2.1",
     "eslint-plugin-sonarjs": "^4.2.2",
@@ -73,8 +76,7 @@
     "tsx": "^4.23.15",
     "typescript": "^6.0.3",
     "typescript-eslint": "^8.71.2",
-    "vitest": "^3.2.7",
-    "eslint-plugin-promise": "^7.3.0"
+    "vitest": "^3.2.7"
   },
   "dependencies": {
     "expired-map": "^1.0.0"
