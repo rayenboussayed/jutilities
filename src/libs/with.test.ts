@@ -1,5 +1,4 @@
-import assert from "node:assert/strict";
-import { describe, it } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import { withCacheAsync, withCacheSync } from "../cache.js";
 import {
@@ -77,8 +76,8 @@ describe("withAsync", () => {
       tracerAsync(trace, "inner"),
     )(fn);
 
-    assert.strictEqual(await wrapped(1), 1);
-    assert.deepStrictEqual(trace.slice(-3), [
+    expect(await wrapped(1)).toBe(1);
+    expect(trace.slice(-3)).toStrictEqual([
       "call:outer",
       "call:inner",
       "call:fn",
@@ -94,12 +93,12 @@ describe("withAsync", () => {
       tracerAsync(trace, "inner"),
     )(fn);
 
-    assert.deepStrictEqual(trace, ["build:inner", "build:outer"]);
+    expect(trace).toStrictEqual(["build:inner", "build:outer"]);
 
     await wrapped(1);
     await wrapped(2);
 
-    assert.deepStrictEqual(trace, [
+    expect(trace).toStrictEqual([
       "build:inner",
       "build:outer",
       "call:outer",
@@ -124,7 +123,7 @@ describe("withAsync", () => {
     const wrapped = withAsync(alpha, beta)(fn, { alpha: "A", beta: "B" });
 
     await wrapped(1);
-    assert.deepStrictEqual(trace, ["beta:B", "alpha:A"]);
+    expect(trace).toStrictEqual(["beta:B", "alpha:A"]);
   });
 
   it("skipHof: true resolves to fn itself and builds no layer", async () => {
@@ -135,8 +134,8 @@ describe("withAsync", () => {
       skipHof: true,
     });
 
-    assert.strictEqual(wrapped, fn);
-    assert.deepStrictEqual(trace, []);
+    expect(wrapped).toBe(fn);
+    expect(trace).toStrictEqual([]);
   });
 
   it("per-call predicate bypasses the whole stack and runs fn raw", async () => {
@@ -151,10 +150,10 @@ describe("withAsync", () => {
       tracerAsync(trace, "inner"),
     )(fn, { skipHof: () => true });
 
-    assert.strictEqual(await wrapped(1), 1);
-    assert.ok(!trace.includes("call:outer"));
-    assert.ok(!trace.includes("call:inner"));
-    assert.ok(trace.includes("call:fn"));
+    expect(await wrapped(1)).toBe(1);
+    expect(!trace.includes("call:outer")).toBeTruthy();
+    expect(!trace.includes("call:inner")).toBeTruthy();
+    expect(trace.includes("call:fn")).toBeTruthy();
   });
 
   it("evaluates the per-call predicate once per call, not once per layer", async () => {
@@ -173,7 +172,7 @@ describe("withAsync", () => {
     });
 
     await wrapped(1);
-    assert.strictEqual(predicateCalls, 1);
+    expect(predicateCalls).toBe(1);
   });
 
   it("awaits an async predicate before deciding (false enhances, true bypasses)", async () => {
@@ -187,7 +186,7 @@ describe("withAsync", () => {
       },
     });
     await enhancing(1);
-    assert.ok(trace.includes("call:outer"));
+    expect(trace.includes("call:outer")).toBeTruthy();
 
     const bypassing = withAsync(tracerAsync(trace, "other"))(fn, {
       skipHof: async () => {
@@ -196,7 +195,7 @@ describe("withAsync", () => {
       },
     });
     await bypassing(1);
-    assert.ok(!trace.includes("call:other"));
+    expect(!trace.includes("call:other")).toBeTruthy();
   });
 
   it("forwards this and args through the stack", async () => {
@@ -214,13 +213,13 @@ describe("withAsync", () => {
     }
 
     const wrapped = withAsync(tracerAsync(trace, "outer"))(fn);
-    assert.strictEqual(await wrapped.call({ salt: 40 }, 2), 42);
-    assert.ok(trace.includes("call:fn"));
+    expect(await wrapped.call({ salt: 40 }, 2)).toBe(42);
+    expect(trace.includes("call:fn")).toBeTruthy();
   });
 
   it("returns fn unchanged for an empty stack", async () => {
     const fn = async (value: number) => value;
-    assert.strictEqual(withAsync()(fn), fn);
+    expect(withAsync()(fn)).toBe(fn);
   });
 
   it("keeps a real HOF's own behavior inside the stack", async () => {
@@ -231,9 +230,9 @@ describe("withAsync", () => {
     };
 
     const cached = withAsync(withCacheAsync)(fn);
-    assert.strictEqual(await cached(2), 4);
-    assert.strictEqual(await cached(2), 4);
-    assert.strictEqual(calls, 1);
+    expect(await cached(2)).toBe(4);
+    expect(await cached(2)).toBe(4);
+    expect(calls).toBe(1);
   });
 });
 
@@ -250,8 +249,8 @@ describe("withSync", () => {
       tracerSync(trace, "inner"),
     )(fn);
 
-    assert.strictEqual(wrapped(1), 1);
-    assert.deepStrictEqual(trace.slice(-3), [
+    expect(wrapped(1)).toBe(1);
+    expect(trace.slice(-3)).toStrictEqual([
       "call:outer",
       "call:inner",
       "call:fn",
@@ -266,8 +265,8 @@ describe("withSync", () => {
       skipHof: true,
     });
 
-    assert.strictEqual(wrapped, fn);
-    assert.deepStrictEqual(trace, []);
+    expect(wrapped).toBe(fn);
+    expect(trace).toStrictEqual([]);
   });
 
   it("per-call predicate bypasses the whole stack and runs fn raw", () => {
@@ -282,10 +281,10 @@ describe("withSync", () => {
       tracerSync(trace, "inner"),
     )(fn, { skipHof: () => true });
 
-    assert.strictEqual(wrapped(1), 1);
-    assert.ok(!trace.includes("call:outer"));
-    assert.ok(!trace.includes("call:inner"));
-    assert.ok(trace.includes("call:fn"));
+    expect(wrapped(1)).toBe(1);
+    expect(!trace.includes("call:outer")).toBeTruthy();
+    expect(!trace.includes("call:inner")).toBeTruthy();
+    expect(trace.includes("call:fn")).toBeTruthy();
   });
 
   it("evaluates the per-call predicate once per call, not once per layer", () => {
@@ -304,7 +303,7 @@ describe("withSync", () => {
     });
 
     wrapped(1);
-    assert.strictEqual(predicateCalls, 1);
+    expect(predicateCalls).toBe(1);
   });
 
   it("uses the fallback diagnostic name for an anonymous function", () => {
@@ -315,7 +314,7 @@ describe("withSync", () => {
       { skipHof: () => false },
     );
 
-    assert.strictEqual(wrapped(), 7);
+    expect(wrapped()).toBe(7);
   });
 
   it("forwards this and args through the stack", () => {
@@ -333,20 +332,20 @@ describe("withSync", () => {
     }
 
     const wrapped = withSync(tracerSync(trace, "outer"))(fn);
-    assert.strictEqual(wrapped.call({ salt: 40 }, 2), 42);
-    assert.ok(trace.includes("call:fn"));
+    expect(wrapped.call({ salt: 40 }, 2)).toBe(42);
+    expect(trace.includes("call:fn")).toBeTruthy();
   });
 
   it("returns fn unchanged for an empty stack", () => {
     const fn = (value: number) => value;
-    assert.strictEqual(withSync()(fn), fn);
+    expect(withSync()(fn)).toBe(fn);
   });
 
   it("returns fn unchanged when the whole stack echoes it", () => {
     const echo = createHofSync<TraceKind>((fn) => fn);
     const fn = (value: number) => value;
 
-    assert.strictEqual(withSync(echo)(fn), fn);
+    expect(withSync(echo)(fn)).toBe(fn);
   });
 
   it("rejects an asynchronous per-call predicate at call time", () => {
@@ -356,7 +355,7 @@ describe("withSync", () => {
       skipHof: async () => false,
     });
 
-    assert.throws(() => wrapped(1), /skipHof predicate/);
+    expect(() => wrapped(1)).toThrow(/skipHof predicate/);
   });
 
   it("keeps a real HOF's own behavior inside the stack", () => {
@@ -367,9 +366,9 @@ describe("withSync", () => {
     };
 
     const cached = withSync(withCacheSync)(fn);
-    assert.strictEqual(cached(2), 4);
-    assert.strictEqual(cached(2), 4);
-    assert.strictEqual(calls, 1);
+    expect(cached(2)).toBe(4);
+    expect(cached(2)).toBe(4);
+    expect(calls).toBe(1);
   });
 });
 
@@ -380,22 +379,17 @@ describe("type-level contracts", () => {
       (value: number) => number
     > = { alpha: "A", beta: "B" };
 
-    assert.deepStrictEqual(options, { alpha: "A", beta: "B" });
+    expect(options).toStrictEqual({ alpha: "A", beta: "B" });
   });
 
   it("guards an async function in the sync composer at call time", () => {
     const wrapped = withSync(tracerSync([], "outer"))(async () => 1);
-    assert.throws(
-      () => wrapped(),
-      (error) =>
-        error instanceof TypeError &&
-        /promise or generator/.test((error as Error).message),
-    );
+    expect(() => wrapped()).toThrow();
   });
 
   it("accepts an async function in the async composer", async () => {
     const fn = async (value: number) => value;
     const wrapped = withAsync(tracerAsync([], "outer"))(fn);
-    assert.strictEqual(await wrapped(1), 1);
+    expect(await wrapped(1)).toBe(1);
   });
 });

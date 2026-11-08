@@ -1,99 +1,98 @@
-import assert from "node:assert/strict";
-import { describe, it } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import { fromBase64 } from "./from.js";
 import { toArray, toBase64, toSeconds } from "./to.js";
 
 describe("toArray", () => {
   it("wraps scalars in a single-element array", () => {
-    assert.deepStrictEqual(toArray(1), [1]);
-    assert.deepStrictEqual(toArray("a"), ["a"]);
-    assert.deepStrictEqual(toArray({}), [{}]);
+    expect(toArray(1)).toStrictEqual([1]);
+    expect(toArray("a")).toStrictEqual(["a"]);
+    expect(toArray({})).toStrictEqual([{}]);
   });
 
   it("wraps null and undefined instead of returning empty", () => {
-    assert.deepStrictEqual(toArray(null), [null]);
-    assert.deepStrictEqual(toArray(undefined), [undefined]);
+    expect(toArray(null)).toStrictEqual([null]);
+    expect(toArray(undefined)).toStrictEqual([undefined]);
   });
 
   it("wraps falsy scalars", () => {
-    assert.deepStrictEqual(toArray(0), [0]);
-    assert.deepStrictEqual(toArray(""), [""]);
-    assert.deepStrictEqual(toArray(false), [false]);
-    assert.deepStrictEqual(toArray(NaN), [NaN]);
+    expect(toArray(0)).toStrictEqual([0]);
+    expect(toArray("")).toStrictEqual([""]);
+    expect(toArray(false)).toStrictEqual([false]);
+    expect(toArray(NaN)).toStrictEqual([NaN]);
   });
 
   it("returns arrays by identity (same reference)", () => {
     const arr: number[] = [];
-    assert.strictEqual(toArray(arr), arr);
+    expect(toArray(arr)).toBe(arr);
     const nested = [[1]];
-    assert.strictEqual(toArray(nested), nested);
+    expect(toArray(nested)).toBe(nested);
     const two = [1, 2];
-    assert.strictEqual(toArray(two), two);
+    expect(toArray(two)).toBe(two);
     // does not flatten
-    assert.deepStrictEqual(toArray([[1]]), [[1]]);
+    expect(toArray([[1]])).toStrictEqual([[1]]);
   });
 
   it("returns a fresh array for each scalar call", () => {
-    assert.notStrictEqual(toArray(1), toArray(1));
+    expect(toArray(1)).not.toBe(toArray(1));
   });
 
   it("mutation of array input reflects in original, scalar does not", () => {
     const arr = [1];
     const out = toArray(arr);
     out.push(2);
-    assert.deepStrictEqual(arr, [1, 2]);
+    expect(arr).toStrictEqual([1, 2]);
 
     const scalarOut = toArray(1);
     scalarOut.push(2);
-    assert.deepStrictEqual(scalarOut, [1, 2]);
+    expect(scalarOut).toStrictEqual([1, 2]);
     // scalar itself unaffected (primitives immutable)
     // eslint-disable-next-line sonarjs/no-trivial-assertions
-    assert.strictEqual(1, 1);
+    expect(1).toBe(1);
   });
 
   it("preserves subclass arrays via Array.isArray", () => {
     class MyArray<T> extends Array<T> {}
     const sub = new MyArray<number>();
-    assert.strictEqual(toArray(sub), sub);
+    expect(toArray(sub)).toBe(sub);
   });
 
   it("wraps array-likes that are not real arrays", () => {
     const typed = new Uint8Array([1, 2]);
     const wrapped = toArray(typed);
-    assert.strictEqual(wrapped.length, 1);
-    assert.strictEqual(wrapped[0], typed);
+    expect(wrapped).toHaveLength(1);
+    expect(wrapped[0]).toBe(typed);
 
     const arrayLike = { 0: "a", length: 1 };
-    assert.deepStrictEqual(toArray(arrayLike), [arrayLike]);
+    expect(toArray(arrayLike)).toStrictEqual([arrayLike]);
   });
 
   it("passes through frozen arrays by identity", () => {
     const frozen = Object.freeze([1, 2]) as unknown as number[];
-    assert.strictEqual(toArray(frozen), frozen);
+    expect(toArray(frozen)).toBe(frozen);
   });
 });
 
 describe("toBase64 (Node branch)", () => {
   it("encodes known vectors", () => {
-    assert.strictEqual(toBase64(new Uint8Array([104, 105])), "aGk=");
-    assert.strictEqual(toBase64(new Uint8Array(0)), "");
+    expect(toBase64(new Uint8Array([104, 105]))).toBe("aGk=");
+    expect(toBase64(new Uint8Array(0))).toBe("");
   });
 
   it("encodes only the viewed slice (byteOffset/byteLength respected)", () => {
     const view = new Uint8Array([9, 104, 105, 9]).subarray(1, 3);
-    assert.strictEqual(view.byteOffset, 1);
-    assert.strictEqual(toBase64(view), "aGk=");
+    expect(view.byteOffset).toBe(1);
+    expect(toBase64(view)).toBe("aGk=");
   });
 
   it("round-trips arbitrary bytes incl. 0 and 255", () => {
     const bytes = new Uint8Array([0, 1, 2, 127, 128, 250, 255]);
-    assert.deepStrictEqual([...fromBase64(toBase64(bytes))], [...bytes]);
+    expect([...fromBase64(toBase64(bytes))]).toStrictEqual([...bytes]);
   });
 
   it("handles large payloads", () => {
     const bytes = new Uint8Array(10_000).map((_, i) => i % 256);
-    assert.strictEqual(fromBase64(toBase64(bytes)).byteLength, 10_000);
+    expect(fromBase64(toBase64(bytes)).byteLength).toBe(10_000);
   });
 });
 
@@ -102,7 +101,7 @@ describe("toBase64 (browser branch via window stub)", () => {
     const g = globalThis as { window?: unknown };
     g.window = {};
     try {
-      assert.strictEqual(toBase64(new Uint8Array([104, 105])), "aGk=");
+      expect(toBase64(new Uint8Array([104, 105]))).toBe("aGk=");
     } finally {
       delete g.window;
     }
@@ -112,8 +111,8 @@ describe("toBase64 (browser branch via window stub)", () => {
 
 describe("toSeconds", () => {
   it("rounds milliseconds to whole seconds", () => {
-    assert.strictEqual(toSeconds(0), 0);
-    assert.strictEqual(toSeconds(499), 0);
-    assert.strictEqual(toSeconds(1000), 1);
+    expect(toSeconds(0)).toBe(0);
+    expect(toSeconds(499)).toBe(0);
+    expect(toSeconds(1000)).toBe(1);
   });
 });

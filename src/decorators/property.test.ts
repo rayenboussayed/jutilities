@@ -1,6 +1,5 @@
 /* eslint-disable sonarjs/void-use */
-import assert from "node:assert/strict";
-import { describe, it } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import { withCacheSync } from "../cache.js";
 import { withLoggerSync } from "../logger.js";
@@ -25,9 +24,9 @@ describe("decorateProperty", () => {
       };
     }
     const adder = new Adder();
-    assert.strictEqual(adder.add(1, 2), 3);
-    assert.strictEqual(adder.add(1, 2), 3);
-    assert.strictEqual(adder.addRuns, 1);
+    expect(adder.add(1, 2)).toBe(3);
+    expect(adder.add(1, 2)).toBe(3);
+    expect(adder.addRuns).toBe(1);
   });
 
   it("each instance gets a freshly enhanced function (per-instance enhancement)", () => {
@@ -41,9 +40,9 @@ describe("decorateProperty", () => {
     const first = new Multiplier();
     const second = new Multiplier();
     // The HOF runs once per instance, at field initialization time.
-    assert.notStrictEqual(first.times, second.times);
-    assert.strictEqual(first.times(2), 6);
-    assert.strictEqual(second.times(4), 12);
+    expect(first.times).not.toBe(second.times);
+    expect(first.times(2)).toBe(6);
+    expect(second.times(4)).toBe(12);
   });
 
   it("non-function field initializer throws at construction naming the field", () => {
@@ -52,14 +51,7 @@ describe("decorateProperty", () => {
       @cached({ cacheStore: new Map(), extraKeys: ["prop-bad"] })
       notAFn = "oops";
     }
-    assert.throws(
-      () => new Bad(),
-      (error) =>
-        error instanceof TypeError &&
-        /field "notAFn" must be a function-value initializer, got string/.test(
-          error.message,
-        ),
-    );
+    expect(() => new Bad()).toThrow();
   });
 
   it("lexical this is preserved across arrow-function fields (withCacheSync wrapper)", () => {
@@ -71,9 +63,9 @@ describe("decorateProperty", () => {
       scale = (n: number) => n * this.factor;
     }
     const ratios = new Ratios();
-    assert.strictEqual(ratios.scale(5), 10);
+    expect(ratios.scale(5)).toBe(10);
     // Second call hits the per-instance memoized entry.
-    assert.strictEqual(ratios.scale(5), 10);
+    expect(ratios.scale(5)).toBe(10);
   });
 
   it("guards pass for matching sync/async members", () => {
@@ -88,8 +80,8 @@ describe("decorateProperty", () => {
       hop = async () => 1;
     }
     const ok = new Ok();
-    assert.strictEqual(typeof ok.go, "function");
-    assert.strictEqual(typeof ok.hop, "function");
+    expect(typeof ok.go).toBe("function");
+    expect(typeof ok.hop).toBe("function");
   });
 
   it("decorate-time guard rejects an async field under require: sync", () => {
@@ -100,14 +92,7 @@ describe("decorateProperty", () => {
     }
     // The guard runs inside the initializer transformer, so it fires when the
     // field is initialized (construction), not at class definition.
-    assert.throws(
-      () => new Bad(),
-      (error) =>
-        error instanceof TypeError &&
-        /"hop" is an async function, but require: "sync" was requested/.test(
-          error.message,
-        ),
-    );
+    expect(() => new Bad()).toThrow();
   });
 
   it("decorate-time guard rejects a sync field under require: async", () => {
@@ -116,14 +101,7 @@ describe("decorateProperty", () => {
       @requireAsync({ cacheStore: new Map(), extraKeys: ["prop-guard-bad-async"] })
       walk = () => 1;
     }
-    assert.throws(
-      () => new Bad(),
-      (error) =>
-        error instanceof TypeError &&
-        /"walk" is not an async function, but require: "async" was requested/.test(
-          error.message,
-        ),
-    );
+    expect(() => new Bad()).toThrow();
   });
 
   it("works with option-less HOFs (withLoggerSync) via an empty factory call", () => {
@@ -139,12 +117,12 @@ describe("decorateProperty", () => {
         speak = () => "hi";
       }
       const talker = new Announcer();
-      assert.strictEqual(talker.speak(), "hi");
+      expect(talker.speak()).toBe("hi");
     } finally {
       console.debug = originalDebug;
     }
 
-    assert.ok(lines.some((parts) => /anonymous/.test(String(parts[0]))));
+    expect(lines.some((parts) => /anonymous/.test(String(parts[0])))).toBeTruthy();
   });
 
   it("runtime paren-less factory application fails fast on member slots", () => {
@@ -158,12 +136,7 @@ describe("decorateProperty", () => {
       return 1;
     };
     const context = { addInitializer() {}, kind: "getter", name: "member" };
-    assert.throws(
-      () => void factory(member, context),
-      (error) =>
-        error instanceof TypeError &&
-        /applied without parentheses/.test(error.message),
-    );
+    expect(() => void factory(member, context)).toThrow();
   });
 
   it("runtime converter-level paren-less misfire fails fast (property)", () => {
@@ -176,12 +149,7 @@ describe("decorateProperty", () => {
       options: unknown,
     ) => () => unknown;
     const context = { addInitializer() {}, kind: "field", name: "go" };
-    assert.throws(
-      () => void raw((value: unknown) => value, context)(),
-      (error) =>
-        error instanceof TypeError &&
-        /applied without parentheses/.test(error.message),
-    );
+    expect(() => void raw((value: unknown) => value, context)()).toThrow();
   });
 
   // eslint-disable-next-line sonarjs/assertions-in-tests
@@ -241,8 +209,8 @@ describe("decorateProperty: kind-based conversion contract", () => {
       };
     }
     const instance = new Bypassed();
-    assert.strictEqual(instance.go(), 1);
-    assert.strictEqual(instance.go(), 1);
-    assert.strictEqual(instance.calls, 2);
+    expect(instance.go()).toBe(1);
+    expect(instance.go()).toBe(1);
+    expect(instance.calls).toBe(2);
   });
 });

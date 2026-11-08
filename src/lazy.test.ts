@@ -1,5 +1,4 @@
-import assert from "node:assert/strict";
-import { describe, it } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import { lazy } from "./lazy.js";
 
@@ -10,9 +9,9 @@ describe("lazy", () => {
       count++;
       return a + b;
     });
-    assert.strictEqual(fn(1, 2), 3);
-    assert.strictEqual(fn(1, 2), 3);
-    assert.strictEqual(count, 1);
+    expect(fn(1, 2)).toBe(3);
+    expect(fn(1, 2)).toBe(3);
+    expect(count).toBe(1);
   });
 
   it("returns same object identity on hit", () => {
@@ -23,8 +22,8 @@ describe("lazy", () => {
     });
     const r1 = fn();
     const r2 = fn();
-    assert.strictEqual(r1, r2);
-    assert.strictEqual(count, 1);
+    expect(r1).toBe(r2);
+    expect(count).toBe(1);
   });
 
   it("recomputes for different args", () => {
@@ -33,9 +32,9 @@ describe("lazy", () => {
       count++;
       return x * 2;
     });
-    assert.strictEqual(fn(1), 2);
-    assert.strictEqual(fn(2), 4);
-    assert.strictEqual(count, 2);
+    expect(fn(1)).toBe(2);
+    expect(fn(2)).toBe(4);
+    expect(count).toBe(2);
   });
 
   it("deep-equal object args hit; key order misses (JSON.stringify order)", () => {
@@ -46,10 +45,10 @@ describe("lazy", () => {
     });
     fn({ a: 1, b: 2 });
     fn({ a: 1, b: 2 });
-    assert.strictEqual(count, 1);
+    expect(count).toBe(1);
     // eslint-disable-next-line perfectionist/sort-objects
     fn({ b: 2, a: 1 });
-    assert.strictEqual(count, 2);
+    expect(count).toBe(2);
   });
 
   it("preserves this and ignores it in key (documents behavior)", () => {
@@ -65,10 +64,10 @@ describe("lazy", () => {
       return this.x;
     }
     const fn = lazy(get);
-    assert.strictEqual(fn.call({ x: 1 }), 1);
+    expect(fn.call({ x: 1 })).toBe(1);
     // same args (none), different this still hits because this is not in key
-    assert.strictEqual(fn.call({ x: 99 }), 1);
-    assert.strictEqual(count, 1);
+    expect(fn.call({ x: 99 })).toBe(1);
+    expect(count).toBe(1);
   });
 
   it("falsy results are never cached (truthy result cache gate)", () => {
@@ -80,11 +79,7 @@ describe("lazy", () => {
       });
       fn();
       fn();
-      assert.strictEqual(
-        count,
-        2,
-        `falsy ${String(falsy)} should recompute (current behavior)`,
-      );
+      expect(count).toBe(2);
     }
   });
 
@@ -95,9 +90,9 @@ describe("lazy", () => {
       if (count === 1) throw new Error("boom");
       return 42;
     });
-    assert.throws(() => fn(), /boom/);
-    assert.strictEqual(fn(), 42);
-    assert.strictEqual(count, 2);
+    expect(() => fn()).toThrow(/boom/);
+    expect(fn()).toBe(42);
+    expect(count).toBe(2);
   });
 
   it("async resolve is cached (second call hits, count stays 1)", async () => {
@@ -108,9 +103,9 @@ describe("lazy", () => {
     });
     const v1 = await (fn() as Promise<unknown>);
     const v2 = await (fn() as Promise<unknown>);
-    assert.deepStrictEqual(v1, { v: 1 });
-    assert.deepStrictEqual(v2, { v: 1 });
-    assert.strictEqual(count, 1);
+    expect(v1).toStrictEqual({ v: 1 });
+    expect(v2).toStrictEqual({ v: 1 });
+    expect(count).toBe(1);
     // NOTE: first call returns result.catch(...) derived promise, second returns
     // cached original promise, so identity differs even though value is cached.
   });
@@ -121,9 +116,9 @@ describe("lazy", () => {
       count++;
       return 0;
     });
-    assert.strictEqual(await (fn() as Promise<unknown>), 0);
-    assert.strictEqual(await (fn() as Promise<unknown>), 0);
-    assert.strictEqual(count, 1);
+    expect(await (fn() as Promise<unknown>)).toBe(0);
+    expect(await (fn() as Promise<unknown>)).toBe(0);
+    expect(count).toBe(1);
   });
 
   it("async reject evicts, next call retries", async () => {
@@ -133,25 +128,25 @@ describe("lazy", () => {
       if (count === 1) throw new Error("async boom");
       return "ok";
     });
-    await assert.rejects(fn() as Promise<unknown>, /async boom/);
-    assert.strictEqual(count, 1);
-    assert.strictEqual(await (fn() as Promise<unknown>), "ok");
-    assert.strictEqual(count, 2);
+    await expect(fn() as Promise<unknown>).rejects.toThrow(/async boom/);
+    expect(count).toBe(1);
+    expect(await (fn() as Promise<unknown>)).toBe("ok");
+    expect(count).toBe(2);
     // third call hits
-    assert.strictEqual(await (fn() as Promise<unknown>), "ok");
-    assert.strictEqual(count, 2);
+    expect(await (fn() as Promise<unknown>)).toBe("ok");
+    expect(count).toBe(2);
   });
 
   it("throws for circular args (JSON.stringify fails)", () => {
     const fn = lazy((o: unknown) => o);
     const circular: Record<string, unknown> = {};
     circular["self"] = circular;
-    assert.throws(() => (fn as (o: unknown) => unknown)(circular));
+    expect(() => (fn as (o: unknown) => unknown)(circular)).toThrow();
   });
 
   it("throws for BigInt args (JSON.stringify fails)", () => {
     const fn = lazy((x: unknown) => x);
-    assert.throws(() => (fn as (x: unknown) => unknown)(10n));
+    expect(() => (fn as (x: unknown) => unknown)(10n)).toThrow();
   });
 
   it("separate lazy instances do not share cache", () => {
@@ -163,9 +158,9 @@ describe("lazy", () => {
       });
     const f1 = make();
     const f2 = make();
-    assert.strictEqual(f1(1), 2);
-    assert.strictEqual(f2(1), 2);
-    assert.strictEqual(count, 2);
+    expect(f1(1)).toBe(2);
+    expect(f2(1)).toBe(2);
+    expect(count).toBe(2);
   });
 
   it("skipHof: true resolves to fn itself at wrap time", () => {
@@ -176,7 +171,7 @@ describe("lazy", () => {
     function initializer() {
       return 1;
     }
-    assert.strictEqual(lazy(initializer, { skipHof: true }), initializer);
+    expect(lazy(initializer, { skipHof: true })).toBe(initializer);
   });
 
   it("per-call skipHof predicate evaluates fresh (no memo store involved)", () => {
@@ -186,9 +181,9 @@ describe("lazy", () => {
       return x * 2;
     }, { skipHof: () => true });
 
-    assert.strictEqual(fn(2), 4);
-    assert.strictEqual(fn(2), 4);
-    assert.strictEqual(count, 2);
+    expect(fn(2)).toBe(4);
+    expect(fn(2)).toBe(4);
+    expect(count).toBe(2);
   });
 
   it("per-call skipHof predicate false uses memoized enhanced", () => {
@@ -198,9 +193,9 @@ describe("lazy", () => {
       return x * 2;
     }, { skipHof: () => false });
 
-    assert.strictEqual(fn(2), 4);
-    assert.strictEqual(fn(2), 4);
-    assert.strictEqual(count, 1);
+    expect(fn(2)).toBe(4);
+    expect(fn(2)).toBe(4);
+    expect(count).toBe(1);
   });
 
   it("NaN result is never cached (falsy result cache gate)", () => {
@@ -211,6 +206,6 @@ describe("lazy", () => {
     });
     fn();
     fn();
-    assert.strictEqual(count, 2);
+    expect(count).toBe(2);
   });
 });

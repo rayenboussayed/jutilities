@@ -1,36 +1,34 @@
-import assert from "node:assert/strict";
-import { describe, it } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import { sleepAsync, sleepSync } from "./sleep.js";
 
 describe("sleepAsync", () => {
   it("resolves immediately for sleep 0, negative, and default", async () => {
     const t0 = performance.now();
-    assert.strictEqual(await sleepAsync({ sleep: 0 }), undefined);
-    assert.strictEqual(await sleepAsync({ sleep: -5 }), undefined);
-    assert.strictEqual(await sleepAsync({}), undefined);
-    assert.strictEqual(await sleepAsync(), undefined);
-    assert.strictEqual(await sleepAsync(undefined), undefined);
-    assert.ok(performance.now() - t0 < 50);
+    expect(await sleepAsync({ sleep: 0 })).toBeUndefined();
+    expect(await sleepAsync({ sleep: -5 })).toBeUndefined();
+    expect(await sleepAsync({})).toBeUndefined();
+    expect(await sleepAsync()).toBeUndefined();
+    expect(await sleepAsync(undefined)).toBeUndefined();
+    expect(performance.now() - t0 < 50).toBeTruthy();
   });
 
   it("waits at least the requested delay", async () => {
     const start = performance.now();
-    assert.strictEqual(await sleepAsync({ sleep: 20 }), undefined);
+    expect(await sleepAsync({ sleep: 20 })).toBeUndefined();
     const elapsed = performance.now() - start;
-    assert.ok(elapsed >= 15, `elapsed ${elapsed} should be >= 15`);
-    assert.ok(elapsed < 500, `elapsed ${elapsed} should be < 500`);
+    expect(elapsed >= 15, `elapsed ${elapsed} should be >= 15`).toBeTruthy();
+    expect(elapsed < 500, `elapsed ${elapsed} should be < 500`).toBeTruthy();
   });
 
   it("throws synchronously when pre-aborted, even with sleep 0", async () => {
     const controller = new AbortController();
     controller.abort();
     // NOTE: sleepAsync throws synchronously via throwIfAborted (not a rejection)
-    assert.throws(() =>
-      sleepAsync({ signal: controller.signal, sleep: 10 }),
-    );
-    assert.throws(() => sleepAsync({ signal: controller.signal, sleep: 0 }));
-    assert.throws(() => sleepAsync({ signal: controller.signal }));
+    expect(() =>
+      sleepAsync({ signal: controller.signal, sleep: 10 })).toThrow();
+    expect(() => sleepAsync({ signal: controller.signal, sleep: 0 })).toThrow();
+    expect(() => sleepAsync({ signal: controller.signal })).toThrow();
   });
 
   it("abort during sleep rejects with signal.reason, early", async () => {
@@ -39,31 +37,26 @@ describe("sleepAsync", () => {
     const p = sleepAsync({ signal: controller.signal, sleep: 1000 });
     const start = performance.now();
     setTimeout(() => controller.abort(reason), 10);
-    await assert.rejects(p, (e) => e === reason);
-    assert.ok(
-      performance.now() - start < 800,
-      "should reject early on abort",
-    );
+    await expect(p).rejects.toSatisfy((e) => e === reason);
+    expect(performance.now() - start < 800,
+      "should reject early on abort",).toBeTruthy();
   });
 
   it("abort with default reason rejects with AbortError DOMException", async () => {
     const controller = new AbortController();
     const p = sleepAsync({ signal: controller.signal, sleep: 1000 });
     setTimeout(() => controller.abort(), 10);
-    await assert.rejects(
-      p,
-      (e) => e instanceof DOMException && e.name === "AbortError",
-    );
+    await expect(p).rejects.toSatisfy((e) => e instanceof DOMException && e.name === "AbortError");
   });
 
   it("resolves undefined without signal", async () => {
-    assert.strictEqual(await sleepAsync({ sleep: 5 }), undefined);
+    expect(await sleepAsync({ sleep: 5 })).toBeUndefined();
   });
 
   it("NaN sleep resolves quickly (setTimeout NaN ~= 0)", async () => {
     const start = performance.now();
     await sleepAsync({ sleep: NaN });
-    assert.ok(performance.now() - start < 200);
+    expect(performance.now() - start < 200).toBeTruthy();
   });
 
   it("rounds a fractional delay to whole milliseconds (still a timer)", async () => {
@@ -75,7 +68,7 @@ describe("sleepAsync", () => {
       sleepAsync({ sleep: 0 }).then(() => order.push("zero")),
       sleepAsync({ sleep: 0.4 }).then(() => order.push("fractional")),
     ]);
-    assert.deepStrictEqual(order, ["zero", "fractional"]);
+    expect(order).toStrictEqual(["zero", "fractional"]);
   });
 
   it("rounds a fractional delay up, not down", async () => {
@@ -89,10 +82,8 @@ describe("sleepAsync", () => {
       await sleepAsync({ sleep: 1.6 });
     }
     const elapsed = performance.now() - start;
-    assert.ok(
-      elapsed >= 35,
-      `20 rounded 1.6 ms waits should take >= 35 ms, took ${elapsed}`,
-    );
+    expect(elapsed >= 35,
+      `20 rounded 1.6 ms waits should take >= 35 ms, took ${elapsed}`,).toBeTruthy();
   });
 
   it("concurrent sleeps resolve independently (~sleep, not 3*sleep)", async () => {
@@ -103,42 +94,42 @@ describe("sleepAsync", () => {
       sleepAsync({ sleep: 20 }),
     ]);
     const elapsed = performance.now() - start;
-    assert.deepStrictEqual(results, [undefined, undefined, undefined]);
-    assert.ok(elapsed < 200, `parallel should be ~20ms, took ${elapsed}`);
+    expect(results).toStrictEqual([undefined, undefined, undefined]);
+    expect(elapsed < 200, `parallel should be ~20ms, took ${elapsed}`).toBeTruthy();
   });
 });
 
 describe("sleepSync", () => {
   it("returns immediately for sleep 0, negative, and default", () => {
     const t0 = Date.now();
-    assert.strictEqual(sleepSync({ sleep: 0 }), undefined);
-    assert.strictEqual(sleepSync({ sleep: -5 }), undefined);
-    assert.strictEqual(sleepSync({}), undefined);
-    assert.strictEqual(sleepSync(), undefined);
-    assert.strictEqual(sleepSync(undefined), undefined);
-    assert.ok(Date.now() - t0 < 50);
+    expect(sleepSync({ sleep: 0 })).toBeUndefined();
+    expect(sleepSync({ sleep: -5 })).toBeUndefined();
+    expect(sleepSync({})).toBeUndefined();
+    expect(sleepSync()).toBeUndefined();
+    expect(sleepSync(undefined)).toBeUndefined();
+    expect(Date.now() - t0 < 50).toBeTruthy();
   });
 
   it("blocks for approximately the requested delay", () => {
     const start = Date.now();
     sleepSync({ sleep: 20 });
     const elapsed = Date.now() - start;
-    assert.ok(elapsed >= 15, `elapsed ${elapsed} should be >= 15`);
-    assert.ok(elapsed < 500, `elapsed ${elapsed} should be < 500`);
+    expect(elapsed >= 15, `elapsed ${elapsed} should be >= 15`).toBeTruthy();
+    expect(elapsed < 500, `elapsed ${elapsed} should be < 500`).toBeTruthy();
   });
 
   it("throws when pre-aborted, even with sleep 0", () => {
     const controller = new AbortController();
     controller.abort();
-    assert.throws(() => sleepSync({ signal: controller.signal, sleep: 10 }));
-    assert.throws(() => sleepSync({ signal: controller.signal, sleep: 0 }));
-    assert.throws(() => sleepSync({ signal: controller.signal }));
+    expect(() => sleepSync({ signal: controller.signal, sleep: 10 })).toThrow();
+    expect(() => sleepSync({ signal: controller.signal, sleep: 0 })).toThrow();
+    expect(() => sleepSync({ signal: controller.signal })).toThrow();
   });
 
   it("NaN sleep returns immediately (finish is NaN, loop never runs)", () => {
     const start = Date.now();
     sleepSync({ sleep: NaN });
-    assert.ok(Date.now() - start < 100);
+    expect(Date.now() - start < 100).toBeTruthy();
   });
 
   it("blocks the event loop (timers cannot fire mid-sleep)", async () => {
@@ -148,8 +139,8 @@ describe("sleepSync", () => {
     }, 5);
     sleepSync({ sleep: 30 });
     // still in the same synchronous execution: the timer could not have run
-    assert.strictEqual(fired, false);
+    expect(fired).toBe(false);
     await new Promise((resolve) => setTimeout(resolve, 0));
-    assert.strictEqual(fired, true);
+    expect(fired).toBe(true);
   });
 });

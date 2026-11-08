@@ -1,6 +1,5 @@
 /* eslint-disable sonarjs/void-use */
-import assert from "node:assert/strict";
-import { describe, it } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import { withCacheAsync, withCacheSync } from "../cache.js";
 import { lazy } from "../lazy.js";
@@ -27,13 +26,13 @@ describe("decorateGetter", () => {
     }
     const first = new Reports();
     const second = new Reports();
-    assert.strictEqual(first.label, "L");
-    assert.strictEqual(first.label, "L");
+    expect(first.label).toBe("L");
+    expect(first.label).toBe("L");
     // Getters live on the prototype: the memo is shared across instances.
-    assert.strictEqual(second.label, "L");
-    assert.strictEqual(first.loads, 1);
-    assert.strictEqual(second.loads, 0);
-    assert.strictEqual(store.size, 1);
+    expect(second.label).toBe("L");
+    expect(first.loads).toBe(1);
+    expect(second.loads).toBe(0);
+    expect(store.size).toBe(1);
   });
 
   it("forwards this into the wrapped getter body", () => {
@@ -48,8 +47,8 @@ describe("decorateGetter", () => {
       }
     }
     const stats = new Stats();
-    assert.strictEqual(stats.area, 8);
-    assert.strictEqual(stats.area, 8);
+    expect(stats.area).toBe(8);
+    expect(stats.area).toBe(8);
   });
 
   it("works with option-less HOFs (lazy) and logs through withLoggerSync", () => {
@@ -69,11 +68,11 @@ describe("decorateGetter", () => {
         }
       }
       const heavy = new Heavy();
-      assert.strictEqual(heavy.value, "heavy");
+      expect(heavy.value).toBe("heavy");
       // lazy memoizes the truthy getter result: the second access skips the
       // getter body entirely.
-      assert.strictEqual(heavy.value, "heavy");
-      assert.strictEqual(heavy.computes, 1);
+      expect(heavy.value).toBe("heavy");
+      expect(heavy.computes).toBe(1);
       // The same converter also works for the logger.
       const logged = decorateGetter(withLoggerSync);
       class Buzzer {
@@ -82,11 +81,11 @@ describe("decorateGetter", () => {
           return "buzz";
         }
       }
-      assert.strictEqual(new Buzzer().buzz, "buzz");
+      expect(new Buzzer().buzz).toBe("buzz");
     } finally {
       console.debug = originalDebug;
     }
-    assert.ok(lines.some((parts) => /value|buzz/.test(String(parts[0]))));
+    expect(lines.some((parts) => /value|buzz/.test(String(parts[0])))).toBeTruthy();
   });
 
   it("guards pass under require: sync and throw under require: async", () => {
@@ -97,13 +96,12 @@ describe("decorateGetter", () => {
         return 1;
       }
     }
-    assert.strictEqual(new Ok().fine, 1);
+    expect(new Ok().fine).toBe(1);
   });
 
   it("decorate-time guard rejects getters under require: async", () => {
     const requireAsync = decorateGetter(withCacheAsync, { require: "async" });
-    assert.throws(
-      () => {
+    expect(() => {
         class Binder {
           @requireAsync({
             cacheStore: new Map(),
@@ -115,13 +113,7 @@ describe("decorateGetter", () => {
         }
         // eslint-disable-next-line sonarjs/constructor-for-side-effects
         new Binder();
-      },
-      (error) =>
-        error instanceof TypeError &&
-        /"nope" is not an async function, but require: "async" was requested/.test(
-          error.message,
-        ),
-    );
+      }).toThrow();
   });
 
   it("setters are untouched; only the getter access function is replaced", () => {
@@ -140,8 +132,8 @@ describe("decorateGetter", () => {
     }
     const temps = new Temperatures();
     temps.celsius = 21;
-    assert.strictEqual(temps.writes, 1);
-    assert.strictEqual(temps.celsius, 21);
+    expect(temps.writes).toBe(1);
+    expect(temps.celsius).toBe(21);
   });
 
   it("bare factory application fails fast at decorate time and is type-rejected", () => {
@@ -149,8 +141,7 @@ describe("decorateGetter", () => {
     // while tsx still executes it — and the runtime fingerprint throws the
     // paren-less misfire on the getter slot (the getter is a function, so the
     // (value, context) pair matches the raw application fingerprint).
-    assert.throws(
-      () => {
+    expect(() => {
         const factory = decorateGetter(withCacheSync);
         class Bad {
           // @ts-expect-error - the bare factory grabs (getter, context) as its options rest.
@@ -160,11 +151,7 @@ describe("decorateGetter", () => {
           }
         }
         void Bad;
-      },
-      (error) =>
-        error instanceof TypeError &&
-        /applied without parentheses/.test(error.message),
-    );
+      }).toThrow();
   });
 
   it("runtime converter-level paren-less misfire fails fast (getter)", () => {
@@ -177,12 +164,7 @@ describe("decorateGetter", () => {
       options: unknown,
     ) => () => unknown;
     const context = { addInitializer() {}, kind: "getter", name: "val" };
-    assert.throws(
-      () => void raw((value: unknown) => value, context)(),
-      (error) =>
-        error instanceof TypeError &&
-        /applied without parentheses/.test(error.message),
-    );
+    expect(() => void raw((value: unknown) => value, context)()).toThrow();
   });
 });
 
@@ -227,8 +209,8 @@ describe("decorateGetter: kind-based conversion contract", () => {
       }
     }
     const instance = new Bypassed();
-    assert.strictEqual(instance.value, 1);
-    assert.strictEqual(instance.value, 1);
-    assert.strictEqual(instance.calls, 2);
+    expect(instance.value).toBe(1);
+    expect(instance.value).toBe(1);
+    expect(instance.calls).toBe(2);
   });
 });

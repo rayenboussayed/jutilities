@@ -1,5 +1,4 @@
-import assert from "node:assert/strict";
-import { describe, it } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import { createHofSync, type HofKind } from "./create-hof.js";
 import {
@@ -26,19 +25,19 @@ function hostileToStringTag() {
 
 describe("isSyncReturnViolation", () => {
   it("rejects nullish, generator and async-generator values", () => {
-    assert.strictEqual(isSyncReturnViolation(null), false);
-    assert.strictEqual(isSyncReturnViolation(undefined), false);
-    assert.strictEqual(isSyncReturnViolation((function* () {})()), true);
-    assert.strictEqual(isSyncReturnViolation((async function* () {})()), true);
+    expect(isSyncReturnViolation(null)).toBe(false);
+    expect(isSyncReturnViolation(undefined)).toBe(false);
+    expect(isSyncReturnViolation((function* () {})())).toBe(true);
+    expect(isSyncReturnViolation((async function* () {})())).toBe(true);
   });
 
   it("treats ordinary objects and thenables without the Promise tag as sync", () => {
-    assert.strictEqual(isSyncReturnViolation({}), false);
-    assert.strictEqual(isSyncReturnViolation({ then: () => {} }), false);
+    expect(isSyncReturnViolation({})).toBe(false);
+    expect(isSyncReturnViolation({ then: () => {} })).toBe(false);
   });
 
   it("treats a hostile tag getter as not-yet-a-violation", () => {
-    assert.strictEqual(isSyncReturnViolation(hostileToStringTag()), false);
+    expect(isSyncReturnViolation(hostileToStringTag())).toBe(false);
   });
 
   it("detects promises even when customized by a subclass tag", () => {
@@ -48,26 +47,15 @@ describe("isSyncReturnViolation", () => {
       }
     }
 
-    assert.strictEqual(
-      isSyncReturnViolation(new TaggedPromise((resolve) => resolve(1))),
-      true,
-    );
+    expect(isSyncReturnViolation(new TaggedPromise((resolve) => resolve(1)))).toBe(true);
   });
 });
 
 describe("assertSyncReturn", () => {
   it("passes for ordinary values and throws TypeError otherwise", () => {
-    assert.doesNotThrow(() => assertSyncReturn(0));
-    assert.throws(
-      () => assertSyncReturn(Promise.resolve(1)),
-      (error) =>
-        error instanceof TypeError &&
-        /promise or generator/.test((error as Error).message),
-    );
-    assert.throws(
-      () => assertSyncReturn((function* () {})(), "custom worker"),
-      /custom worker/,
-    );
+    expect(() => assertSyncReturn(0)).not.toThrow();
+    expect(() => assertSyncReturn(Promise.resolve(1))).toThrow();
+    expect(() => assertSyncReturn((function* () {})(), "custom worker")).toThrow(/custom worker/);
   });
 });
 
@@ -88,15 +76,12 @@ describe("guardSyncFunction", () => {
     });
 
     const guarded = guardSyncFunction(decorated);
-    assert.strictEqual(guarded(2, 3), 5);
-    assert.strictEqual(guarded.name, "source");
-    assert.strictEqual(guarded.length, 2);
-    assert.strictEqual((guarded as typeof decorated).custom, "metadata");
-    assert.strictEqual(
-      (guarded as typeof decorated & { customSymbol: unknown }).customSymbol,
-      "symbol metadata",
-    );
-    assert.match(guarded.toString(), /function source/);
+    expect(guarded(2, 3)).toBe(5);
+    expect(guarded.name).toBe("source");
+    expect(guarded).toHaveLength(2);
+    expect((guarded as typeof decorated).custom).toBe("metadata");
+    expect((guarded as typeof decorated & { customSymbol: unknown }).customSymbol).toBe("symbol metadata");
+    expect(guarded.toString()).toMatch(/function source/);
   });
 
   it("survives hostile proxy own-key layouts without throwing", () => {
@@ -112,9 +97,9 @@ describe("guardSyncFunction", () => {
       ownKeys: () => ["ghost"],
     });
 
-    assert.doesNotThrow(() => guardSyncFunction(withoutDescriptor));
-    assert.doesNotThrow(() => guardSyncFunction(explodingDescriptor));
-    assert.strictEqual(guardSyncFunction(withoutDescriptor)(), "safe");
+    expect(() => guardSyncFunction(withoutDescriptor)).not.toThrow();
+    expect(() => guardSyncFunction(explodingDescriptor)).not.toThrow();
+    expect(guardSyncFunction(withoutDescriptor)()).toBe("safe");
   });
 });
 
@@ -125,7 +110,7 @@ describe("createHofSync guard integration", () => {
     );
     const wrapped = hof(() => 1);
 
-    assert.throws(() => wrapped(), /promise or generator/);
+    expect(() => wrapped()).toThrow(/promise or generator/);
   });
 
   it("rejects an asynchronous skipHof predicate", () => {
@@ -140,6 +125,6 @@ describe("createHofSync guard integration", () => {
       skipHof: async () => true,
     });
 
-    assert.throws(() => wrapped(), /skipHof predicate/);
+    expect(() => wrapped()).toThrow(/skipHof predicate/);
   });
 });

@@ -1,6 +1,5 @@
 /* eslint-disable sonarjs/void-use */
-import assert from "node:assert/strict";
-import { describe, it } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import { withTimeoutAsync } from "./timeout.js";
 
@@ -14,9 +13,9 @@ describe("withTimeoutAsync", () => {
     async function fn(x: number) {
       return x;
     }
-    assert.strictEqual(withTimeoutAsync(fn, {}), fn);
-    assert.strictEqual(withTimeoutAsync(fn, { timeoutMs: 0 }), fn);
-    assert.strictEqual(withTimeoutAsync(fn, { timeoutMs: -1 }), fn);
+    expect(withTimeoutAsync(fn, {})).toBe(fn);
+    expect(withTimeoutAsync(fn, { timeoutMs: 0 })).toBe(fn);
+    expect(withTimeoutAsync(fn, { timeoutMs: -1 })).toBe(fn);
     // NaN <= 0 is false, but !signal && NaN<=0 -> false, so wraps; 0/-1 unwrap
   });
 
@@ -28,8 +27,8 @@ describe("withTimeoutAsync", () => {
     async function fn() {
       return 1;
     }
-    assert.strictEqual(withTimeoutAsync(fn), fn);
-    assert.strictEqual(withTimeoutAsync(fn, undefined), fn);
+    expect(withTimeoutAsync(fn)).toBe(fn);
+    expect(withTimeoutAsync(fn, undefined)).toBe(fn);
   });
 
   it("wraps when signal present even with timeoutMs 0", () => {
@@ -41,11 +40,8 @@ describe("withTimeoutAsync", () => {
       return 1;
     }
     const controller = new AbortController();
-    assert.notStrictEqual(
-      withTimeoutAsync(fn, { signal: controller.signal }),
-      fn,
-    );
-    assert.notStrictEqual(withTimeoutAsync(fn, { timeoutMs: 1 }), fn);
+    expect(withTimeoutAsync(fn, { signal: controller.signal })).not.toBe(fn);
+    expect(withTimeoutAsync(fn, { timeoutMs: 1 })).not.toBe(fn);
   });
 
   it("fast fn resolves with value identity and cleans up", async () => {
@@ -58,7 +54,7 @@ describe("withTimeoutAsync", () => {
       return x * 2;
     }
     const wrapped = withTimeoutAsync(fn, { timeoutMs: 1000 });
-    assert.strictEqual(await wrapped(21), 42);
+    expect(await wrapped(21)).toBe(42);
   });
 
   it("forwards this and args", async () => {
@@ -74,7 +70,7 @@ describe("withTimeoutAsync", () => {
       return this.m + a + b;
     }
     const wrapped = withTimeoutAsync(fn, { timeoutMs: 1000 });
-    assert.strictEqual(await wrapped.call({ m: 1 }, 2, 3), 6);
+    expect(await wrapped.call({ m: 1 }, 2, 3)).toBe(6);
   });
 
   it("timeout rejects (currently with undefined when no signal)", async () => {
@@ -89,11 +85,11 @@ describe("withTimeoutAsync", () => {
     }
     const wrapped = withTimeoutAsync(slow, { timeoutMs: 20 });
     const start = performance.now();
-    await assert.rejects(wrapped(), (err: unknown) => {
+    await expect(wrapped()).rejects.toSatisfy((err: unknown) => {
       // No signal supplies its own reasons; the timeout uses `undefined` for the rejection reason.
       return err === undefined;
     });
-    assert.ok(performance.now() - start < 500);
+    expect(performance.now() - start < 500).toBeTruthy();
   });
 
   it("slow fn continues in background after timeout (no cancellation)", async () => {
@@ -108,10 +104,10 @@ describe("withTimeoutAsync", () => {
       return 1;
     }
     const wrapped = withTimeoutAsync(slow, { timeoutMs: 10 });
-    await assert.rejects(wrapped(), () => true);
-    assert.strictEqual(finished, false);
+    await expect(wrapped()).rejects.toSatisfy(() => true);
+    expect(finished).toBe(false);
     await new Promise((resolve) => setTimeout(resolve, 80));
-    assert.strictEqual(finished, true);
+    expect(finished).toBe(true);
   });
 
   it("mid-flight abort rejects with signal.reason", async () => {
@@ -127,7 +123,7 @@ describe("withTimeoutAsync", () => {
     }
     const wrapped = withTimeoutAsync(slow, { signal: controller.signal });
     const p = wrapped();
-    const assertion = assert.rejects(p, (err: unknown) => err === reason);
+    const assertion = expect(p).rejects.toSatisfy((err: unknown) => err === reason);
     setTimeout(() => controller.abort(reason), 10);
     await assertion;
   });
@@ -147,7 +143,7 @@ describe("withTimeoutAsync", () => {
       timeoutMs: 10_000,
     });
     const p = wrapped();
-    const assertion = assert.rejects(p, (err: unknown) => err === "custom");
+    const assertion = expect(p).rejects.toSatisfy((err: unknown) => err === "custom");
     setTimeout(() => controller.abort("custom"), 10);
     await assertion;
   });
@@ -171,7 +167,7 @@ describe("withTimeoutAsync", () => {
       signal: controller.signal,
       timeoutMs: 20,
     });
-    await assert.rejects(wrapped(), () => true);
+    await expect(wrapped()).rejects.toSatisfy(() => true);
     void reason;
   });
 
@@ -189,7 +185,7 @@ describe("withTimeoutAsync", () => {
     const wrapped = withTimeoutAsync(syncThrow as never, {
       signal: controller.signal,
     });
-    assert.throws(() => (wrapped as () => void)(), /sync boom/);
+    expect(() => (wrapped as () => void)()).toThrow(/sync boom/);
   });
 
   it("concurrent calls share signal: abort rejects both", async () => {
@@ -207,8 +203,8 @@ describe("withTimeoutAsync", () => {
     const p1 = wrapped(1);
     const p2 = wrapped(2);
     // attach handlers immediately to avoid unhandled rejection warnings
-    const a1 = assert.rejects(p1, () => true);
-    const a2 = assert.rejects(p2, () => true);
+    const a1 = expect(p1).rejects.toSatisfy(() => true);
+    const a2 = expect(p2).rejects.toSatisfy(() => true);
     controller.abort(new Error("both"));
     await Promise.all([a1, a2]);
   });
@@ -223,8 +219,8 @@ describe("withTimeoutAsync", () => {
       return x * 2;
     }
     const wrapped = withTimeoutAsync(fn, { timeoutMs: NaN });
-    assert.notStrictEqual(wrapped, fn);
-    assert.strictEqual(await wrapped(21), 42);
+    expect(wrapped).not.toBe(fn);
+    expect(await wrapped(21)).toBe(42);
   });
 
   it("skipHof: true resolves to fn itself at wrap time", () => {
@@ -237,14 +233,11 @@ describe("withTimeoutAsync", () => {
       return x;
     }
     const controller = new AbortController();
-    assert.strictEqual(
-      withTimeoutAsync(fn, {
+    expect(withTimeoutAsync(fn, {
         signal: controller.signal,
         skipHof: true,
         timeoutMs: 100,
-      }),
-      fn,
-    );
+      })).toBe(fn);
   });
 
   it("per-call skipHof predicate skips the deadline race", async () => {
@@ -261,7 +254,7 @@ describe("withTimeoutAsync", () => {
     }
     const wrapped = withTimeoutAsync(fn, { skipHof: () => true, timeoutMs: 10 });
 
-    assert.strictEqual(await wrapped(), 1);
-    assert.strictEqual(calls, 1);
+    expect(await wrapped()).toBe(1);
+    expect(calls).toBe(1);
   });
 });

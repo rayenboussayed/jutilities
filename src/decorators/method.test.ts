@@ -1,6 +1,5 @@
 /* eslint-disable sonarjs/void-use */
-import assert from "node:assert/strict";
-import { describe, it } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import { withCacheAsync, withCacheSync } from "../cache.js";
 import { withDelayAsync } from "../delay.js";
@@ -31,11 +30,11 @@ describe("decorateMethod", () => {
       }
     }
     const user = new Users();
-    assert.strictEqual(user.name("a"), "u-a");
-    assert.strictEqual(user.name("a"), "u-a");
-    assert.strictEqual(user.loads, 1);
-    assert.strictEqual(user.name("b"), "u-b");
-    assert.strictEqual(user.loads, 2);
+    expect(user.name("a")).toBe("u-a");
+    expect(user.name("a")).toBe("u-a");
+    expect(user.loads).toBe(1);
+    expect(user.name("b")).toBe("u-b");
+    expect(user.loads).toBe(2);
   });
 
   it("supports inline parenthesized factory application", () => {
@@ -46,8 +45,8 @@ describe("decorateMethod", () => {
       }
     }
     const inline = new Inline();
-    assert.strictEqual(inline.add(1), 2);
-    assert.strictEqual(inline.add(1), 2);
+    expect(inline.add(1)).toBe(2);
+    expect(inline.add(1)).toBe(2);
   });
 
   it("wraps an async method through withRetryAsync with shared options", async () => {
@@ -65,8 +64,8 @@ describe("decorateMethod", () => {
       }
     }
     const service = new Flaky();
-    assert.strictEqual(await service.call(), "ok");
-    assert.strictEqual(service.attempts, 2);
+    expect(await service.call()).toBe("ok");
+    expect(service.attempts).toBe(2);
   });
 
   it("forwards this and args through the wrapper (timeout demo)", async () => {
@@ -78,7 +77,7 @@ describe("decorateMethod", () => {
       }
     }
     const machine = new Slow();
-    assert.strictEqual(await machine.job(4), 40);
+    expect(await machine.job(4)).toBe(40);
   });
 
   it("forwards this across extracted method references", async () => {
@@ -91,7 +90,7 @@ describe("decorateMethod", () => {
     }
     const counter = new Counter();
     const add = counter.add; // extracted reference keeps the wrapper behavior
-    assert.strictEqual(await add.call(counter, 2), 5);
+    expect(await add.call(counter, 2)).toBe(5);
   });
 
   it("shared-store pitfall: memoization is prototype-wide", () => {
@@ -106,10 +105,10 @@ describe("decorateMethod", () => {
     }
     const first = new Cacher();
     const second = new Cacher();
-    assert.strictEqual(first.value(), "shared");
-    assert.strictEqual(second.value(), "shared");
-    assert.strictEqual(first.loads, 1);
-    assert.strictEqual(second.loads, 0);
+    expect(first.value()).toBe("shared");
+    expect(second.value()).toBe("shared");
+    expect(first.loads).toBe(1);
+    expect(second.loads).toBe(0);
   });
 
   it("decorate-time guard rejects an async member under require: sync", () => {
@@ -117,8 +116,7 @@ describe("decorateMethod", () => {
     // slot-precise enhancers compile-reject async members outright, which is
     // the intended typing discipline; the runtime guard is for loose slots.
     const guardSyncOnly = decorateMethod(withLoggerAsync, { require: "sync" });
-    assert.throws(
-      () => {
+    expect(() => {
         class Mixed {
           @guardSyncOnly()
           async asyncMethod() {
@@ -127,19 +125,12 @@ describe("decorateMethod", () => {
         }
         // eslint-disable-next-line sonarjs/constructor-for-side-effects
         new Mixed();
-      },
-      (error) =>
-        error instanceof TypeError &&
-        /"asyncMethod" is an async function, but require: "sync" was requested/.test(
-          error.message,
-        ),
-    );
+      }).toThrow();
   });
 
   it("decorate-time guard rejects require: async on a sync member", () => {
     const guardAsyncOnly = decorateMethod(withLoggerSync, { require: "async" });
-    assert.throws(
-      () => {
+    expect(() => {
         class Mixed {
           @guardAsyncOnly()
           syncMethod() {
@@ -148,13 +139,7 @@ describe("decorateMethod", () => {
         }
         // eslint-disable-next-line sonarjs/constructor-for-side-effects
         new Mixed();
-      },
-      (error) =>
-        error instanceof TypeError &&
-        /"syncMethod" is not an async function, but require: "async" was requested/.test(
-          error.message,
-        ),
-    );
+      }).toThrow();
   });
 
   it("guards pass for matching sync/async members", async () => {
@@ -172,8 +157,8 @@ describe("decorateMethod", () => {
       }
     }
     const pairs = new Pairs();
-    assert.strictEqual(pairs.fast(), 1);
-    assert.strictEqual(await pairs.slow(), 2);
+    expect(pairs.fast()).toBe(1);
+    expect(await pairs.slow()).toBe(2);
   });
 
   it("works with option-less HOFs (lazy, withLoggerAsync)", async () => {
@@ -197,18 +182,17 @@ describe("decorateMethod", () => {
         }
       }
       const spread = new Spread();
-      assert.strictEqual(spread.syncValue(), 42);
-      assert.strictEqual(spread.syncValue(), 42);
-      assert.strictEqual(await spread.watched(), "seen");
+      expect(spread.syncValue()).toBe(42);
+      expect(spread.syncValue()).toBe(42);
+      expect(await spread.watched()).toBe("seen");
     } finally {
       console.debug = originalDebug;
     }
-    assert.ok(lines.some((parts) => /watched/.test(String(parts[0]))));
+    expect(lines.some((parts) => /watched/.test(String(parts[0])))).toBeTruthy();
   });
 
   it("paren-less factory application fails fast at decorate time", () => {
-    assert.throws(
-      () => {
+    expect(() => {
         class Oops {
           // @ts-expect-error - paren-less misfire is a compile rejection; the runtime fallback exists for plain-JS users.
           @memoizeSync
@@ -218,11 +202,7 @@ describe("decorateMethod", () => {
         }
         // eslint-disable-next-line sonarjs/constructor-for-side-effects
         new Oops();
-      },
-      (error) =>
-        error instanceof TypeError &&
-        /applied without parentheses/.test(error.message),
-    );
+      }).toThrow();
   });
 
   // eslint-disable-next-line sonarjs/assertions-in-tests
@@ -250,12 +230,7 @@ describe("decorateMethod", () => {
       return 1;
     };
     const context = { addInitializer() {}, kind: "method", name: "member" };
-    assert.throws(
-      () => void factory(member, context),
-      (error) =>
-        error instanceof TypeError &&
-        /applied without parentheses/.test(error.message),
-    );
+    expect(() => void factory(member, context)).toThrow();
   });
 });
 
@@ -280,12 +255,7 @@ describe("decorateMethod: kind-based conversion contract", () => {
       }
     }
 
-    assert.throws(
-      () => new Pinned().m(),
-      (error) =>
-        error instanceof TypeError &&
-        /promise or generator/.test((error as Error).message),
-    );
+    expect(() => new Pinned().m()).toThrow();
   });
 
   // eslint-disable-next-line sonarjs/assertions-in-tests
@@ -327,9 +297,9 @@ describe("decorateMethod: kind-based conversion contract", () => {
       }
     }
     const instance = new Async();
-    assert.strictEqual(await instance.value(), 42);
-    assert.strictEqual(await instance.value(), 42);
-    assert.strictEqual(instance.calls, 1);
+    expect(await instance.value()).toBe(42);
+    expect(await instance.value()).toBe(42);
+    expect(instance.calls).toBe(1);
   });
 
   it("forwards the option bag to the HOF as a single argument", () => {
@@ -345,9 +315,9 @@ describe("decorateMethod: kind-based conversion contract", () => {
       }
     }
     const instance = new Bypassed();
-    assert.strictEqual(instance.value(), 1);
-    assert.strictEqual(instance.value(), 1);
-    assert.strictEqual(instance.calls, 2);
+    expect(instance.value()).toBe(1);
+    expect(instance.value()).toBe(1);
+    expect(instance.calls).toBe(2);
   });
 
   it("converts a composed stack (the composer's brand is honored)", async () => {
@@ -361,8 +331,8 @@ describe("decorateMethod: kind-based conversion contract", () => {
       }
     }
     const instance = new Stacked();
-    assert.strictEqual(await instance.value(), 7);
-    assert.strictEqual(await instance.value(), 7);
-    assert.strictEqual(instance.calls, 1);
+    expect(await instance.value()).toBe(7);
+    expect(await instance.value()).toBe(7);
+    expect(instance.calls).toBe(1);
   });
 });

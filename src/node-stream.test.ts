@@ -1,8 +1,7 @@
 /* eslint-disable sonarjs/void-use */
-import assert from "node:assert/strict";
 import { PassThrough, Readable } from "node:stream";
 import { pipeline } from "node:stream/promises";
-import { describe, it } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import {
   buffer2stream,
@@ -26,16 +25,16 @@ describe("tee", () => {
     const source = Readable.from(["a", "b", "c"]);
     const [b1, b2] = tee({ source });
     const [r1, r2] = await Promise.all([collect(b1), collect(b2)]);
-    assert.strictEqual(r1.toString(), "abc");
-    assert.strictEqual(r2.toString(), "abc");
+    expect(r1.toString()).toBe("abc");
+    expect(r2.toString()).toBe("abc");
   });
 
   it("handles empty source (both end without data)", async () => {
     const source = Readable.from([]);
     const [b1, b2] = tee({ source });
     const [r1, r2] = await Promise.all([collect(b1), collect(b2)]);
-    assert.strictEqual(r1.length, 0);
-    assert.strictEqual(r2.length, 0);
+    expect(r1).toHaveLength(0);
+    expect(r2).toHaveLength(0);
   });
 
   it("ends both branches on source end", async () => {
@@ -48,16 +47,16 @@ describe("tee", () => {
     source.end("hello");
     await Promise.all([collect(b1), collect(b2)]);
     // collect consumes; ended flags should be true after consumption
-    assert.ok(ended1 || true); // stream ended (collect resolved)
-    assert.ok(ended2 || true);
+    expect(ended1 || true).toBeTruthy(); // stream ended (collect resolved)
+    expect(ended2 || true).toBeTruthy();
   });
 
   it("destroys both branches on source error with same error", async () => {
     const source = new PassThrough();
     const [b1, b2] = tee({ source });
     const err = new Error("source boom");
-    const p1 = assert.rejects(collect(b1), /source boom/);
-    const p2 = assert.rejects(collect(b2), /source boom/);
+    const p1 = expect(collect(b1)).rejects.toThrow(/source boom/);
+    const p2 = expect(collect(b2)).rejects.toThrow(/source boom/);
     // destroy source on next tick to let tee attach handlers
     setImmediate(() => source.destroy(err));
     await Promise.all([p1, p2]);
@@ -70,10 +69,10 @@ describe("tee", () => {
       read() {},
     });
     const [b1, b2] = tee({ source });
-    assert.strictEqual(b1.readableHighWaterMark, source.readableHighWaterMark);
-    assert.strictEqual(b2.readableHighWaterMark, source.readableHighWaterMark);
-    assert.strictEqual(b1.readableObjectMode, true);
-    assert.strictEqual(b2.readableObjectMode, true);
+    expect(b1.readableHighWaterMark).toBe(source.readableHighWaterMark);
+    expect(b2.readableHighWaterMark).toBe(source.readableHighWaterMark);
+    expect(b1.readableObjectMode).toBe(true);
+    expect(b2.readableObjectMode).toBe(true);
     source.destroy();
     b1.destroy();
     b2.destroy();
@@ -83,7 +82,7 @@ describe("tee", () => {
     const controller = new AbortController();
     controller.abort();
     const source = Readable.from(["x"]);
-    assert.throws(() => tee({ signal: controller.signal, source }));
+    expect(() => tee({ signal: controller.signal, source })).toThrow();
     source.destroy();
   });
 
@@ -91,12 +90,12 @@ describe("tee", () => {
     const source = Readable.from(["a", "b", "c"]);
     const [b1, b2] = tee({ source });
     const [r1, r2] = await Promise.all([collect(b1), collect(b2)]);
-    assert.strictEqual(r1.toString(), "abc");
-    assert.strictEqual(r2.toString(), "abc");
-    assert.doesNotThrow(() => {
+    expect(r1.toString()).toBe("abc");
+    expect(r2.toString()).toBe("abc");
+    expect(() => {
       b1.destroy();
       b2.destroy();
-    });
+    }).not.toThrow();
   });
 
   it("duplicates objectMode chunks to both branches", async () => {
@@ -110,37 +109,35 @@ describe("tee", () => {
       return out;
     };
     const [r1, r2] = await Promise.all([collectObjects(b1), collectObjects(b2)]);
-    assert.deepStrictEqual(r1, [{ a: 1 }, { b: 2 }]);
-    assert.deepStrictEqual(r2, [{ a: 1 }, { b: 2 }]);
+    expect(r1).toStrictEqual([{ a: 1 }, { b: 2 }]);
+    expect(r2).toStrictEqual([{ a: 1 }, { b: 2 }]);
   });
 });
 
 describe("stream2buffer", () => {
   it("concatenates Buffer chunks", async () => {
     const s = Readable.from([Buffer.from("he"), Buffer.from("llo")]);
-    assert.strictEqual((await stream2buffer(s)).toString(), "hello");
+    expect((await stream2buffer(s)).toString()).toBe("hello");
   });
 
   it("converts string chunks via Buffer.from (utf8)", async () => {
     const s = Readable.from(["héllo"]);
-    assert.strictEqual((await stream2buffer(s)).toString(), "héllo");
+    expect((await stream2buffer(s)).toString()).toBe("héllo");
   });
 
   it("handles Uint8Array chunks", async () => {
     const s = Readable.from([new Uint8Array([104, 105])]);
-    assert.strictEqual((await stream2buffer(s)).toString(), "hi");
+    expect((await stream2buffer(s)).toString()).toBe("hi");
   });
 
   it("empty stream returns empty buffer", async () => {
-    assert.strictEqual((await stream2buffer(Readable.from([]))).length, 0);
+    expect(await stream2buffer(Readable.from([]))).toHaveLength(0);
   });
 
   it("throws when pre-aborted", async () => {
     const controller = new AbortController();
     controller.abort();
-    await assert.rejects(
-      stream2buffer(Readable.from(["x"]), { signal: controller.signal }),
-    );
+    await expect(stream2buffer(Readable.from(["x"]), { signal: controller.signal })).rejects.toThrow();
   });
 
   it("propagates source errors", async () => {
@@ -149,21 +146,18 @@ describe("stream2buffer", () => {
         this.destroy(new Error("read boom"));
       },
     });
-    await assert.rejects(stream2buffer(s), /read boom/);
+    await expect(stream2buffer(s)).rejects.toThrow(/read boom/);
   });
 
   it("works without options", async () => {
-    assert.strictEqual(
-      (await stream2buffer(Readable.from(["a"]))).toString(),
-      "a",
-    );
+    expect((await stream2buffer(Readable.from(["a"]))).toString()).toBe("a");
   });
 });
 
 describe("buffer2stream", () => {
   it("roundtrips buffer", async () => {
     const buf = Buffer.from("hello world");
-    assert.deepStrictEqual(await stream2buffer(buffer2stream(buf)), buf);
+    expect(await stream2buffer(buffer2stream(buf))).toStrictEqual(buf);
   });
 
   it("chunks according to chunkSize", async () => {
@@ -172,9 +166,9 @@ describe("buffer2stream", () => {
     for await (const c of buffer2stream(buf, { chunkSize: 3 })) {
       chunks.push(c as Buffer);
     }
-    assert.strictEqual(chunks.length, 4); // 3+3+3+1
-    assert.strictEqual(chunks[3]?.length, 1);
-    assert.deepStrictEqual(Buffer.concat(chunks), buf);
+    expect(chunks).toHaveLength(4);
+    expect(chunks[3]?.length).toBe(1);
+    expect(Buffer.concat(chunks)).toStrictEqual(buf);
   });
 
   it("single chunk when chunkSize > len", async () => {
@@ -183,20 +177,19 @@ describe("buffer2stream", () => {
     for await (const c of buffer2stream(buf, { chunkSize: 100 })) {
       chunks.push(c as Buffer);
     }
-    assert.strictEqual(chunks.length, 1);
+    expect(chunks).toHaveLength(1);
   });
 
   it("empty buffer returns empty stream", async () => {
     const s = buffer2stream(Buffer.alloc(0));
-    assert.strictEqual((await stream2buffer(s)).length, 0);
+    expect(await stream2buffer(s)).toHaveLength(0);
   });
 
   it("throws when pre-aborted", () => {
     const controller = new AbortController();
     controller.abort();
-    assert.throws(() =>
-      buffer2stream(Buffer.from("x"), { signal: controller.signal }),
-    );
+    expect(() =>
+      buffer2stream(Buffer.from("x"), { signal: controller.signal })).toThrow();
   });
 
   it("yields subarray views (shared memory)", async () => {
@@ -207,7 +200,7 @@ describe("buffer2stream", () => {
     }
     // mutating a chunk mutates original (subarray view)
     (chunks[0] as Buffer)[0] = 88; // 'X'
-    assert.strictEqual(buf[0], 88);
+    expect(buf[0]).toBe(88);
   });
 });
 
@@ -222,15 +215,13 @@ describe("streamSizeTransform", () => {
       t,
       stream2buffer,
     );
-    assert.strictEqual((result as Buffer).toString(), "hello");
-    assert.ok(calls.length >= 2);
-    assert.deepStrictEqual(calls[calls.length - 1], { done: true, size: 5 });
-    assert.ok(calls.slice(0, -1).every((c) => c.done === false));
-    assert.ok(
-      calls
+    expect((result as Buffer).toString()).toBe("hello");
+    expect(calls.length >= 2).toBeTruthy();
+    expect(calls[calls.length - 1]).toStrictEqual({ done: true, size: 5 });
+    expect(calls.slice(0, -1).every((c) => c.done === false)).toBeTruthy();
+    expect(calls
         .slice(0, -1)
-        .every((c, i, arr) => i === 0 || c.size >= (arr[i - 1]?.size ?? 0)),
-    );
+        .every((c, i, arr) => i === 0 || c.size >= (arr[i - 1]?.size ?? 0)),).toBeTruthy();
   });
 
   it("empty stream emits single {0, done:true}", async () => {
@@ -241,8 +232,8 @@ describe("streamSizeTransform", () => {
       t,
       stream2buffer,
     )) as Buffer;
-    assert.strictEqual(result.length, 0);
-    assert.deepStrictEqual(calls, [{ done: true, size: 0 }]);
+    expect(result).toHaveLength(0);
+    expect(calls).toStrictEqual([{ done: true, size: 0 }]);
   });
 
   it("handles string chunks with encoding", async () => {
@@ -253,8 +244,8 @@ describe("streamSizeTransform", () => {
       t,
       stream2buffer,
     )) as Buffer;
-    assert.strictEqual(result.toString(), "abc");
-    assert.deepStrictEqual(calls[calls.length - 1], { done: true, size: 3 });
+    expect(result.toString()).toBe("abc");
+    expect(calls[calls.length - 1]).toStrictEqual({ done: true, size: 3 });
   });
 
   it("throwing onSize errors the stream", async () => {
@@ -263,10 +254,7 @@ describe("streamSizeTransform", () => {
         throw new Error("onSize boom");
       },
     });
-    await assert.rejects(
-      pipeline(buffer2stream(Buffer.from("x")), t, stream2buffer),
-      /onSize boom/,
-    );
+    await expect(pipeline(buffer2stream(Buffer.from("x")), t, stream2buffer)).rejects.toThrow(/onSize boom/);
   });
 });
 
@@ -279,9 +267,9 @@ describe("streamSize (async generator)", () => {
     })) {
       seen.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
     }
-    assert.strictEqual(Buffer.concat(seen).toString(), "abc");
-    assert.deepStrictEqual(calls[calls.length - 1], { done: true, size: 3 });
-    assert.ok(calls.slice(0, -1).every((c) => c.done === false));
+    expect(Buffer.concat(seen).toString()).toBe("abc");
+    expect(calls[calls.length - 1]).toStrictEqual({ done: true, size: 3 });
+    expect(calls.slice(0, -1).every((c) => c.done === false)).toBeTruthy();
   });
 
   it("empty source emits single done:true", async () => {
@@ -293,28 +281,24 @@ describe("streamSize (async generator)", () => {
       yielded++;
       void _;
     }
-    assert.strictEqual(yielded, 0);
-    assert.deepStrictEqual(calls, [{ done: true, size: 0 }]);
+    expect(yielded).toBe(0);
+    expect(calls).toStrictEqual([{ done: true, size: 0 }]);
   });
 
   it("pre-aborted throws and done:true not called", async () => {
     const controller = new AbortController();
     controller.abort();
     const calls: unknown[] = [];
-    await assert.rejects(
-      (async () => {
+    await expect((async () => {
         for await (const _ of streamSize(Readable.from(["x"]), {
           onSize: (o) => calls.push(o),
           signal: controller.signal,
         })) {
           void _;
         }
-      })(),
-    );
-    assert.ok(
-      !(calls as { done: boolean }[]).some((c) => c.done === true),
-      "done:true should not be called on abort",
-    );
+      })()).rejects.toThrow();
+    expect(!(calls as { done: boolean }[]).some((c) => c.done === true),
+      "done:true should not be called on abort",).toBeTruthy();
   });
 
   it("source error propagates and done:true not called", async () => {
@@ -324,24 +308,20 @@ describe("streamSize (async generator)", () => {
         this.destroy(new Error("gen boom"));
       },
     });
-    await assert.rejects(
-      (async () => {
+    await expect((async () => {
         for await (const _ of streamSize(bad, {
           onSize: (o) => calls.push(o as { done: boolean; size: number; }),
         })) {
           void _;
         }
-      })(),
-      /gen boom/,
-    );
-    assert.ok(!calls.some((c) => c.done === true));
+      })()).rejects.toThrow(/gen boom/);
+    expect(!calls.some((c) => c.done === true)).toBeTruthy();
   });
 
   it("mid-iteration abort rejects and done:true is not called", async () => {
     const controller = new AbortController();
     const calls: { done: boolean; size: number; }[] = [];
-    await assert.rejects(
-      (async () => {
+    await expect((async () => {
         for await (const _ of streamSize(Readable.from(["ab", "cd"]), {
           onSize: (o) => {
             calls.push(o);
@@ -351,10 +331,9 @@ describe("streamSize (async generator)", () => {
         })) {
           void _;
         }
-      })(),
-    );
-    assert.ok(calls.length >= 1);
-    assert.ok(!calls.some((c) => c.done === true));
+      })()).rejects.toThrow();
+    expect(calls.length >= 1).toBeTruthy();
+    expect(!calls.some((c) => c.done === true)).toBeTruthy();
   });
 });
 
@@ -381,7 +360,7 @@ describe("node-stream coverage extras", () => {
     source.end("hello");
     await collectChunks(b2);
     // eslint-disable-next-line sonarjs/no-trivial-assertions
-    assert.ok(true);
+    expect(true).toBeTruthy();
   });
 
   it("transforms string chunks and records size", async () => {
@@ -393,19 +372,19 @@ describe("node-stream coverage extras", () => {
     for await (const chunk of source.pipe(transform)) {
       void chunk;
     }
-    assert.ok(sizes.length > 0);
-    assert.ok((sizes as any[]).some(() => true));
+    expect(sizes.length > 0).toBeTruthy();
+    expect((sizes as any[]).some(() => true)).toBeTruthy();
   });
 
   it("handles mixed Buffer and string streams without throwing", async () => {
     const source = Readable.from(["ab", Buffer.from("cd")]);
     const out = await stream2buffer(source);
-    assert.ok(out.length > 0);
+    expect(out.length > 0).toBeTruthy();
   });
 
   it("reads a non-empty Buffer through buffer2stream", () => {
     const stream = buffer2stream(Buffer.from("hi"));
-    assert.ok(stream);
+    expect(stream).toBeTruthy();
     stream.destroy();
   });
 
@@ -418,7 +397,7 @@ describe("node-stream coverage extras", () => {
     for await (const chunk of source.pipe(transform)) {
       void chunk;
     }
-    assert.ok(sizes.some((x: any) => x.done === true));
+    expect(sizes.some((x: any) => x.done === true)).toBeTruthy();
   });
 
   it("returns through source error safely", async () => {
@@ -428,7 +407,7 @@ describe("node-stream coverage extras", () => {
     const p2 = collectChunks(b2);
     setImmediate(() => source.destroy(new Error("boom")));
     const results = await Promise.allSettled([p1, p2]);
-    assert.ok(results.every((x) => x.status === "rejected" || x.status === "fulfilled"));
+    expect(results.every((x) => x.status === "rejected" || x.status === "fulfilled")).toBeTruthy();
   });
 
   it("closes one branch while the source is still alive", async () => {
@@ -439,7 +418,7 @@ describe("node-stream coverage extras", () => {
     source.end("world");
     await Promise.allSettled([collectChunks(b1), collectChunks(b2)]);
     // eslint-disable-next-line sonarjs/no-trivial-assertions
-    assert.ok(true);
+    expect(true).toBeTruthy();
   });
   it("fires manual coverage edges for tee", () => {
     const source = new PassThrough();
@@ -453,7 +432,7 @@ describe("node-stream coverage extras", () => {
     b1.destroy();
     b2.destroy();
     // eslint-disable-next-line sonarjs/no-trivial-assertions
-    assert.ok(true);
+    expect(true).toBeTruthy();
   });
 
   it("exercises object-mode non-buffer chunks", async () => {
@@ -464,7 +443,7 @@ describe("node-stream coverage extras", () => {
     for await (const chunk of gen) {
       void chunk;
     }
-    assert.ok(sizes.length > 0);
+    expect(sizes.length > 0).toBeTruthy();
   });
 
   it("transitions a string chunk through the binary fallback", () => {
@@ -475,11 +454,11 @@ describe("node-stream coverage extras", () => {
     let callbackCalled = false;
     (transform as any)._transform("hello", "utf8", (error: unknown, chunk: unknown) => {
       callbackCalled = true;
-      assert.strictEqual(error, null);
+      expect(error).toBeNull();
       void chunk;
     });
-    assert.ok(callbackCalled);
-    assert.ok(sizes.length > 0);
+    expect(callbackCalled).toBeTruthy();
+    expect(sizes.length > 0).toBeTruthy();
   });
   it("covers persistent decorator function coverage maybe unused", () => {
     const source = new PassThrough();
@@ -491,7 +470,7 @@ describe("node-stream coverage extras", () => {
     b1.destroy();
     b2.destroy();
     // eslint-disable-next-line sonarjs/no-trivial-assertions
-    assert.ok(true);
+    expect(true).toBeTruthy();
   });
 
   it("executes the Buffer chunk branch", () => {
@@ -502,10 +481,10 @@ describe("node-stream coverage extras", () => {
     let callbackCalled = false;
     (transform as any)._transform(Buffer.from("hi"), "utf8", (error: unknown, chunk: unknown) => {
       callbackCalled = true;
-      assert.strictEqual(error, null);
+      expect(error).toBeNull();
       void chunk;
     });
-    assert.ok(callbackCalled);
-    assert.ok(sizes.length > 0);
+    expect(callbackCalled).toBeTruthy();
+    expect(sizes.length > 0).toBeTruthy();
   });
 });

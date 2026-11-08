@@ -1,5 +1,4 @@
-import assert from "node:assert/strict";
-import { describe, it } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import {
   type ApplyKind,
@@ -19,7 +18,7 @@ describe("createHofSync", () => {
     // Type-level pin: `__kind` resolves to the declared kind, so composers
     // can recover the kind from a HOF value.
     const kind: MarkerKind = hof.__kind;
-    assert.strictEqual(kind, undefined);
+    expect(kind).toBeUndefined();
   });
 
   // eslint-disable-next-line sonarjs/assertions-in-tests
@@ -32,7 +31,7 @@ describe("createHofSync", () => {
 
   it("resolves a kind's options for the concrete function type", () => {
     const options: ApplyKind<MarkerKind, (x: number) => number> = {};
-    assert.deepStrictEqual(options, {});
+    expect(options).toStrictEqual({});
   });
 
   it("calls the handler exactly once per wrap, not per call", () => {
@@ -48,9 +47,9 @@ describe("createHofSync", () => {
     });
 
     const wrapped = hof((x: number) => x * 2);
-    assert.strictEqual(wrapped(21), 42);
-    assert.strictEqual(wrapped(2), 4);
-    assert.strictEqual(builds, 1);
+    expect(wrapped(21)).toBe(42);
+    expect(wrapped(2)).toBe(4);
+    expect(builds).toBe(1);
   });
 
   it("returns fn itself for skipHof: true without calling the handler", () => {
@@ -61,14 +60,14 @@ describe("createHofSync", () => {
     });
 
     const fn = (x: number) => x + 1;
-    assert.strictEqual(hof(fn, { skipHof: true }), fn);
-    assert.strictEqual(builds, 0);
+    expect(hof(fn, { skipHof: true })).toBe(fn);
+    expect(builds).toBe(0);
   });
 
   it("echoes fn when the handler returns it (no dispatch layer added)", () => {
     const hof = createHofSync<MarkerKind>((fn) => fn);
     const fn = (x: number) => x + 1;
-    assert.strictEqual(hof(fn), fn);
+    expect(hof(fn)).toBe(fn);
   });
 
   it("per-call predicate: truthy bypasses, falsy applies the enhancement", () => {
@@ -82,8 +81,8 @@ describe("createHofSync", () => {
     const wrapped = hof((x: number) => x * 2, {
       skipHof: (x: number) => x > 10,
     });
-    assert.deepStrictEqual(wrapped(5), ["enhanced", 10]);
-    assert.strictEqual(wrapped(50), 100);
+    expect(wrapped(5)).toStrictEqual(["enhanced", 10]);
+    expect(wrapped(50)).toBe(100);
   });
 
   it("forwards this and args on a predicate bypass", () => {
@@ -109,7 +108,7 @@ describe("createHofSync", () => {
     }
 
     const wrapped = hof(fn, { skipHof: () => true });
-    assert.strictEqual(wrapped.call({ salt: 9 }, 5), 14);
+    expect(wrapped.call({ salt: 9 }, 5)).toBe(14);
   });
 
   it("passes the full options object to the handler", () => {
@@ -120,7 +119,7 @@ describe("createHofSync", () => {
     });
 
     hof((x: number) => x, { skipHof: false });
-    assert.deepStrictEqual(seen, { skipHof: false });
+    expect(seen).toStrictEqual({ skipHof: false });
   });
 });
 
@@ -138,9 +137,9 @@ describe("createHofAsync", () => {
     });
 
     const wrapped = hof(async (x: number) => x * 2);
-    assert.strictEqual(await wrapped(21), 42);
-    assert.strictEqual(await wrapped(2), 4);
-    assert.strictEqual(builds, 1);
+    expect(await wrapped(21)).toBe(42);
+    expect(await wrapped(2)).toBe(4);
+    expect(builds).toBe(1);
   });
 
   it("returns fn itself for skipHof: true without calling the handler", async () => {
@@ -151,14 +150,14 @@ describe("createHofAsync", () => {
     });
 
     const fn = async (x: number) => x + 1;
-    assert.strictEqual(hof(fn, { skipHof: true }), fn);
-    assert.strictEqual(builds, 0);
+    expect(hof(fn, { skipHof: true })).toBe(fn);
+    expect(builds).toBe(0);
   });
 
   it("echoes fn when the handler returns it (no dispatch layer added)", () => {
     const hof = createHofAsync<MarkerKind>((fn) => fn);
     const fn = async (x: number) => x + 1;
-    assert.strictEqual(hof(fn), fn);
+    expect(hof(fn)).toBe(fn);
   });
 
   it("per-call predicate: awaited truthy bypasses, falsy applies the enhancement", async () => {
@@ -172,8 +171,8 @@ describe("createHofAsync", () => {
     const wrapped = hof(async (x: number) => x * 2, {
       skipHof: async (x: number) => x > 10,
     });
-    assert.deepStrictEqual(await wrapped(5), ["enhanced", 10]);
-    assert.strictEqual(await wrapped(50), 100);
+    expect(await wrapped(5)).toStrictEqual(["enhanced", 10]);
+    expect(await wrapped(50)).toBe(100);
   });
 });
 

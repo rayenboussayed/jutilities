@@ -1,5 +1,4 @@
-import assert from "node:assert/strict";
-import { describe, it } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import { withDelayAsync, withDelaySync } from "./delay.js";
 
@@ -13,8 +12,8 @@ describe("withDelayAsync", () => {
     async function fn(x: number) {
       return x;
     }
-    assert.strictEqual(withDelayAsync(fn, { delay: 0 }), fn);
-    assert.strictEqual(withDelayAsync(fn, { delay: -5 }), fn);
+    expect(withDelayAsync(fn, { delay: 0 })).toBe(fn);
+    expect(withDelayAsync(fn, { delay: -5 })).toBe(fn);
   });
 
   it("options omitted defaults to no delay (returns identical fn)", async () => {
@@ -25,8 +24,8 @@ describe("withDelayAsync", () => {
     async function fn() {
       return 1;
     }
-    assert.strictEqual(withDelayAsync(fn), fn);
-    assert.strictEqual(withDelayAsync(fn, undefined), fn);
+    expect(withDelayAsync(fn)).toBe(fn);
+    expect(withDelayAsync(fn, undefined)).toBe(fn);
   });
 
   it("wraps when delay > 0 and delays execution", async () => {
@@ -39,12 +38,12 @@ describe("withDelayAsync", () => {
       return x * 2;
     }
     const wrapped = await withDelayAsync(fn, { delay: 20 });
-    assert.notStrictEqual(wrapped, fn);
+    expect(wrapped).not.toBe(fn);
     const start = performance.now();
-    assert.strictEqual(await (wrapped as typeof fn)(21), 42);
+    expect(await (wrapped as typeof fn)(21)).toBe(42);
     const elapsed = performance.now() - start;
-    assert.ok(elapsed >= 15, `elapsed ${elapsed} >= 15`);
-    assert.ok(elapsed < 500, `elapsed ${elapsed} < 500`);
+    expect(elapsed >= 15, `elapsed ${elapsed} >= 15`).toBeTruthy();
+    expect(elapsed < 500, `elapsed ${elapsed} < 500`).toBeTruthy();
   });
 
   it("forwards args, return, this, and propagates rejection", async () => {
@@ -60,7 +59,7 @@ describe("withDelayAsync", () => {
       return this.m + a + b;
     }
     const wrapped = (await withDelayAsync(fn, { delay: 5 })) as typeof fn;
-    assert.strictEqual(await wrapped.call({ m: 1 }, 2, 3), 6);
+    expect(await wrapped.call({ m: 1 }, 2, 3)).toBe(6);
 
     const failing = await withDelayAsync(
       async () => {
@@ -68,7 +67,7 @@ describe("withDelayAsync", () => {
       },
       { delay: 5 },
     );
-    await assert.rejects(failing(), /delayed fail/);
+    await expect(failing()).rejects.toThrow(/delayed fail/);
   });
 
   it("pre-aborted signal throws before fn is called", async () => {
@@ -87,8 +86,8 @@ describe("withDelayAsync", () => {
       delay: 20,
       signal: controller.signal,
     })) as typeof fn;
-    await assert.rejects(wrapped());
-    assert.strictEqual(called, 0);
+    await expect(wrapped()).rejects.toThrow();
+    expect(called).toBe(0);
   });
 
   it("NaN delay takes delay path (NaN <= 0 is false)", async () => {
@@ -100,7 +99,7 @@ describe("withDelayAsync", () => {
       return 1;
     }
     const wrapped = withDelayAsync(fn, { delay: NaN });
-    assert.notStrictEqual(wrapped, fn);
+    expect(wrapped).not.toBe(fn);
   });
 
   it("parallel calls each sleep independently (~delay not 3*delay)", async () => {
@@ -116,8 +115,8 @@ describe("withDelayAsync", () => {
     const start = performance.now();
     const results = await Promise.all([wrapped(1), wrapped(2), wrapped(3)]);
     const elapsed = performance.now() - start;
-    assert.deepStrictEqual(results, [1, 2, 3]);
-    assert.ok(elapsed < 200, `parallel should be ~20ms, took ${elapsed}`);
+    expect(results).toStrictEqual([1, 2, 3]);
+    expect(elapsed < 200, `parallel should be ~20ms, took ${elapsed}`).toBeTruthy();
   });
 
   it("abort mid-delay rejects with signal.reason and fn never runs", async () => {
@@ -138,9 +137,9 @@ describe("withDelayAsync", () => {
     const start = performance.now();
     const p = wrapped();
     setTimeout(() => controller.abort(), 10);
-    await assert.rejects(p, (e) => e === controller.signal.reason);
-    assert.strictEqual(called, 0);
-    assert.ok(performance.now() - start < 500, "delay cut short by abort");
+    await expect(p).rejects.toSatisfy((e) => e === controller.signal.reason);
+    expect(called).toBe(0);
+    expect(performance.now() - start < 500, "delay cut short by abort").toBeTruthy();
   });
 
   it("skipHof: true resolves to fn itself at wrap time", () => {
@@ -152,10 +151,7 @@ describe("withDelayAsync", () => {
     async function fn(x: number) {
       return x;
     }
-    assert.strictEqual(
-      withDelayAsync(fn, { delay: 100, skipHof: true }),
-      fn,
-    );
+    expect(withDelayAsync(fn, { delay: 100, skipHof: true })).toBe(fn);
   });
 
   it("per-call skipHof predicate bypasses the pre-call wait", async () => {
@@ -172,9 +168,9 @@ describe("withDelayAsync", () => {
       typeof fn;
 
     const start = performance.now();
-    assert.strictEqual(await wrapped(), 1);
-    assert.ok(performance.now() - start < 25, "predicate truthy: no wait");
-    assert.strictEqual(calls, 1);
+    expect(await wrapped()).toBe(1);
+    expect(performance.now() - start < 25, "predicate truthy: no wait").toBeTruthy();
+    expect(calls).toBe(1);
   });
 });
 
@@ -188,8 +184,8 @@ describe("withDelaySync", () => {
     function fn(x: number) {
       return x;
     }
-    assert.strictEqual(withDelaySync(fn, { delay: 0 }), fn);
-    assert.strictEqual(withDelaySync(fn, { delay: -1 }), fn);
+    expect(withDelaySync(fn, { delay: 0 })).toBe(fn);
+    expect(withDelaySync(fn, { delay: -1 })).toBe(fn);
   });
 
   it("options omitted defaults to no delay (returns identical fn)", () => {
@@ -200,8 +196,8 @@ describe("withDelaySync", () => {
     function fn() {
       return 1;
     }
-    assert.strictEqual(withDelaySync(fn), fn);
-    assert.strictEqual(withDelaySync(fn, undefined), fn);
+    expect(withDelaySync(fn)).toBe(fn);
+    expect(withDelaySync(fn, undefined)).toBe(fn);
   });
 
   it("wraps and blocks for delay", () => {
@@ -214,10 +210,10 @@ describe("withDelaySync", () => {
       return x + 1;
     }
     const wrapped = withDelaySync(fn, { delay: 20 });
-    assert.notStrictEqual(wrapped, fn);
+    expect(wrapped).not.toBe(fn);
     const start = Date.now();
-    assert.strictEqual(wrapped(1), 2);
-    assert.ok(Date.now() - start >= 15);
+    expect(wrapped(1)).toBe(2);
+    expect(Date.now() - start >= 15).toBeTruthy();
   });
 
   it("forwards this and throws propagate after delay", () => {
@@ -231,7 +227,7 @@ describe("withDelaySync", () => {
       return this.x;
     }
     const wrapped = withDelaySync(fn, { delay: 1 });
-    assert.strictEqual(wrapped.call({ x: 5 }), 5);
+    expect(wrapped.call({ x: 5 })).toBe(5);
 
     const failing = withDelaySync(
       (): number => {
@@ -239,7 +235,7 @@ describe("withDelaySync", () => {
       },
       { delay: 1 },
     );
-    assert.throws(() => failing(), /sync delayed fail/);
+    expect(() => failing()).toThrow(/sync delayed fail/);
   });
 
   it("pre-aborted signal throws before fn", () => {
@@ -258,8 +254,8 @@ describe("withDelaySync", () => {
       delay: 10,
       signal: controller.signal,
     });
-    assert.throws(() => wrapped());
-    assert.strictEqual(called, 0);
+    expect(() => wrapped()).toThrow();
+    expect(called).toBe(0);
   });
 
   it("NaN delay takes delay path but returns immediately (NaN <= 0 is false)", () => {
@@ -271,10 +267,10 @@ describe("withDelaySync", () => {
       return 1;
     }
     const wrapped = withDelaySync(fn, { delay: NaN });
-    assert.notStrictEqual(wrapped, fn);
+    expect(wrapped).not.toBe(fn);
     const start = Date.now();
-    assert.strictEqual(wrapped(), 1);
-    assert.ok(Date.now() - start < 100);
+    expect(wrapped()).toBe(1);
+    expect(Date.now() - start < 100).toBeTruthy();
   });
 
   it("skipHof: true resolves to fn itself at wrap time", () => {
@@ -286,10 +282,7 @@ describe("withDelaySync", () => {
     function fn(x: number) {
       return x;
     }
-    assert.strictEqual(
-      withDelaySync(fn, { delay: 100, skipHof: true }),
-      fn,
-    );
+    expect(withDelaySync(fn, { delay: 100, skipHof: true })).toBe(fn);
   });
 
   it("per-call skipHof predicate bypasses the blocking wait", () => {
@@ -305,8 +298,8 @@ describe("withDelaySync", () => {
     const wrapped = withDelaySync(fn, { delay: 30, skipHof: () => true });
 
     const start = Date.now();
-    assert.strictEqual(wrapped(), 1);
-    assert.ok(Date.now() - start < 25, "predicate truthy: no block");
-    assert.strictEqual(calls, 1);
+    expect(wrapped()).toBe(1);
+    expect(Date.now() - start < 25, "predicate truthy: no block").toBeTruthy();
+    expect(calls).toBe(1);
   });
 });

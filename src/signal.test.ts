@@ -1,5 +1,4 @@
-import assert from "node:assert/strict";
-import { describe, it } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import { abort } from "./signal.js";
 
@@ -10,21 +9,21 @@ describe("abort", () => {
       called++;
     };
     let remover: unknown;
-    assert.doesNotThrow(() => {
+    expect(() => {
       remover = abort({ onAbort });
-    });
-    assert.strictEqual(typeof remover, "function");
-    assert.doesNotThrow(() => (remover as () => void)());
-    assert.strictEqual(called, 0);
+    }).not.toThrow();
+    expect(typeof remover).toBe("function");
+    expect(() => (remover as () => void)()).not.toThrow();
+    expect(called).toBe(0);
   });
 
   it("calls onAbort when signal aborts", () => {
     const controller = new AbortController();
     let called = 0;
     abort({ onAbort: () => called++, signal: controller.signal });
-    assert.strictEqual(called, 0);
+    expect(called).toBe(0);
     controller.abort();
-    assert.strictEqual(called, 1);
+    expect(called).toBe(1);
   });
 
   it("remover prevents onAbort from firing", () => {
@@ -36,7 +35,7 @@ describe("abort", () => {
     });
     remove();
     controller.abort();
-    assert.strictEqual(called, 0);
+    expect(called).toBe(0);
   });
 
   it("double remove is idempotent", () => {
@@ -47,9 +46,9 @@ describe("abort", () => {
       signal: controller.signal,
     });
     remove();
-    assert.doesNotThrow(() => remove());
+    expect(() => remove()).not.toThrow();
     controller.abort();
-    assert.strictEqual(called, 0);
+    expect(called).toBe(0);
   });
 
   it("does not retro-fire for already-aborted signal", () => {
@@ -57,7 +56,7 @@ describe("abort", () => {
     controller.abort();
     let called = 0;
     abort({ onAbort: () => called++, signal: controller.signal });
-    assert.strictEqual(called, 0);
+    expect(called).toBe(0);
   });
 
   it("stacks multiple listeners, each remover only removes its own", () => {
@@ -68,17 +67,14 @@ describe("abort", () => {
     abort({ onAbort: () => b++, signal: controller.signal });
     removeA();
     controller.abort();
-    assert.strictEqual(a, 0);
-    assert.strictEqual(b, 1);
+    expect(a).toBe(0);
+    expect(b).toBe(1);
   });
 
   it("always returns a function", () => {
     const controller = new AbortController();
-    assert.strictEqual(
-      typeof abort({ onAbort: () => {}, signal: controller.signal }),
-      "function",
-    );
-    assert.strictEqual(typeof abort({ onAbort: () => {} }), "function");
+    expect(typeof abort({ onAbort: () => {}, signal: controller.signal })).toBe("function");
+    expect(typeof abort({ onAbort: () => {} })).toBe("function");
   });
 
   it("repeated abort fires onAbort only once", () => {
@@ -87,6 +83,6 @@ describe("abort", () => {
     abort({ onAbort: () => called++, signal: controller.signal });
     controller.abort();
     controller.abort();
-    assert.strictEqual(called, 1);
+    expect(called).toBe(1);
   });
 });

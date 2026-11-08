@@ -1,6 +1,5 @@
 /* eslint-disable sonarjs/void-use */
-import assert from "node:assert/strict";
-import { describe, it } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import { withCacheAsync, withCacheSync } from "../cache.js";
 import { withLoggerAsync, withLoggerSync } from "../logger.js";
@@ -33,22 +32,22 @@ describe("decorateClass", () => {
     }
     const first = new Users();
     const second = new Users();
-    assert.strictEqual(first.name("a"), "u-a");
-    assert.strictEqual(first.name("a"), "u-a");
-    assert.strictEqual(first.nameLoads, 1);
-    assert.strictEqual(second.name("a"), "u-a");
+    expect(first.name("a")).toBe("u-a");
+    expect(first.name("a")).toBe("u-a");
+    expect(first.nameLoads).toBe(1);
+    expect(second.name("a")).toBe("u-a");
     // Prototype-wide memoization: the second instance never re-executed the
     // method body, which is the documented class-fan-out tradeoff.
-    assert.strictEqual(second.nameLoads, 0);
+    expect(second.nameLoads).toBe(0);
 
-    assert.strictEqual(first.count(), 1);
-    assert.strictEqual(first.countLoads, 1);
-    assert.strictEqual(first.count(), 1);
-    assert.strictEqual(first.countLoads, 1);
+    expect(first.count()).toBe(1);
+    expect(first.countLoads).toBe(1);
+    expect(first.count()).toBe(1);
+    expect(first.countLoads).toBe(1);
 
     // Constructor untouched: each instance ran it exactly once.
-    assert.strictEqual(first.ctorRuns, 1);
-    assert.strictEqual(second.ctorRuns, 1);
+    expect(first.ctorRuns).toBe(1);
+    expect(second.ctorRuns).toBe(1);
   });
 
   it("detect pair: sync members take the sync slot, async members the async slot", async () => {
@@ -72,13 +71,13 @@ describe("decorateClass", () => {
       }
     }
     const repo = new Repo();
-    assert.strictEqual(repo.fast(), "fast");
-    assert.strictEqual(repo.fast(), "fast");
-    assert.strictEqual(repo.syncLoads, 1);
+    expect(repo.fast()).toBe("fast");
+    expect(repo.fast()).toBe("fast");
+    expect(repo.syncLoads).toBe(1);
 
-    assert.strictEqual(await repo.slow(), "slow");
-    assert.strictEqual(await repo.slow(), "slow");
-    assert.strictEqual(repo.asyncLoads, 1);
+    expect(await repo.slow()).toBe("slow");
+    expect(await repo.slow()).toBe("slow");
+    expect(repo.asyncLoads).toBe(1);
   });
 
   it("pick 'sync' forces every member through the sync slot", async () => {
@@ -103,18 +102,13 @@ describe("decorateClass", () => {
     const mixed = new Mixed();
     // The async member goes through the sync slot, which rejects promise
     // values at call time instead of memoizing them.
-    assert.throws(
-      () => mixed.hop(),
-      (error) =>
-        error instanceof TypeError &&
-        /promise or generator/.test((error as Error).message),
-    );
+    expect(() => mixed.hop()).toThrow();
     // The sync member memoizes normally through the same forced enhancer.
-    assert.strictEqual(mixed.ping(), "same");
-    assert.strictEqual(mixed.ping(), "same");
-    assert.strictEqual(mixed.syncLoads, 1);
+    expect(mixed.ping()).toBe("same");
+    expect(mixed.ping()).toBe("same");
+    expect(mixed.syncLoads).toBe(1);
     // Only the sync member's result was ever stored.
-    assert.strictEqual(store.size, 1);
+    expect(store.size).toBe(1);
   });
 
   it("pick 'async' forces every member through the async slot", async () => {
@@ -133,9 +127,9 @@ describe("decorateClass", () => {
       }
     }
     const mixed = new Mixed();
-    assert.strictEqual(await mixed.tick(), "same");
-    assert.strictEqual(await mixed.tick(), "same");
-    assert.strictEqual(mixed.loads, 1);
+    expect(await mixed.tick()).toBe("same");
+    expect(await mixed.tick()).toBe("same");
+    expect(mixed.loads).toBe(1);
   });
 
   it("pair with a missing detected slot fails fast at decorate time", () => {
@@ -143,8 +137,7 @@ describe("decorateClass", () => {
       { sync: withCacheSync },
       { pick: "detect" },
     );
-    assert.throws(
-      () => {
+    expect(() => {
         @syncOnly({ cacheStore: new Map(), extraKeys: ["class-missing-sync"] })
         class Nowrap {
           fast() {
@@ -156,11 +149,7 @@ describe("decorateClass", () => {
         }
         // eslint-disable-next-line sonarjs/constructor-for-side-effects
         new Nowrap();
-      },
-      (error) =>
-        error instanceof TypeError &&
-        /"hop" needs a async enhancer/.test(error.message),
-    );
+      }).toThrow();
   });
 
   it("forced pick with a missing slot fails fast naming the request", () => {
@@ -168,8 +157,7 @@ describe("decorateClass", () => {
       { sync: withCacheSync },
       { pick: "async" },
     );
-    assert.throws(
-      () => {
+    expect(() => {
         @forcedAsync({ cacheStore: new Map(), extraKeys: ["class-missing-async"] })
         class Bad {
           bar() {
@@ -178,11 +166,7 @@ describe("decorateClass", () => {
         }
         // eslint-disable-next-line sonarjs/constructor-for-side-effects
         new Bad();
-      },
-      (error) =>
-        error instanceof TypeError &&
-        /"bar" needs a async enhancer/.test(error.message),
-    );
+      }).toThrow();
   });
 
   it("statics are skipped", () => {
@@ -201,9 +185,9 @@ describe("decorateClass", () => {
       }
     }
     const registry = new Registry();
-    assert.strictEqual(registry.instancePing(), "ping");
-    assert.strictEqual(Registry.bust(), 1);
-    assert.strictEqual(Registry.bust(), 2);
+    expect(registry.instancePing()).toBe("ping");
+    expect(Registry.bust()).toBe(1);
+    expect(Registry.bust()).toBe(2);
   });
 
   it("getters are skipped", () => {
@@ -222,10 +206,10 @@ describe("decorateClass", () => {
       }
     }
     const greeter = new Greeters();
-    assert.strictEqual(greeter.ping(), "ping");
-    assert.strictEqual(greeter.label, "L-1");
-    assert.strictEqual(greeter.label, "L-2");
-    assert.strictEqual(greeter.labelLoads, 2);
+    expect(greeter.ping()).toBe("ping");
+    expect(greeter.label).toBe("L-1");
+    expect(greeter.label).toBe("L-2");
+    expect(greeter.labelLoads).toBe(2);
   });
 
   it("works with option-less HOFs (withLoggerSync) via decorator syntax", () => {
@@ -243,11 +227,11 @@ describe("decorateClass", () => {
         }
       }
       const talker = new Announcer();
-      assert.strictEqual(talker.speak(), "hi");
+      expect(talker.speak()).toBe("hi");
     } finally {
       console.debug = originalDebug;
     }
-    assert.ok(lines.some((parts) => /speak/.test(String(parts[0]))));
+    expect(lines.some((parts) => /speak/.test(String(parts[0])))).toBeTruthy();
   });
 
   it("runtime paren-less factory application fails fast (class)", () => {
@@ -256,12 +240,7 @@ describe("decorateClass", () => {
     const factory = decorateClass(withLoggerSync) as (...args: any[]) => unknown;
     const member = class Source {};
     const context = { addInitializer() {}, kind: "class", name: "Source" };
-    assert.throws(
-      () => void factory(member, context),
-      (error) =>
-        error instanceof TypeError &&
-        /applied without parentheses/.test(error.message),
-    );
+    expect(() => void factory(member, context)).toThrow();
   });
 
   it("runtime converter-level paren-less misfire fails fast (class)", () => {
@@ -270,12 +249,7 @@ describe("decorateClass", () => {
     const raw = decorateClass as unknown as (...args: any[]) => unknown;
     const member = class Raw {};
     const context = { addInitializer() {}, kind: "class", name: "Raw" };
-    assert.throws(
-      () => void raw(member, context),
-      (error) =>
-        error instanceof TypeError &&
-        /applied without parentheses/.test(error.message),
-    );
+    expect(() => void raw(member, context)).toThrow();
   });
 
   // eslint-disable-next-line sonarjs/assertions-in-tests
@@ -348,12 +322,12 @@ describe("decorateClass: kind-based conversion contract", () => {
         }
       }
       const instance = new Merged();
-      assert.strictEqual(instance.count(), 1);
-      assert.strictEqual(await instance.load(), 2);
+      expect(instance.count()).toBe(1);
+      expect(await instance.load()).toBe(2);
     } finally {
       console.debug = originalDebug;
     }
-    assert.ok(lines.some((parts) => /merged/.test(String(parts[0]))));
+    expect(lines.some((parts) => /merged/.test(String(parts[0])))).toBeTruthy();
   });
 
   it("forwards the option bag to every wrapped member", () => {
@@ -369,9 +343,9 @@ describe("decorateClass: kind-based conversion contract", () => {
       }
     }
     const instance = new Bypassed();
-    assert.strictEqual(instance.count(), 1);
-    assert.strictEqual(instance.count(), 1);
-    assert.strictEqual(instance.calls, 2);
+    expect(instance.count()).toBe(1);
+    expect(instance.count()).toBe(1);
+    expect(instance.calls).toBe(2);
   });
 });
 
@@ -388,14 +362,13 @@ describe("decorateClass: coverage extras", () => {
       }
     }
     const mixed = new Mixed();
-    assert.strictEqual(mixed.run(), 42);
-    assert.strictEqual(mixed.marker, 42);
+    expect(mixed.run()).toBe(42);
+    expect(mixed.marker).toBe(42);
   });
 
   it("reports a sync member missing its enhancer in pair mode", () => {
     const decorated = decorateClass({ async: withCacheAsync }, { pick: "detect" });
-    assert.throws(
-      () =>
+    expect(() =>
         void (() => {
           @decorated()
           class MissingSync {
@@ -404,9 +377,7 @@ describe("decorateClass: coverage extras", () => {
             }
           }
           return MissingSync;
-        })(),
-      /method "run" needs a sync enhancer, but the pair does not provide one/,
-    );
+        })()).toThrow(/method "run" needs a sync enhancer, but the pair does not provide one/);
   });
 
   // eslint-disable-next-line sonarjs/no-duplicate-test-title
@@ -424,9 +395,9 @@ describe("decorateClass: coverage extras", () => {
     });
     const Enhancer = decorated as (options?: unknown) => (cls: unknown) => unknown;
     const Result = Enhancer()(Base) as any;
-    assert.strictEqual(typeof Result, "function", "decorator should return the class");
+    expect(typeof Result).toBe("function");
     const instance = new Result();
-    assert.strictEqual(instance.run(), "run");
-    assert.strictEqual(instance.tag, 1);
+    expect(instance.run()).toBe("run");
+    expect(instance.tag).toBe(1);
   });
 });

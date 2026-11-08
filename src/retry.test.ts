@@ -1,6 +1,5 @@
 /* eslint-disable sonarjs/void-use */
-import assert from "node:assert/strict";
-import { describe, it } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import { withRetryAsync, withRetrySync } from "./retry.js";
 
@@ -12,8 +11,8 @@ describe("withRetryAsync", () => {
         onErrorCalls++;
       },
     });
-    assert.strictEqual(await wrapped(21), 42);
-    assert.strictEqual(onErrorCalls, 0);
+    expect(await wrapped(21)).toBe(42);
+    expect(onErrorCalls).toBe(0);
   });
 
   it("eventual success: onError called with correct payload", async () => {
@@ -31,33 +30,30 @@ describe("withRetryAsync", () => {
         },
       },
     );
-    assert.strictEqual(await wrapped(1, 2), 3);
-    assert.strictEqual(attempts, 3);
-    assert.strictEqual(seen.length, 2);
-    assert.deepStrictEqual((seen[0] as { parameters: unknown }).parameters, [
+    expect(await wrapped(1, 2)).toBe(3);
+    expect(attempts).toBe(3);
+    expect(seen).toHaveLength(2);
+    expect((seen[0] as { parameters: unknown }).parameters).toStrictEqual([
       1, 2,
     ]);
-    assert.deepStrictEqual(
-      seen.map((s) => (s as { retries: number }).retries),
-      [0, 1],
-    );
+    expect(seen.map((s) => (s as { retries: number }).retries)).toStrictEqual([0, 1]);
     for (const s of seen as { error: unknown }[]) {
-      assert.ok(s.error instanceof Error);
+      expect(s.error instanceof Error).toBeTruthy();
     }
     for (const s of seen as {
       endFnExecution: number;
       startFnExecution: number;
     }[]) {
-      assert.strictEqual(typeof s.startFnExecution, "number");
-      assert.strictEqual(typeof s.endFnExecution, "number");
-      assert.ok(s.startFnExecution <= s.endFnExecution);
+      expect(typeof s.startFnExecution).toBe("number");
+      expect(typeof s.endFnExecution).toBe("number");
+      expect(s.startFnExecution <= s.endFnExecution).toBeTruthy();
     }
     for (const s of seen as {
       startRetryExecution: number;
       totalRetryExecution: number;
     }[]) {
-      assert.strictEqual(typeof s.startRetryExecution, "number");
-      assert.strictEqual(typeof s.totalRetryExecution, "number");
+      expect(typeof s.startRetryExecution).toBe("number");
+      expect(typeof s.totalRetryExecution).toBe("number");
     }
   });
 
@@ -68,8 +64,8 @@ describe("withRetryAsync", () => {
       count++;
       throw original;
     });
-    await assert.rejects(wrapped(), (err: unknown) => err === original);
-    assert.strictEqual(count, 11);
+    await expect(wrapped()).rejects.toSatisfy((err: unknown) => err === original);
+    expect(count).toBe(11);
   });
 
   it("default retries sequence is [0,1,2,3]", async () => {
@@ -85,8 +81,8 @@ describe("withRetryAsync", () => {
         },
       },
     );
-    await assert.rejects(wrapped(), /x/);
-    assert.deepStrictEqual(retries, [0, 1, 2, 3]);
+    await expect(wrapped()).rejects.toThrow(/x/);
+    expect(retries).toStrictEqual([0, 1, 2, 3]);
   });
 
   it("custom onError throwing custom error stops retry", async () => {
@@ -102,8 +98,8 @@ describe("withRetryAsync", () => {
         },
       },
     );
-    await assert.rejects(wrapped(), /custom-stop/);
-    assert.strictEqual(count, 1);
+    await expect(wrapped()).rejects.toThrow(/custom-stop/);
+    expect(count).toBe(1);
   });
 
   it("awaits async onError", async () => {
@@ -122,9 +118,9 @@ describe("withRetryAsync", () => {
         },
       },
     );
-    assert.strictEqual(await wrapped(), "ok");
-    assert.deepStrictEqual(order, ["onError"]);
-    assert.strictEqual(attempts, 2);
+    expect(await wrapped()).toBe("ok");
+    expect(order).toStrictEqual(["onError"]);
+    expect(attempts).toBe(2);
   });
 
   it("preserves this and forwards non-Error thrown values", async () => {
@@ -142,7 +138,7 @@ describe("withRetryAsync", () => {
         if (retries >= 0) throw `string-fail-wrapped`;
       },
     });
-    await assert.rejects(wrapped.call({ v: 7 }), (e: unknown) => e === "string-fail-wrapped");
+    await expect(wrapped.call({ v: 7 })).rejects.toSatisfy((e: unknown) => e === "string-fail-wrapped");
   });
 
   it("independent counters for parallel invocations", async () => {
@@ -153,7 +149,7 @@ describe("withRetryAsync", () => {
       return total;
     });
     const [a, b] = await Promise.all([wrapped(), wrapped()]);
-    assert.ok(typeof a === "number" && typeof b === "number");
+    expect(typeof a === "number" && typeof b === "number").toBeTruthy();
   });
 
   it("time gate: simulated >=60000ms throws after 1 attempt", async () => {
@@ -178,8 +174,8 @@ describe("withRetryAsync", () => {
       // patch: first call start=0, then advance before end is read is impossible externally,
       // so instead directly test defaultOnError via exhaustion path below.
       // Here just assert default still exhausts (documents tight-loop, no sleep).
-      await assert.rejects(wrapped2(), /slow2/);
-      assert.ok(count >= 1);
+      await expect(wrapped2()).rejects.toThrow(/slow2/);
+      expect(count >= 1).toBeTruthy();
       void wrapped;
       void first;
     } finally {
@@ -198,8 +194,8 @@ describe("withRetryAsync", () => {
         now += 61_000; // simulate slow execution between start/end reads
         throw new Error("slow");
       });
-      await assert.rejects(wrapped(), /slow/);
-      assert.strictEqual(count, 1);
+      await expect(wrapped()).rejects.toThrow(/slow/);
+      expect(count).toBe(1);
     } finally {
       performance.now = origPerfNow;
     }
@@ -207,7 +203,7 @@ describe("withRetryAsync", () => {
 
   it("skipHof: true resolves to fn itself at wrap time", async () => {
     const fn = async (x: number) => x * 2;
-    assert.strictEqual(withRetryAsync(fn, { skipHof: true }), fn);
+    expect(withRetryAsync(fn, { skipHof: true })).toBe(fn);
   });
 
   it("per-call skipHof predicate bypasses retrying (failure propagates raw)", async () => {
@@ -220,8 +216,8 @@ describe("withRetryAsync", () => {
       },
       { skipHof: () => true },
     );
-    await assert.rejects(wrapped(), (err: unknown) => err === sentinel);
-    assert.strictEqual(attempts, 1);
+    await expect(wrapped()).rejects.toSatisfy((err: unknown) => err === sentinel);
+    expect(attempts).toBe(1);
   });
 });
 
@@ -233,8 +229,8 @@ describe("withRetrySync", () => {
         onErrorCalls++;
       },
     });
-    assert.strictEqual((wrapped as () => number)(), 42);
-    assert.strictEqual(onErrorCalls, 0);
+    expect((wrapped as () => number)()).toBe(42);
+    expect(onErrorCalls).toBe(0);
   });
 
   it("forwards multi-arg calls through success and failure", () => {
@@ -256,9 +252,9 @@ describe("withRetrySync", () => {
         seen.push([...parameters]);
       },
     });
-    assert.strictEqual(wrapped(3, 4), 7);
-    assert.strictEqual(calls, 2);
-    assert.deepStrictEqual(seen, [[3, 4]]);
+    expect(wrapped(3, 4)).toBe(7);
+    expect(calls).toBe(2);
+    expect(seen).toStrictEqual([[3, 4]]);
   });
 
   it("default exhaustion: 11 attempts (gives up at retries = 10), rethrows original", () => {
@@ -267,8 +263,8 @@ describe("withRetrySync", () => {
       count++;
       throw new Error("sync always");
     });
-    assert.throws(() => (wrapped as () => void)(), /sync always/);
-    assert.strictEqual(count, 11);
+    expect(() => (wrapped as () => void)()).toThrow(/sync always/);
+    expect(count).toBe(11);
   });
 
   it("custom onError receives payload and can stop", () => {
@@ -286,9 +282,9 @@ describe("withRetrySync", () => {
         },
       },
     );
-    assert.throws(() => (wrapped as () => void)(), /stop/);
-    assert.deepStrictEqual(seen, [0, 1]);
-    assert.strictEqual(count, 2);
+    expect(() => (wrapped as () => void)()).toThrow(/stop/);
+    expect(seen).toStrictEqual([0, 1]);
+    expect(count).toBe(2);
   });
 
   it("time gate: execution >= 60000ms throws after a single attempt", () => {
@@ -302,8 +298,8 @@ describe("withRetrySync", () => {
         now += 61_000; // simulate slow execution between start/end reads
         throw new Error("sync slow");
       });
-      assert.throws(() => (wrapped as () => void)(), /sync slow/);
-      assert.strictEqual(count, 1);
+      expect(() => (wrapped as () => void)()).toThrow(/sync slow/);
+      expect(count).toBe(1);
     } finally {
       performance.now = origPerfNow;
     }
@@ -311,7 +307,7 @@ describe("withRetrySync", () => {
 
   it("skipHof: true resolves to fn itself at wrap time", () => {
     const fn = (): number => 1;
-    assert.strictEqual(withRetrySync(fn, { skipHof: true }), fn);
+    expect(withRetrySync(fn, { skipHof: true })).toBe(fn);
   });
 
   it("per-call skipHof predicate bypasses retrying (failure propagates raw)", () => {
@@ -324,7 +320,7 @@ describe("withRetrySync", () => {
       },
       { skipHof: () => true },
     );
-    assert.throws(() => wrapped(), (err: unknown) => err === sentinel);
-    assert.strictEqual(attempts, 1);
+    expect(() => wrapped()).toThrow();
+    expect(attempts).toBe(1);
   });
 });

@@ -1,6 +1,5 @@
 /* eslint-disable sonarjs/void-use */
-import assert from "node:assert/strict";
-import { describe, it } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import type {
   AnyAsyncFunction,
@@ -22,7 +21,7 @@ describe("HandleAsyncFunction", () => {
 
     const branch: Branch = "sync";
     // eslint-disable-next-line sonarjs/no-trivial-assertions
-    assert.strictEqual(branch, "sync");
+    expect(branch).toBe("sync");
   });
 
   it("picks the async branch for a promise-returning function", () => {
@@ -34,14 +33,14 @@ describe("HandleAsyncFunction", () => {
 
     const branch: Branch = "async";
     // eslint-disable-next-line sonarjs/no-trivial-assertions
-    assert.strictEqual(branch, "async");
+    expect(branch).toBe("async");
   });
 });
 
 describe("callable gates", () => {
   it("accepts any callable in AnyFunction", () => {
     const fn: AnyFunction = (value: number) => value;
-    assert.strictEqual(fn(1), 1);
+    expect(fn(1)).toBe(1);
   });
 
   it("rejects a promise-returning function in the sync gate", () => {
@@ -49,13 +48,13 @@ describe("callable gates", () => {
     const fn: AnySyncFunction<(value: number) => Promise<number>> = async (
       value: number,
     ) => value;
-    assert.ok(fn);
+    expect(fn).toBeTruthy();
   });
 
   it("requires an actual promise return in the async gate", () => {
     // @ts-expect-error - the async gate requires a promise return.
     const fn: AnyAsyncFunction = (value: number) => value;
-    assert.ok(fn);
+    expect(fn).toBeTruthy();
   });
 });
 
@@ -92,6 +91,6 @@ describe("generic wrap matrix", () => {
     void escaped;
 
     // eslint-disable-next-line sonarjs/no-trivial-assertions
-    assert.ok(true);
+    expect(true).toBeTruthy();
   });
 });

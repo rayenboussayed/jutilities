@@ -1,5 +1,4 @@
-import assert from "node:assert/strict";
-import { describe, it } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import {
   isAsyncFunction,
@@ -22,216 +21,216 @@ import {
 
 describe("isUndefined", () => {
   it("returns true for undefined and void 0", () => {
-    assert.strictEqual(isUndefined(undefined), true);
-    assert.strictEqual(isUndefined(void 0), true);
+    expect(isUndefined(undefined)).toBe(true);
+    expect(isUndefined(void 0)).toBe(true);
     const x: unknown = undefined;
-    assert.strictEqual(isUndefined(x), true);
+    expect(isUndefined(x)).toBe(true);
   });
 
   it("returns false for null and other values", () => {
-    assert.strictEqual(isUndefined(null), false);
-    assert.strictEqual(isUndefined(0), false);
-    assert.strictEqual(isUndefined(""), false);
-    assert.strictEqual(isUndefined({}), false);
-    assert.strictEqual(isUndefined(NaN), false);
-    assert.strictEqual(isUndefined(false), false);
+    expect(isUndefined(null)).toBe(false);
+    expect(isUndefined(0)).toBe(false);
+    expect(isUndefined("")).toBe(false);
+    expect(isUndefined({})).toBe(false);
+    expect(isUndefined(NaN)).toBe(false);
+    expect(isUndefined(false)).toBe(false);
   });
 });
 
 describe("isNull", () => {
   it("returns true only for null", () => {
-    assert.strictEqual(isNull(null), true);
+    expect(isNull(null)).toBe(true);
   });
 
   it("returns false for undefined and other values", () => {
-    assert.strictEqual(isNull(undefined), false);
-    assert.strictEqual(isNull(0), false);
-    assert.strictEqual(isNull(false), false);
-    assert.strictEqual(isNull(""), false);
-    assert.strictEqual(isNull({}), false);
-    assert.strictEqual(isNull(NaN), false);
+    expect(isNull(undefined)).toBe(false);
+    expect(isNull(0)).toBe(false);
+    expect(isNull(false)).toBe(false);
+    expect(isNull("")).toBe(false);
+    expect(isNull({})).toBe(false);
+    expect(isNull(NaN)).toBe(false);
   });
 });
 
 describe("isNil", () => {
   it("returns true for null and undefined", () => {
-    assert.strictEqual(isNil(null), true);
-    assert.strictEqual(isNil(undefined), true);
-    assert.strictEqual(isNil(void 0), true);
+    expect(isNil(null)).toBe(true);
+    expect(isNil(undefined)).toBe(true);
+    expect(isNil(void 0)).toBe(true);
   });
 
   it("returns false for falsy non-nil values", () => {
-    assert.strictEqual(isNil(0), false);
-    assert.strictEqual(isNil(""), false);
-    assert.strictEqual(isNil(false), false);
-    assert.strictEqual(isNil(NaN), false);
-    assert.strictEqual(isNil({}), false);
-    assert.strictEqual(isNil([]), false);
+    expect(isNil(0)).toBe(false);
+    expect(isNil("")).toBe(false);
+    expect(isNil(false)).toBe(false);
+    expect(isNil(NaN)).toBe(false);
+    expect(isNil({})).toBe(false);
+    expect(isNil([])).toBe(false);
   });
 });
 
 describe("isEmptyString", () => {
   it("returns true only for empty string", () => {
-    assert.strictEqual(isEmptyString(""), true);
+    expect(isEmptyString("")).toBe(true);
   });
 
   it("returns false for non-empty strings", () => {
-    assert.strictEqual(isEmptyString(" "), false);
-    assert.strictEqual(isEmptyString("a"), false);
+    expect(isEmptyString(" ")).toBe(false);
+    expect(isEmptyString("a")).toBe(false);
   });
 
   it("returns false for non-strings and boxed strings", () => {
-    assert.strictEqual(isEmptyString(0), false);
-    assert.strictEqual(isEmptyString(null), false);
-    assert.strictEqual(isEmptyString(undefined), false);
-    assert.strictEqual(isEmptyString([]), false);
-    assert.strictEqual(isEmptyString({}), false);
+    expect(isEmptyString(0)).toBe(false);
+    expect(isEmptyString(null)).toBe(false);
+    expect(isEmptyString(undefined)).toBe(false);
+    expect(isEmptyString([])).toBe(false);
+    expect(isEmptyString({})).toBe(false);
      
-    assert.strictEqual(isEmptyString(Object("")), false);
+    expect(isEmptyString(Object(""))).toBe(false);
   });
 });
 
 describe("isEmptyArray", () => {
   it("returns true for empty arrays", () => {
-    assert.strictEqual(isEmptyArray([]), true);
-    assert.strictEqual(isEmptyArray(new Array(0)), true);
-    assert.strictEqual(isEmptyArray([]), true);
+    expect(isEmptyArray([])).toBe(true);
+    expect(isEmptyArray(new Array(0))).toBe(true);
+    expect(isEmptyArray([])).toBe(true);
   });
 
   it("returns false for non-empty arrays", () => {
-    assert.strictEqual(isEmptyArray([1]), false);
-    assert.strictEqual(isEmptyArray([undefined]), false);
-    assert.strictEqual(isEmptyArray([null]), false);
+    expect(isEmptyArray([1])).toBe(false);
+    expect(isEmptyArray([undefined])).toBe(false);
+    expect(isEmptyArray([null])).toBe(false);
   });
 
   it("returns false for array-likes and non-arrays", () => {
-    assert.strictEqual(isEmptyArray({}), false);
-    assert.strictEqual(isEmptyArray("[]"), false);
-    assert.strictEqual(isEmptyArray({ length: 0 }), false);
-    assert.strictEqual(isEmptyArray(null), false);
-    assert.strictEqual(isEmptyArray(undefined), false);
+    expect(isEmptyArray({})).toBe(false);
+    expect(isEmptyArray("[]")).toBe(false);
+    expect(isEmptyArray({ length: 0 })).toBe(false);
+    expect(isEmptyArray(null)).toBe(false);
+    expect(isEmptyArray(undefined)).toBe(false);
   });
 });
 
 describe("isObject", () => {
   it("returns true for plain objects, arrays, and built-ins", () => {
-    assert.strictEqual(isObject({}), true);
-    assert.strictEqual(isObject([]), true);
-    assert.strictEqual(isObject(new Date()), true);
-    assert.strictEqual(isObject(new Map()), true);
-    assert.strictEqual(isObject(Object.create(null)), true);
+    expect(isObject({})).toBe(true);
+    expect(isObject([])).toBe(true);
+    expect(isObject(new Date())).toBe(true);
+    expect(isObject(new Map())).toBe(true);
+    expect(isObject(Object.create(null))).toBe(true);
   });
 
   it("returns false for null, primitives, and functions", () => {
-    assert.strictEqual(isObject(null), false);
-    assert.strictEqual(isObject(undefined), false);
-    assert.strictEqual(isObject(1), false);
-    assert.strictEqual(isObject("x"), false);
-    assert.strictEqual(isObject(true), false);
-    assert.strictEqual(isObject(() => {}), false);
-    assert.strictEqual(isObject(Symbol("s")), false);
+    expect(isObject(null)).toBe(false);
+    expect(isObject(undefined)).toBe(false);
+    expect(isObject(1)).toBe(false);
+    expect(isObject("x")).toBe(false);
+    expect(isObject(true)).toBe(false);
+    expect(isObject(() => {})).toBe(false);
+    expect(isObject(Symbol("s"))).toBe(false);
   });
 });
 
 describe("isRecord", () => {
   it("returns true for plain objects and built-ins (arrays excluded)", () => {
-    assert.strictEqual(isRecord({}), true);
-    assert.strictEqual(isRecord(new Date()), true);
-    assert.strictEqual(isRecord(new Map()), true);
-    assert.strictEqual(isRecord(Object.create(null)), true);
+    expect(isRecord({})).toBe(true);
+    expect(isRecord(new Date())).toBe(true);
+    expect(isRecord(new Map())).toBe(true);
+    expect(isRecord(Object.create(null))).toBe(true);
   });
 
   it("returns false for arrays, null, primitives, and functions", () => {
-    assert.strictEqual(isRecord([]), false);
-    assert.strictEqual(isRecord([1]), false);
-    assert.strictEqual(isRecord(null), false);
-    assert.strictEqual(isRecord(undefined), false);
-    assert.strictEqual(isRecord(1), false);
-    assert.strictEqual(isRecord("x"), false);
-    assert.strictEqual(isRecord(true), false);
-    assert.strictEqual(isRecord(() => {}), false);
-    assert.strictEqual(isRecord(Symbol("s")), false);
+    expect(isRecord([])).toBe(false);
+    expect(isRecord([1])).toBe(false);
+    expect(isRecord(null)).toBe(false);
+    expect(isRecord(undefined)).toBe(false);
+    expect(isRecord(1)).toBe(false);
+    expect(isRecord("x")).toBe(false);
+    expect(isRecord(true)).toBe(false);
+    expect(isRecord(() => {})).toBe(false);
+    expect(isRecord(Symbol("s"))).toBe(false);
   });
 });
 
 describe("isEmptyRecord", () => {
   it("returns true for records with no string keys", () => {
-    assert.strictEqual(isEmptyRecord({}), true);
-    assert.strictEqual(isEmptyRecord(Object.create(null)), true);
-    assert.strictEqual(isEmptyRecord(new Date()), true);
+    expect(isEmptyRecord({})).toBe(true);
+    expect(isEmptyRecord(Object.create(null))).toBe(true);
+    expect(isEmptyRecord(new Date())).toBe(true);
   });
 
   it("returns false for arrays (not records)", () => {
-    assert.strictEqual(isEmptyRecord([]), false);
-    assert.strictEqual(isEmptyRecord([1]), false);
+    expect(isEmptyRecord([])).toBe(false);
+    expect(isEmptyRecord([1])).toBe(false);
   });
 
   it("documents Object.keys ignores symbols", () => {
-    assert.strictEqual(isEmptyRecord({ [Symbol("s")]: 1 }), true);
+    expect(isEmptyRecord({ [Symbol("s")]: 1 })).toBe(true);
   });
 
   it("returns false for records with keys", () => {
-    assert.strictEqual(isEmptyRecord({ a: 1 }), false);
-    assert.strictEqual(isEmptyRecord({ a: undefined }), false);
+    expect(isEmptyRecord({ a: 1 })).toBe(false);
+    expect(isEmptyRecord({ a: undefined })).toBe(false);
   });
 
   it("returns false for non-records", () => {
-    assert.strictEqual(isEmptyRecord(null), false);
-    assert.strictEqual(isEmptyRecord(undefined), false);
-    assert.strictEqual(isEmptyRecord(""), false);
+    expect(isEmptyRecord(null)).toBe(false);
+    expect(isEmptyRecord(undefined)).toBe(false);
+    expect(isEmptyRecord("")).toBe(false);
   });
 });
 
 describe("isEmpty", () => {
   it("returns true for nil, empty string, empty array, empty record", () => {
-    assert.strictEqual(isEmpty(null), true);
-    assert.strictEqual(isEmpty(undefined), true);
-    assert.strictEqual(isEmpty(""), true);
-    assert.strictEqual(isEmpty([]), true);
-    assert.strictEqual(isEmpty({}), true);
+    expect(isEmpty(null)).toBe(true);
+    expect(isEmpty(undefined)).toBe(true);
+    expect(isEmpty("")).toBe(true);
+    expect(isEmpty([])).toBe(true);
+    expect(isEmpty({})).toBe(true);
   });
 
   it("returns false for non-empty and falsy primitives", () => {
-    assert.strictEqual(isEmpty(0), false);
-    assert.strictEqual(isEmpty(false), false);
-    assert.strictEqual(isEmpty(NaN), false);
-    assert.strictEqual(isEmpty(" "), false);
-    assert.strictEqual(isEmpty([1]), false);
-    assert.strictEqual(isEmpty({ a: 1 }), false);
+    expect(isEmpty(0)).toBe(false);
+    expect(isEmpty(false)).toBe(false);
+    expect(isEmpty(NaN)).toBe(false);
+    expect(isEmpty(" ")).toBe(false);
+    expect(isEmpty([1])).toBe(false);
+    expect(isEmpty({ a: 1 })).toBe(false);
   });
 
   it("documents surprising empty built-ins", () => {
     // new Date() has no enumerable keys so counts as empty record
-    assert.strictEqual(isEmpty(new Date()), true);
+    expect(isEmpty(new Date())).toBe(true);
   });
 });
 
 describe("isThenable", () => {
   it("returns true for promises and promise-likes", () => {
-    assert.strictEqual(isThenable(Promise.resolve()), true);
-    assert.strictEqual(isThenable({ then: () => {} }), true);
-    assert.strictEqual(isThenable(Promise.resolve(1)), true);
+    expect(isThenable(Promise.resolve())).toBe(true);
+    expect(isThenable({ then: () => {} })).toBe(true);
+    expect(isThenable(Promise.resolve(1))).toBe(true);
     /**
      *
      */
     async function af() {}
-    assert.strictEqual(isThenable(af()), true);
+    expect(isThenable(af())).toBe(true);
   });
 
   it("returns false for non-thenables", () => {
-    assert.strictEqual(isThenable(null), false);
-    assert.strictEqual(isThenable(undefined), false);
-    assert.strictEqual(isThenable({}), false);
-    assert.strictEqual(isThenable({ then: 1 }), false);
-    assert.strictEqual(isThenable("then"), false);
-    assert.strictEqual(isThenable(0), false);
+    expect(isThenable(null)).toBe(false);
+    expect(isThenable(undefined)).toBe(false);
+    expect(isThenable({})).toBe(false);
+    expect(isThenable({ then: 1 })).toBe(false);
+    expect(isThenable("then")).toBe(false);
+    expect(isThenable(0)).toBe(false);
   });
 
   it("accepts a callable carrying a then property", () => {
     // A function is an object for the duck-typing probe: `typeof` reports
     // "function", so the check must not exclude it.
     const callable = Object.assign(() => "value", { then: () => {} });
-    assert.strictEqual(isThenable(callable), true);
+    expect(isThenable(callable)).toBe(true);
   });
 
   it("throws if then getter throws", () => {
@@ -240,20 +239,20 @@ describe("isThenable", () => {
         throw new Error("getter boom");
       },
     };
-    assert.throws(() => isThenable(evil), /getter boom/);
+    expect(() => isThenable(evil)).toThrow(/getter boom/);
   });
 });
 
 describe("isPromise", () => {
   it("returns true for native promises", () => {
-    assert.strictEqual(isPromise(Promise.resolve()), true);
-    assert.strictEqual(isPromise(Promise.resolve(1)), true);
-    assert.strictEqual(isPromise(new Promise(() => {})), true);
+    expect(isPromise(Promise.resolve())).toBe(true);
+    expect(isPromise(Promise.resolve(1))).toBe(true);
+    expect(isPromise(new Promise(() => {}))).toBe(true);
     /**
      *
      */
     async function af() {}
-    assert.strictEqual(isPromise(af()), true);
+    expect(isPromise(af())).toBe(true);
   });
 
   it("returns true for thenables with catch and finally functions", () => {
@@ -262,27 +261,21 @@ describe("isPromise", () => {
       finally: () => {},
       then: () => {},
     };
-    assert.strictEqual(isPromise(fake), true);
+    expect(isPromise(fake)).toBe(true);
   });
 
   it("returns false for bare thenables without catch/finally", () => {
-    assert.strictEqual(isPromise({ then: () => {} }), false);
-    assert.strictEqual(
-      isPromise({ catch: () => {}, then: () => {} }),
-      false,
-    );
-    assert.strictEqual(
-      isPromise({ finally: () => {}, then: () => {} }),
-      false,
-    );
+    expect(isPromise({ then: () => {} })).toBe(false);
+    expect(isPromise({ catch: () => {}, then: () => {} })).toBe(false);
+    expect(isPromise({ finally: () => {}, then: () => {} })).toBe(false);
   });
 
   it("returns false for non-promises", () => {
-    assert.strictEqual(isPromise(null), false);
-    assert.strictEqual(isPromise(undefined), false);
-    assert.strictEqual(isPromise({}), false);
-    assert.strictEqual(isPromise(42), false);
-    assert.strictEqual(isPromise("then"), false);
+    expect(isPromise(null)).toBe(false);
+    expect(isPromise(undefined)).toBe(false);
+    expect(isPromise({})).toBe(false);
+    expect(isPromise(42)).toBe(false);
+    expect(isPromise("then")).toBe(false);
   });
 });
 
@@ -293,8 +286,8 @@ describe("isAsyncFunction", () => {
      */
     async function af() {}
     const arrow = async () => {};
-    assert.strictEqual(isAsyncFunction(af), true);
-    assert.strictEqual(isAsyncFunction(arrow), true);
+    expect(isAsyncFunction(af)).toBe(true);
+    expect(isAsyncFunction(arrow)).toBe(true);
   });
 
   it("returns false for sync, generator, and async-generator functions", () => {
@@ -310,9 +303,9 @@ describe("isAsyncFunction", () => {
      *
      */
     async function* agen() {}
-    assert.strictEqual(isAsyncFunction(sync), false);
-    assert.strictEqual(isAsyncFunction(gen), false);
-    assert.strictEqual(isAsyncFunction(agen), false);
+    expect(isAsyncFunction(sync)).toBe(false);
+    expect(isAsyncFunction(gen)).toBe(false);
+    expect(isAsyncFunction(agen)).toBe(false);
   });
 });
 
@@ -322,7 +315,7 @@ describe("isGeneratorFunction", () => {
      *
      */
     function* gen() {}
-    assert.strictEqual(isGeneratorFunction(gen), true);
+    expect(isGeneratorFunction(gen)).toBe(true);
   });
 
   it("returns false for sync, async, and async-generator functions", () => {
@@ -338,9 +331,9 @@ describe("isGeneratorFunction", () => {
      *
      */
     async function* agen() {}
-    assert.strictEqual(isGeneratorFunction(sync), false);
-    assert.strictEqual(isGeneratorFunction(af), false);
-    assert.strictEqual(isGeneratorFunction(agen), false);
+    expect(isGeneratorFunction(sync)).toBe(false);
+    expect(isGeneratorFunction(af)).toBe(false);
+    expect(isGeneratorFunction(agen)).toBe(false);
   });
 });
 
@@ -350,7 +343,7 @@ describe("isAsyncGeneratorFunction", () => {
      *
      */
     async function* agen() {}
-    assert.strictEqual(isAsyncGeneratorFunction(agen), true);
+    expect(isAsyncGeneratorFunction(agen)).toBe(true);
   });
 
   it("returns false for sync, async, and plain generator functions", () => {
@@ -366,49 +359,43 @@ describe("isAsyncGeneratorFunction", () => {
      *
      */
     function* gen() {}
-    assert.strictEqual(isAsyncGeneratorFunction(sync), false);
-    assert.strictEqual(isAsyncGeneratorFunction(af), false);
-    assert.strictEqual(isAsyncGeneratorFunction(gen), false);
+    expect(isAsyncGeneratorFunction(sync)).toBe(false);
+    expect(isAsyncGeneratorFunction(af)).toBe(false);
+    expect(isAsyncGeneratorFunction(gen)).toBe(false);
   });
 });
 
 describe("isDecorationContext", () => {
   it("returns true for objects carrying a string kind", () => {
-    assert.strictEqual(isDecorationContext({ kind: "method" }), true);
+    expect(isDecorationContext({ kind: "method" })).toBe(true);
     // A synthesized (partial) Stage 3 decoration context:
-    assert.strictEqual(
-      isDecorationContext({ addInitializer() {}, kind: "field", name: "f" }),
-      true,
-    );
+    expect(isDecorationContext({ addInitializer() {}, kind: "field", name: "f" })).toBe(true);
   });
 
   it("returns false for non-contexts", () => {
-    assert.strictEqual(isDecorationContext({}), false);
-    assert.strictEqual(isDecorationContext({ kind: 1 }), false);
-    assert.strictEqual(isDecorationContext(null), false);
-    assert.strictEqual(isDecorationContext(undefined), false);
-    assert.strictEqual(isDecorationContext("method"), false);
-    assert.strictEqual(isDecorationContext(() => {}), false);
+    expect(isDecorationContext({})).toBe(false);
+    expect(isDecorationContext({ kind: 1 })).toBe(false);
+    expect(isDecorationContext(null)).toBe(false);
+    expect(isDecorationContext(undefined)).toBe(false);
+    expect(isDecorationContext("method")).toBe(false);
+    expect(isDecorationContext(() => {})).toBe(false);
   });
 });
 
 describe("isRawMemberApplication", () => {
   it("returns true for the (member, context) fingerprint", () => {
     const wrap = (x: unknown): unknown => x;
-    assert.strictEqual(isRawMemberApplication([wrap, { kind: "method" }]), true);
+    expect(isRawMemberApplication([wrap, { kind: "method" }])).toBe(true);
   });
 
   it("returns false for rests that are not raw decoration invocations", () => {
     const wrap = (x: unknown): unknown => x;
-    assert.strictEqual(isRawMemberApplication([]), false);
-    assert.strictEqual(isRawMemberApplication([wrap]), false);
-    assert.strictEqual(isRawMemberApplication([{}]), false);
-    assert.strictEqual(
-      isRawMemberApplication([wrap, { kind: "method" }, 1]),
-      false,
-    );
-    assert.strictEqual(isRawMemberApplication([wrap, {}]), false);
-    assert.strictEqual(isRawMemberApplication([{}, { kind: "method" }]), false);
-    assert.strictEqual(isRawMemberApplication([1, { kind: "method" }]), false);
+    expect(isRawMemberApplication([])).toBe(false);
+    expect(isRawMemberApplication([wrap])).toBe(false);
+    expect(isRawMemberApplication([{}])).toBe(false);
+    expect(isRawMemberApplication([wrap, { kind: "method" }, 1])).toBe(false);
+    expect(isRawMemberApplication([wrap, {}])).toBe(false);
+    expect(isRawMemberApplication([{}, { kind: "method" }])).toBe(false);
+    expect(isRawMemberApplication([1, { kind: "method" }])).toBe(false);
   });
 });

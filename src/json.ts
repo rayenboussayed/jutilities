@@ -378,6 +378,6 @@ export const superjson = new Json()
     // eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
     isApplicable: (_, v): v is Function => typeof v === "function",
     // eslint-disable-next-line sonarjs/code-eval, deslint/no-eval
-    parse: (_, v: string) => new Function(`return ${v}`),
+    parse: (_, v: string) => new Function(`return ${v}`)(),
     stringify: (_, v) => v.toString(),
   });

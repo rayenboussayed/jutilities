@@ -1,5 +1,4 @@
-import assert from "node:assert/strict";
-import { describe, it } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import type {
   CacheKeyParams,
@@ -44,7 +43,7 @@ describe("withCacheSync", () => {
     }
     const store = memoryStore();
     const wrapped = withCacheSync(sum, { cacheStore: store as never });
-    assert.strictEqual(wrapped.call({ base: 10 }, 1, 2), 13);
+    expect(wrapped.call({ base: 10 }, 1, 2)).toBe(13);
   });
 
   it("caches second call with same args (fn called once)", () => {
@@ -57,9 +56,9 @@ describe("withCacheSync", () => {
       },
       { cacheStore: store as never },
     );
-    assert.strictEqual(wrapped(2), 4);
-    assert.strictEqual(wrapped(2), 4);
-    assert.strictEqual(count, 1);
+    expect(wrapped(2)).toBe(4);
+    expect(wrapped(2)).toBe(4);
+    expect(count).toBe(1);
   });
 
   it("different args produce different keys", () => {
@@ -74,7 +73,7 @@ describe("withCacheSync", () => {
     );
     wrapped(1);
     wrapped(2);
-    assert.strictEqual(count, 2);
+    expect(count).toBe(2);
   });
 
   it("default cache keys are unsigned 32-bit numbers (djb2 over superjson)", () => {
@@ -83,15 +82,13 @@ describe("withCacheSync", () => {
       cacheStore: store as never,
     });
     wrapped(1);
-    assert.strictEqual(store.map.size, 1);
+    expect(store.map.size).toBe(1);
     for (const key of store.map.keys()) {
       if (typeof key !== "number") {
-        assert.fail(`key ${String(key)} is not a number`);
+        throw new Error(`key ${String(key)} is not a number`);
       }
-      assert.ok(
-        Number.isInteger(key) && key >= 0 && key <= 4294967295,
-        `key ${key} is not an uint32`,
-      );
+      expect(Number.isInteger(key) && key >= 0 && key <= 4294967295,
+        `key ${key} is not an uint32`,).toBeTruthy();
     }
   });
 
@@ -102,13 +99,13 @@ describe("withCacheSync", () => {
       count++;
       return x === null ? "null-shot" : "nan-shot";
     }, { cacheStore: store as never });
-    assert.strictEqual(wrapped(null), "null-shot");
-    assert.strictEqual(wrapped(NaN), "nan-shot");
-    assert.strictEqual(count, 2);
+    expect(wrapped(null)).toBe("null-shot");
+    expect(wrapped(NaN)).toBe("nan-shot");
+    expect(count).toBe(2);
     // both already cached under their distinct keys
-    assert.strictEqual(wrapped(null), "null-shot");
-    assert.strictEqual(wrapped(NaN), "nan-shot");
-    assert.strictEqual(count, 2);
+    expect(wrapped(null)).toBe("null-shot");
+    expect(wrapped(NaN)).toBe("nan-shot");
+    expect(count).toBe(2);
   });
 
   it("caches BigInt arguments (JSON.stringify keygen would throw on them)", () => {
@@ -118,11 +115,11 @@ describe("withCacheSync", () => {
       count++;
       return Number(x) * 2;
     }, { cacheStore: store as never });
-    assert.strictEqual(wrapped(10n), 20);
-    assert.strictEqual(wrapped(10n), 20);
-    assert.strictEqual(count, 1);
-    assert.strictEqual(wrapped(11n), 22);
-    assert.strictEqual(count, 2);
+    expect(wrapped(10n)).toBe(20);
+    expect(wrapped(10n)).toBe(20);
+    expect(count).toBe(1);
+    expect(wrapped(11n)).toBe(22);
+    expect(count).toBe(2);
   });
 
   it("empty results are never cached (isEmpty gate)", () => {
@@ -135,8 +132,8 @@ describe("withCacheSync", () => {
       }, { cacheStore: store as never });
       wrapped();
       wrapped();
-      assert.strictEqual(count, 2, `empty ${JSON.stringify(empty)} recomputes`);
-      assert.strictEqual(store.map.size, 0);
+      expect(count).toBe(2);
+      expect(store.map.size).toBe(0);
     }
   });
 
@@ -148,9 +145,9 @@ describe("withCacheSync", () => {
         count++;
         return v;
       }, { cacheStore: store as never });
-      assert.strictEqual(wrapped(), v);
-      assert.strictEqual(wrapped(), v);
-      assert.strictEqual(count, 1);
+      expect(wrapped()).toBe(v);
+      expect(wrapped()).toBe(v);
+      expect(count).toBe(1);
     }
   });
 
@@ -166,8 +163,8 @@ describe("withCacheSync", () => {
     );
     wrapped(1);
     wrapped(1);
-    assert.strictEqual(count, 2);
-    assert.strictEqual(store.map.size, 0);
+    expect(count).toBe(2);
+    expect(store.map.size).toBe(0);
   });
 
   it("shouldCache receives parameters and result", () => {
@@ -184,7 +181,7 @@ describe("withCacheSync", () => {
       },
     );
     wrapped(1, 2);
-    assert.deepStrictEqual(seen, { parameters: [1, 2], result: 3 });
+    expect(seen).toStrictEqual({ parameters: [1, 2], result: 3 });
   });
 
   it("throwing shouldCache propagates and does not cache", () => {
@@ -195,8 +192,8 @@ describe("withCacheSync", () => {
         throw new Error("shouldCache boom");
       },
     });
-    assert.throws(() => wrapped(), /shouldCache boom/);
-    assert.strictEqual(store.map.size, 0);
+    expect(() => wrapped()).toThrow(/shouldCache boom/);
+    expect(store.map.size).toBe(0);
   });
 
   it("custom generateCacheKey is used and receives function/extraKeys", () => {
@@ -221,16 +218,10 @@ describe("withCacheSync", () => {
     });
     wrapped(5);
     wrapped(5);
-    assert.deepStrictEqual(
-      (seen as { extraKeys: unknown; function: string; parameters: unknown; })
-        .parameters,
-      [5],
-    );
-    assert.strictEqual(
-      (seen as { function: string }).function,
-      myFn.toString(),
-    );
-    assert.deepStrictEqual((seen as { extraKeys: unknown }).extraKeys, [
+    expect((seen as { extraKeys: unknown; function: string; parameters: unknown; })
+        .parameters).toStrictEqual([5]);
+    expect((seen as { function: string }).function).toBe(myFn.toString());
+    expect((seen as { extraKeys: unknown }).extraKeys).toStrictEqual([
       "tenant-1",
     ]);
   });
@@ -248,12 +239,12 @@ describe("withCacheSync", () => {
         generateCacheKey: ({ parameters }) => Number(parameters[0]),
       },
     );
-    assert.strictEqual(wrapped(5), 5);
-    assert.strictEqual(wrapped(5), 5);
-    assert.strictEqual(count, 1);
-    assert.strictEqual(wrapped(6), 6);
-    assert.strictEqual(count, 2);
-    assert.strictEqual(store.map.size, 2);
+    expect(wrapped(5)).toBe(5);
+    expect(wrapped(5)).toBe(5);
+    expect(count).toBe(1);
+    expect(wrapped(6)).toBe(6);
+    expect(count).toBe(2);
+    expect(store.map.size).toBe(2);
   });
 
   it("the exported contract types (CacheStore/Options/Key/params) typecheck", () => {
@@ -268,9 +259,9 @@ describe("withCacheSync", () => {
         o.result >= 0,
     };
     const wrapped = withCacheSync(double, opts);
-    assert.strictEqual(wrapped(4), 8);
-    assert.strictEqual(wrapped(4), 8);
-    assert.strictEqual(store.map.size, 1);
+    expect(wrapped(4)).toBe(8);
+    expect(wrapped(4)).toBe(8);
+    expect(store.map.size).toBe(1);
   });
 
   it("generateCacheKey throw propagates", () => {
@@ -281,7 +272,7 @@ describe("withCacheSync", () => {
         throw new Error("key boom");
       },
     });
-    assert.throws(() => wrapped(), /key boom/);
+    expect(() => wrapped()).toThrow(/key boom/);
   });
 
   it("different functions do not collide with default hashed key (function string in key)", () => {
@@ -303,9 +294,9 @@ describe("withCacheSync", () => {
       { cacheStore: store as never },
     );
     // different source text -> different function string -> different keys
-    assert.notStrictEqual(w1(1), w2(1));
-    assert.strictEqual(c1, 1);
-    assert.strictEqual(c2, 1);
+    expect(w1(1)).not.toBe(w2(1));
+    expect(c1).toBe(1);
+    expect(c2).toBe(1);
   });
 
   it("sync has no in-flight dedup (documents behavior)", () => {
@@ -321,7 +312,7 @@ describe("withCacheSync", () => {
     );
     wrapped(1);
     wrapped(1);
-    assert.strictEqual(count, 1);
+    expect(count).toBe(1);
   });
 
   it("extraKeys participate in the default hashed key", () => {
@@ -339,12 +330,12 @@ describe("withCacheSync", () => {
       cacheStore: store as never,
       extraKeys: ["tenant-2"],
     });
-    assert.strictEqual(w1(1), 1);
-    assert.strictEqual(w2(1), 1);
-    assert.strictEqual(count, 2);
+    expect(w1(1)).toBe(1);
+    expect(w2(1)).toBe(1);
+    expect(count).toBe(2);
     // same extraKeys hits
-    assert.strictEqual(w1(1), 1);
-    assert.strictEqual(count, 2);
+    expect(w1(1)).toBe(1);
+    expect(count).toBe(2);
   });
 
   it("cached objects return the same reference", () => {
@@ -352,12 +343,12 @@ describe("withCacheSync", () => {
     const wrapped = withCacheSync(() => ({ v: 1 }), {
       cacheStore: store as never,
     });
-    assert.strictEqual(wrapped(), wrapped());
+    expect(wrapped()).toBe(wrapped());
   });
 
   it("skipHof: true resolves to fn itself at wrap time", () => {
     const fn = (x: number) => x + 1;
-    assert.strictEqual(withCacheSync(fn, { skipHof: true }), fn);
+    expect(withCacheSync(fn, { skipHof: true })).toBe(fn);
   });
 
   it("per-call skipHof predicate skips cache read/write", () => {
@@ -370,13 +361,13 @@ describe("withCacheSync", () => {
       },
       { cacheStore: store as never, skipHof: (x: number) => x < 0 },
     );
-    assert.strictEqual(wrapped(2), 4);
-    assert.strictEqual(wrapped(2), 4);
-    assert.strictEqual(count, 1);
-    assert.strictEqual(wrapped(-3), -6);
-    assert.strictEqual(wrapped(-3), -6);
-    assert.strictEqual(count, 3);
-    assert.strictEqual(store.map.size, 1);
+    expect(wrapped(2)).toBe(4);
+    expect(wrapped(2)).toBe(4);
+    expect(count).toBe(1);
+    expect(wrapped(-3)).toBe(-6);
+    expect(wrapped(-3)).toBe(-6);
+    expect(count).toBe(3);
+    expect(store.map.size).toBe(1);
   });
 });
 
@@ -395,7 +386,7 @@ describe("withCacheAsync", () => {
     }
     const store = memoryStore();
     const wrapped = withCacheAsync(sum, { cacheStore: store as never });
-    assert.strictEqual(await wrapped.call({ base: 1 }, 2, 3), 6);
+    expect(await wrapped.call({ base: 1 }, 2, 3)).toBe(6);
   });
 
   it("caches second call", async () => {
@@ -408,9 +399,9 @@ describe("withCacheAsync", () => {
       },
       { cacheStore: store as never },
     );
-    assert.strictEqual(await wrapped(2), 4);
-    assert.strictEqual(await wrapped(2), 4);
-    assert.strictEqual(count, 1);
+    expect(await wrapped(2)).toBe(4);
+    expect(await wrapped(2)).toBe(4);
+    expect(count).toBe(1);
   });
 
   it("empty results never cached", async () => {
@@ -423,7 +414,7 @@ describe("withCacheAsync", () => {
       }, { cacheStore: store as never });
       await wrapped();
       await wrapped();
-      assert.strictEqual(count, 2);
+      expect(count).toBe(2);
     }
   });
 
@@ -456,9 +447,9 @@ describe("withCacheAsync", () => {
         shouldCache: async () => true,
       },
     );
-    assert.strictEqual(await wrapped(1), 2);
-    assert.strictEqual(await wrapped(1), 2);
-    assert.strictEqual(count, 1);
+    expect(await wrapped(1)).toBe(2);
+    expect(await wrapped(1)).toBe(2);
+    expect(count).toBe(1);
   });
 
   it("custom numeric keys work in the async wrapper too", async () => {
@@ -474,11 +465,11 @@ describe("withCacheAsync", () => {
         generateCacheKey: async ({ parameters }) => Number(parameters[0]),
       },
     );
-    assert.strictEqual(await wrapped(5), 5);
-    assert.strictEqual(await wrapped(5), 5);
-    assert.strictEqual(count, 1);
-    assert.strictEqual(await wrapped(6), 6);
-    assert.strictEqual(count, 2);
+    expect(await wrapped(5)).toBe(5);
+    expect(await wrapped(5)).toBe(5);
+    expect(count).toBe(1);
+    expect(await wrapped(6)).toBe(6);
+    expect(count).toBe(2);
   });
 
   it("the exported contract types typecheck in the async wrapper too", async () => {
@@ -493,9 +484,9 @@ describe("withCacheAsync", () => {
         o.result >= 0,
     };
     const wrapped = withCacheAsync(load, opts);
-    assert.strictEqual(await wrapped(4), 5);
-    assert.strictEqual(await wrapped(4), 5);
-    assert.strictEqual(store.map.size, 1);
+    expect(await wrapped(4)).toBe(5);
+    expect(await wrapped(4)).toBe(5);
+    expect(store.map.size).toBe(1);
   });
 
   it("coalesces concurrent same-key calls (inFlight)", async () => {
@@ -510,8 +501,8 @@ describe("withCacheAsync", () => {
       { cacheStore: store as never },
     );
     const [a, b, c] = await Promise.all([wrapped(1), wrapped(1), wrapped(2)]);
-    assert.deepStrictEqual([a, b, c], [1, 1, 2]);
-    assert.strictEqual(count, 2);
+    expect([a, b, c]).toStrictEqual([1, 1, 2]);
+    expect(count).toBe(2);
   });
 
   it("rejection is not cached and inFlight cleared", async () => {
@@ -525,11 +516,11 @@ describe("withCacheAsync", () => {
       },
       { cacheStore: store as never },
     );
-    await assert.rejects(wrapped(), /first fail/);
-    assert.strictEqual(await wrapped(), "ok");
-    assert.strictEqual(count, 2);
-    assert.strictEqual(await wrapped(), "ok");
-    assert.strictEqual(count, 2);
+    await expect(wrapped()).rejects.toThrow(/first fail/);
+    expect(await wrapped()).toBe("ok");
+    expect(count).toBe(2);
+    expect(await wrapped()).toBe("ok");
+    expect(count).toBe(2);
   });
 
   it("async generateCacheKey rejection propagates", async () => {
@@ -540,7 +531,7 @@ describe("withCacheAsync", () => {
         throw new Error("akey boom");
       },
     });
-    await assert.rejects(wrapped(), /akey boom/);
+    await expect(wrapped()).rejects.toThrow(/akey boom/);
   });
 
   it("store throwing propagates", async () => {
@@ -554,7 +545,7 @@ describe("withCacheAsync", () => {
     const wrapped = withCacheAsync(async () => 1, {
       cacheStore: badStore as never,
     });
-    await assert.rejects(wrapped(), /get boom/);
+    await expect(wrapped()).rejects.toThrow(/get boom/);
   });
 
   it("extraKeys participate in the default hashed key", async () => {
@@ -572,16 +563,16 @@ describe("withCacheAsync", () => {
       cacheStore: store as never,
       extraKeys: ["b"],
     });
-    assert.strictEqual(await w1(1), 1);
-    assert.strictEqual(await w2(1), 1);
-    assert.strictEqual(count, 2);
-    assert.strictEqual(await w1(1), 1);
-    assert.strictEqual(count, 2);
+    expect(await w1(1)).toBe(1);
+    expect(await w2(1)).toBe(1);
+    expect(count).toBe(2);
+    expect(await w1(1)).toBe(1);
+    expect(count).toBe(2);
   });
 
   it("skipHof: true resolves to fn itself at wrap time", async () => {
     const fn = async (x: number) => x + 1;
-    assert.strictEqual(withCacheAsync(fn, { skipHof: true }), fn);
+    expect(withCacheAsync(fn, { skipHof: true })).toBe(fn);
   });
 
   it("per-call skipHof predicate skips cache read/write", async () => {
@@ -594,12 +585,12 @@ describe("withCacheAsync", () => {
       },
       { cacheStore: store as never, skipHof: (x: number) => x < 0 },
     );
-    assert.strictEqual(await wrapped(2), 4);
-    assert.strictEqual(await wrapped(2), 4);
-    assert.strictEqual(count, 1);
-    assert.strictEqual(await wrapped(-3), -6);
-    assert.strictEqual(await wrapped(-3), -6);
-    assert.strictEqual(count, 3);
-    assert.strictEqual(store.map.size, 1);
+    expect(await wrapped(2)).toBe(4);
+    expect(await wrapped(2)).toBe(4);
+    expect(count).toBe(1);
+    expect(await wrapped(-3)).toBe(-6);
+    expect(await wrapped(-3)).toBe(-6);
+    expect(count).toBe(3);
+    expect(store.map.size).toBe(1);
   });
 });
