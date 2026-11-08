@@ -259,25 +259,25 @@ export const superjson = new Json()
     parse: (_, v: string) => Symbol.for(v),
     stringify: (_, v) => Symbol.keyFor(v)!,
   })
-  .addHandler("numberobject", {
+  .addHandler("number-object", {
     isApplicable: (_, v) => v instanceof Number,
     // eslint-disable-next-line sonarjs/no-primitive-wrappers
     parse: (_, v: string) => new Number(v),
     stringify: (_, v) => String(v.valueOf()),
   })
-  .addHandler("stringobject", {
+  .addHandler("string-object", {
     isApplicable: (_, v) => v instanceof String,
     // eslint-disable-next-line sonarjs/no-primitive-wrappers
     parse: (_, v: string) => new String(v),
     stringify: (_, v) => v.valueOf(),
   })
-  .addHandler("booleanobject", {
+  .addHandler("boolean-object", {
     isApplicable: (_, v) => v instanceof Boolean,
     // eslint-disable-next-line sonarjs/no-primitive-wrappers
     parse: (_, v: boolean) => new Boolean(v),
     stringify: (_, v) => v.valueOf(),
   })
-  .addHandler("invaliddate", {
+  .addHandler("invalid-date", {
     isApplicable: (_, v): v is Date =>
       v instanceof Date && Number.isNaN(v.getTime()),
     parse: () => new Date(NaN),

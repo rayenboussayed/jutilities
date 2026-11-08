@@ -281,7 +281,7 @@ describe("superjson: date", () => {
   });
 
   it("invalid Date uses the invaliddate handler (registered first)", () => {
-    expect(superjson.stringify(new Date(NaN))).toBe('{"__type":"invaliddate","value":null}');
+    expect(superjson.stringify(new Date(NaN))).toBe('{"__type":"invalid-date","value":null}');
     const back = rt(new Date(NaN));
     expect(back instanceof Date).toBeTruthy();
     expect(Number.isNaN(back.getTime())).toBeTruthy();
@@ -672,6 +672,7 @@ describe("superjson: function", () => {
     const fn = new Function("x", "return x + 1;") as (x: number) => number;
     const back = rt(fn);
     expect(typeof back).toBe("function");
+    expect(back(2)).toBe(3);
   });
 
   it("throws on a function payload that is not callable source", () => {

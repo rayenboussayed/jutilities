@@ -540,7 +540,7 @@ order is kept, but a later `stringify` sees the replaced handler).
   a compile-time proof of what it serializes.
 - The handler registry is **internal**: `Json` exposes `addHandler` /
   `removeHandler` only — the map itself is not part of the public surface.
-- Invalid-date detection is strict: the `invaliddate` handler claims a `Date`
+- Invalid-date detection is strict: the `invalid-date` handler claims a `Date`
   only when `Number.isNaN(v.getTime())` — no coercion.
 
 ### Quirks
