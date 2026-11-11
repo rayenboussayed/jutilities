@@ -8,17 +8,18 @@ import type { WithSignal } from "../types/with.js";
 import { abort } from "../signal.js";
 import { toBuffer } from "../to.js";
 
-/**
- * Creates a {@link Hash} for an arbitrary supported algorithm name.
- * @param algorithm - The algorithm name.
- * @returns A new {@link Hash}.
- */
-export function createHash(algorithm: string) {
-  return new Hash(algorithm);
-}
+type BaseHashOptions<T> = T &
+  WithSignal<{
+    options?: HashOptions | HmacOptions;
+    secret?: string;
+  }>;
 
 /** Named digest (`sha512`, …) over streams or buffers, optionally HMAC. */
 export class Hash {
+  private static readonly SUPPORTED = crypto
+    .getHashes()
+    .map((h) => h.toLowerCase());
+
   /**
    * The algorithm name passed to `node:crypto`.
    * @returns The underlying algorithm identifier.
@@ -27,7 +28,13 @@ export class Hash {
     return this.algorithm;
   }
 
-  constructor(private readonly algorithm: string) {}
+  constructor(private algorithm: string) {
+    this.algorithm = algorithm.toLowerCase();
+    if (!Hash.SUPPORTED.includes(this.algorithm))
+      throw TypeError(
+        `Unsupported hash algorithm (${algorithm}), supported: ${Hash.SUPPORTED.join()}`,
+      );
+  }
 
   /**
    * Digests a string or buffer.
@@ -41,11 +48,9 @@ export class Hash {
     options,
     secret,
     value,
-  }: {
-    options?: HashOptions | HmacOptions;
-    secret?: string;
+  }: BaseHashOptions<{
     value: Buffer | string;
-  }) {
+  }>) {
     const sha = secret
       ? crypto.createHmac(this.algorithm, secret, options)
       : crypto.createHash(this.algorithm, options);
@@ -66,9 +71,7 @@ export class Hash {
     secret,
     signal,
     stream,
-  }: WithSignal<{
-    options?: HashOptions | HmacOptions;
-    secret?: string;
+  }: BaseHashOptions<{
     stream: Readable;
   }>) {
     const sha = secret
@@ -95,8 +98,6 @@ export class Hash {
     });
   }
 }
-
-export const nodeHashAlgorithms = crypto.getHashes();
 
 export const md5 = new Hash("md5");
 export const sha1 = new Hash("sha1");

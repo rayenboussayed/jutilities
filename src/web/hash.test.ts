@@ -2,11 +2,9 @@ import { ReadableStream } from "node:stream/web";
 import { describe, expect, it } from "vitest";
 
 import {
-  createHash,
   Hash,
   sha256,
   sha512,
-  webHashAlgorithms,
 } from "./hash.js";
 
 /**
@@ -68,15 +66,14 @@ describe("web hash", () => {
     );
   });
 
-  it("createHash returns a Hash", () => {
-    const h = createHash("SHA-256");
+  it("Hash exposes its algorithm name", () => {
+    const h = new Hash("SHA-256");
     expect(h).toBeInstanceOf(Hash);
     expect(h.name).toBe("SHA-256");
   });
 
-  it("exposes supported algorithms list", () => {
-    expect(webHashAlgorithms).toContain("SHA-256");
-    expect(webHashAlgorithms).toHaveLength(4);
+  it("throws for unsupported algorithms", () => {
+    expect(() => new Hash("nope")).toThrow(/Unsupported hash algorithm/);
   });
 
   it("sha512 export works", async () => {

@@ -3,10 +3,8 @@ import { describe, expect, it } from "vitest";
 
 import {
   blake2b512,
-  createHash,
   Hash,
   md5,
-  nodeHashAlgorithms,
   sha256,
   sha512,
 } from "./hash.js";
@@ -61,8 +59,8 @@ describe("node hash", () => {
     stream.destroy();
   });
 
-  it("createHash returns a Hash for arbitrary algorithms", () => {
-    const h = createHash("sha256");
+  it("Hash exposes its algorithm name", () => {
+    const h = new Hash("sha256");
     expect(h).toBeInstanceOf(Hash);
     expect(h.name).toBe("sha256");
     expect(h.buffer({ value: "abc" }).toString("hex")).toBe(
@@ -70,9 +68,8 @@ describe("node hash", () => {
     );
   });
 
-  it("exposes all runtime supported algorithms", () => {
-    expect(Array.isArray(nodeHashAlgorithms)).toBeTruthy();
-    expect(nodeHashAlgorithms).toContain("sha256");
+  it("throws for unsupported algorithms", () => {
+    expect(() => new Hash("nope")).toThrow(/Unsupported hash algorithm/);
   });
 
   it("md5 and blake2 exports work", () => {

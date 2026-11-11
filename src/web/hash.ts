@@ -9,6 +9,8 @@ import type { WithSignal } from "../types/with.js";
  * are asynchronous because the Web Crypto API is promise-based.
  */
 
+type BaseHashOptions<T> = T & WithSignal<{ secret?: string }>;
+
 /** Input accepted by {@link Hash.buffer}. */
 type HashInput = ArrayBuffer | string | Uint8Array;
 
@@ -16,6 +18,8 @@ const subtle = (globalThis as { crypto: { subtle: SubtleCrypto } }).crypto.subtl
 
 /** Named digest over buffers/strings (and streams), optionally HMAC. */
 export class Hash {
+  private static readonly SUPPORTED = ["SHA-1", "SHA-256", "SHA-384", "SHA-512"];
+
   /**
    * The algorithm name passed to `crypto.subtle`.
    * @returns The underlying algorithm identifier.
@@ -24,7 +28,12 @@ export class Hash {
     return this.algorithm;
   }
 
-  constructor(private readonly algorithm: string) {}
+  constructor(private algorithm: string) {
+    if (!Hash.SUPPORTED.includes(this.algorithm))
+      throw TypeError(
+        `Unsupported hash algorithm (${algorithm}), supported: ${Hash.SUPPORTED.join()}`,
+      );
+  }
 
   /**
    * Digests a string, typed array, or ArrayBuffer.
@@ -36,10 +45,7 @@ export class Hash {
   async buffer({
     secret,
     value,
-  }: {
-    secret?: string;
-    value: HashInput;
-  }): Promise<Uint8Array<ArrayBuffer>> {
+  }: BaseHashOptions<{ value: HashInput }>): Promise<Uint8Array<ArrayBuffer>> {
     const data = toBytes(value);
     if (secret) {
       const keyData = toBytes(secret);
@@ -69,8 +75,7 @@ export class Hash {
     secret,
     signal,
     stream,
-  }: WithSignal<{
-    secret?: string;
+  }: BaseHashOptions<{
     stream: WebReadableStream<HashInput>;
   }>): Promise<Uint8Array<ArrayBuffer>> {
     signal?.throwIfAborted();
@@ -100,15 +105,6 @@ export class Hash {
 }
 
 /**
- * Creates a {@link Hash} for one of the Web Crypto supported algorithms.
- * @param algorithm - The algorithm name.
- * @returns A new {@link Hash}.
- */
-export function createHash(algorithm: string): Hash {
-  return new Hash(algorithm);
-}
-
-/**
  * Normalizes a string / typed-array / ArrayBuffer into a fresh `Uint8Array`.
  * @param value - The value to convert.
  * @returns The byte representation.
@@ -118,9 +114,6 @@ function toBytes(value: HashInput): Uint8Array<ArrayBuffer> {
   if (value instanceof ArrayBuffer) return new Uint8Array(value);
   return new Uint8Array(value);
 }
-
-/** Hash algorithms supported by Web Crypto (`crypto.subtle`). */
-export const webHashAlgorithms = ["SHA-1", "SHA-256", "SHA-384", "SHA-512"];
 
 export const sha1 = new Hash("SHA-1");
 export const sha256 = new Hash("SHA-256");
