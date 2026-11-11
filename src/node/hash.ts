@@ -5,6 +5,7 @@ import * as crypto from "node:crypto";
 
 import type { WithSignal } from "../types/with.js";
 
+import { withCacheSync } from "../cache.js";
 import { abort } from "../signal.js";
 import { toBuffer } from "../to.js";
 
@@ -21,6 +22,13 @@ export class Hash {
     .map((h) => h.toLowerCase());
 
   /**
+   * The cached digest implementation for {@link buffer}.
+   * @param options - Data to digest, with HMAC key; plain hash when omitted.
+   * @returns The digest.
+   */
+  buffer: (options: BaseHashOptions<{ value: Buffer | string }>) => Buffer;
+
+  /**
    * The algorithm name passed to `node:crypto`.
    * @returns The underlying algorithm identifier.
    */
@@ -34,27 +42,20 @@ export class Hash {
       throw TypeError(
         `Unsupported hash algorithm (${algorithm}), supported: ${Hash.SUPPORTED.join()}`,
       );
-  }
 
-  /**
-   * Digests a string or buffer.
-   * @param options - Data to digest, with HMAC key; plain hash when omitted.
-   * @param options.value - The data to digest.
-   * @param options.secret - Optional HMAC key.
-   * @param options.options - Hash/HMAC options.
-   * @returns The digest.
-   */
-  buffer({
-    options,
-    secret,
-    value,
-  }: BaseHashOptions<{
-    value: Buffer | string;
-  }>) {
-    const sha = secret
-      ? crypto.createHmac(this.algorithm, secret, options)
-      : crypto.createHash(this.algorithm, options);
-    return sha.update(value).digest();
+    const computeBuffer = (
+      options: BaseHashOptions<{ value: Buffer | string }>,
+    ) => {
+      const { options: hashOptions, secret, value } = options;
+      const sha = secret
+        ? crypto.createHmac(this.algorithm, secret, hashOptions)
+        : crypto.createHash(this.algorithm, hashOptions);
+      return sha.update(value).digest();
+    };
+
+    this.buffer = withCacheSync(computeBuffer, {
+      extraKeys: [this.algorithm],
+    });
   }
 
   /**

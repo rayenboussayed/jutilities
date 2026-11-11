@@ -4,6 +4,8 @@ import type { ReadableStream as WebReadableStream } from "node:stream/web";
 
 import type { WithSignal } from "../types/with.js";
 
+import { withCacheAsync } from "../cache.js";
+
 /**
  * Web Crypto (`crypto.subtle`) digest helper, optionally HMAC. All operations
  * are asynchronous because the Web Crypto API is promise-based.
@@ -21,6 +23,13 @@ export class Hash {
   private static readonly SUPPORTED = ["SHA-1", "SHA-256", "SHA-384", "SHA-512"];
 
   /**
+   * The cached digest implementation for {@link buffer}.
+   * @param options - Data to digest, with optional HMAC key.
+   * @returns The digest bytes.
+   */
+  buffer: (options: BaseHashOptions<{ value: HashInput }>) => Promise<Uint8Array<ArrayBuffer>>;
+
+  /**
    * The algorithm name passed to `crypto.subtle`.
    * @returns The underlying algorithm identifier.
    */
@@ -28,39 +37,48 @@ export class Hash {
     return this.algorithm;
   }
 
+  /**
+   * The cached HMAC key importer.
+   * @param keyData - The raw HMAC key bytes.
+   * @returns The imported CryptoKey.
+   */
+  private importHmacKey: (keyData: Uint8Array<ArrayBuffer>) => Promise<CryptoKey>;
+
   constructor(private algorithm: string) {
     if (!Hash.SUPPORTED.includes(this.algorithm))
       throw TypeError(
         `Unsupported hash algorithm (${algorithm}), supported: ${Hash.SUPPORTED.join()}`,
       );
-  }
 
-  /**
-   * Digests a string, typed array, or ArrayBuffer.
-   * @param options - Data to digest, with optional HMAC key.
-   * @param options.value - The data to digest.
-   * @param options.secret - Optional HMAC key.
-   * @returns The digest bytes.
-   */
-  async buffer({
-    secret,
-    value,
-  }: BaseHashOptions<{ value: HashInput }>): Promise<Uint8Array<ArrayBuffer>> {
-    const data = toBytes(value);
-    if (secret) {
-      const keyData = toBytes(secret);
-      const key = await subtle.importKey(
+    const computeKey = async (keyData: Uint8Array<ArrayBuffer>) =>
+      subtle.importKey(
         "raw",
         keyData,
         { hash: this.algorithm, name: "HMAC" },
         false,
         ["sign"],
       );
-      const sig = await subtle.sign("HMAC", key, data);
-      return new Uint8Array(sig);
-    }
-    const buf = await subtle.digest(this.algorithm, data);
-    return new Uint8Array(buf);
+
+    this.importHmacKey = withCacheAsync(computeKey, {
+      extraKeys: [this.algorithm],
+    });
+
+    const computeBuffer = async (options: BaseHashOptions<{ value: HashInput }>) => {
+      const { secret, value } = options;
+      const data = toBytes(value);
+      if (secret) {
+        const keyData = toBytes(secret);
+        const key = await this.importHmacKey(keyData);
+        const sig = await subtle.sign("HMAC", key, data);
+        return new Uint8Array(sig);
+      }
+      const buf = await subtle.digest(this.algorithm, data);
+      return new Uint8Array(buf);
+    };
+
+    this.buffer = withCacheAsync(computeBuffer, {
+      extraKeys: [this.algorithm],
+    });
   }
 
   /**
@@ -105,7 +123,7 @@ export class Hash {
 }
 
 /**
- * Normalizes a string / typed-array / ArrayBuffer into a fresh `Uint8Array`.
+ * Normalizes a string / typed array / ArrayBuffer into a fresh `Uint8Array`.
  * @param value - The value to convert.
  * @returns The byte representation.
  */
