@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { fromBase64 } from "./from.js";
-import { toArray, toBase64, toSeconds } from "./to.js";
+import { toArray, toBase64, toBuffer, toSeconds } from "./to.js";
 
 describe("toArray", () => {
   it("wraps scalars in a single-element array", () => {
@@ -108,6 +108,19 @@ describe("toBase64 (browser branch via window stub)", () => {
   });
 });
 
+
+describe("toBuffer", () => {
+  it("returns the input when it is already a Buffer", () => {
+    const b = Buffer.from("hi");
+    expect(toBuffer(b)).toBe(b);
+  });
+
+  it("wraps non-Buffer chunks via Buffer.from", () => {
+    const out = toBuffer(new Uint8Array([1, 2, 3]));
+    expect(Buffer.isBuffer(out)).toBeTruthy();
+    expect([...out]).toStrictEqual([1, 2, 3]);
+  });
+});
 
 describe("toSeconds", () => {
   it("rounds milliseconds to whole seconds", () => {

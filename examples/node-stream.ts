@@ -39,19 +39,26 @@ const sink = new Writable({
 await pipeline(
   disk,
   streamSizeTransform({
-    onSize: ({ done, size }) => console.log("pipe tier hits size:", size, done ? "(final)" : ""),
+    onSize: ({ done, size }: { done: boolean; size: number }) =>
+      console.log("pipe tier hits size:", size, done ? "(final)" : ""),
   }),
   sink,
 );
 
 const buffered = await memoryDone;
-console.log("branch one buffered:", buffered.toString(), "bytes:", buffered.length);
+console.log(
+  "branch one buffered:",
+  buffered.toString(),
+  "bytes:",
+  buffered.length,
+);
 console.log("branch two sank bytes:", seen);
 
 // ---- streamSize: pass chunks through while reporting cumulative size ----------
 const marks: string[] = [];
 for await (const chunk of streamSize(sourceStream(["one", "two", "three"]), {
-  onSize: ({ done, size }) => marks.push(size + (done ? "*" : "")),
+  onSize: ({ done, size }: { done: boolean; size: number }) =>
+    marks.push(size + (done ? "*" : "")),
 })) {
   console.log("passed through chunk:", chunk.toString());
 }

@@ -39,6 +39,15 @@ export function toBase64(bytes: Uint8Array) {
 }
 
 /**
+ * Wraps a chunk into a `Buffer`.
+ * @param chunk - The chunk to convert.
+ * @returns A `Buffer`.
+ */
+export function toBuffer(chunk: any) {
+  return Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
+}
+
+/**
  * Converts milliseconds to whole seconds.
  * @param ms - Milliseconds to round.
  * @returns Seconds.

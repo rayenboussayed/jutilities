@@ -13,7 +13,14 @@ import { sleepAsync } from "jutilities/sleep";
  * end.
  */
 import { createWriteStream, existsSync, writeFileSync } from "node:fs";
-import { mkdir, mkdtemp, readdir, readFile, rm, writeFile } from "node:fs/promises";
+import {
+  mkdir,
+  mkdtemp,
+  readdir,
+  readFile,
+  rm,
+  writeFile,
+} from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Readable } from "node:stream";
@@ -27,20 +34,29 @@ let writeAttempts = 0;
  * @param content - The config content to write.
  * @returns The attempt number that finally succeeded.
  */
-const persistConfig = withRetrySync((path: string, content: string) => {
-  writeAttempts += 1;
-  if (writeAttempts <= 2) {
-    throw Object.assign(new Error(`EBUSY: resource busy or locked (attempt ${writeAttempts})`), { code: "EBUSY" });
-  }
-  // eslint-disable-next-line security/detect-non-literal-fs-filename
-  writeFileSync(path, content, "utf8");
-  return writeAttempts;
-}, {
-  onError: ({ error, retries }) => {
-    console.log(`    write attempt ${retries + 1} failed:`, (error as Error).message);
-    if (retries >= 4) throw error;
+const persistConfig = withRetrySync(
+  (path: string, content: string) => {
+    writeAttempts += 1;
+    if (writeAttempts <= 2) {
+      throw Object.assign(
+        new Error(`EBUSY: resource busy or locked (attempt ${writeAttempts})`),
+        { code: "EBUSY" },
+      );
+    }
+    // eslint-disable-next-line security/detect-non-literal-fs-filename
+    writeFileSync(path, content, "utf8");
+    return writeAttempts;
   },
-});
+  {
+    onError: ({ error, retries }) => {
+      console.log(
+        `    write attempt ${retries + 1} failed:`,
+        (error as Error).message,
+      );
+      if (retries >= 4) throw error;
+    },
+  },
+);
 
 /**
  * Polls until a file shows up, bounded by an abort signal deadline.
@@ -56,7 +72,10 @@ async function waitForFile(path: string, signal: AbortSignal): Promise<void> {
 
 /** Cancellation controller for the directory scan below. */
 const stop = new AbortController();
-abort({ onAbort: () => console.log("    (scan: abort handler fired)"), signal: stop.signal });
+abort({
+  onAbort: () => console.log("    (scan: abort handler fired)"),
+  signal: stop.signal,
+});
 
 /**
  * Lists directory entries until a quarantined name appears, then cancels the
@@ -91,8 +110,9 @@ try {
   // ---- wait for a readiness file created by a "concurrent" writer -------------
   const readyPath = join(workspace, "worker.ready");
   // eslint-disable-next-line security/detect-non-literal-fs-filename
-  const writerDone = writeFile(readyPath, "ok", "utf8")
-    .then(() => console.log("    (writer: readiness file created)"));
+  const writerDone = writeFile(readyPath, "ok", "utf8").then(() =>
+    console.log("    (writer: readiness file created)"),
+  );
   await waitForFile(readyPath, AbortSignal.timeout(2000));
   await writerDone;
   console.log("worker is ready");
@@ -100,15 +120,25 @@ try {
   // ---- one stream, two destinations: disk + memory, verified by hash ----------
   // eslint-disable-next-line security/detect-non-literal-fs-filename
   const config = await readFile(configPath, "utf8");
-  const [disk, memory] = tee({ source: Readable.from([Buffer.from(config, "utf8")]) });
+  const [disk, memory] = tee({
+    source: Readable.from([Buffer.from(config, "utf8")]),
+  });
   const memoryCopy = stream2buffer(memory);
   // eslint-disable-next-line security/detect-non-literal-fs-filename
   await pipeline(disk, createWriteStream(join(workspace, "app.copy")));
   // eslint-disable-next-line security/detect-non-literal-fs-filename
   const diskCopy = await readFile(join(workspace, "app.copy"), "utf8");
   const memoryText = (await memoryCopy).toString("utf8");
-  const match = djb2(config) === djb2(diskCopy) && djb2(config) === djb2(memoryText);
-  console.log("checksums djb2 (original/disk/memory):", djb2(config), djb2(diskCopy), djb2(memoryText), "match:", match);
+  const match =
+    djb2(config) === djb2(diskCopy) && djb2(config) === djb2(memoryText);
+  console.log(
+    "checksums djb2 (original/disk/memory):",
+    djb2(config),
+    djb2(diskCopy),
+    djb2(memoryText),
+    "match:",
+    match,
+  );
   console.log("checksum sdbm (second opinion):", sdbm(config));
 
   // ---- self-cancelling scan ---------------------------------------------------
@@ -124,7 +154,10 @@ try {
     const inspected = await scanFiles(docsPath, stop.signal);
     console.log("scan finished:", inspected); // never reached in this demo
   } catch (error) {
-    console.log("scan cancelled:", error instanceof Error ? error.message : error);
+    console.log(
+      "scan cancelled:",
+      error instanceof Error ? error.message : error,
+    );
   }
 } finally {
   await rm(workspace, { force: true, recursive: true });

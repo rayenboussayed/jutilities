@@ -27,7 +27,7 @@ import {
 } from "node:http";
 
 /** A minimal user record served by the API. */
-type User = { email: string; id: number; name: string; };
+type User = { email: string; id: number; name: string };
 
 /** In-memory "database" backing the `/users/:id` route. */
 const users = new Map<number, User>([
@@ -50,7 +50,10 @@ async function fetchUpstream(): Promise<string> {
 
 const resilientFetch = withRetryAsync(fetchUpstream, {
   onError: async ({ error, retries }) => {
-    console.log(`    upstream attempt ${retries + 1} failed:`, (error as Error).message);
+    console.log(
+      `    upstream attempt ${retries + 1} failed:`,
+      (error as Error).message,
+    );
     if (retries >= 4) throw error; // give up -> error becomes the rejection
     await sleepAsync({ sleep: 40 }); // backoff between attempts
   },
@@ -79,28 +82,41 @@ let reportComputations = 0;
  * @param region - The region to aggregate.
  * @returns The aggregated report row.
  */
-async function buildReport(region: string): Promise<{ cents: number; orders: number; region: string; }> {
+async function buildReport(
+  region: string,
+): Promise<{ cents: number; orders: number; region: string }> {
   reportComputations += 1;
   await sleepAsync({ sleep: 60 });
   return { cents: 4_200, orders: 3, region };
 }
 
 /** Cached + logged report handler: the second call is a cache hit. */
-const report = withCacheAsync(withLoggerAsync(buildReport, { name: "analytics.buildReport" }));
+const report = withCacheAsync(
+  withLoggerAsync(buildReport, { name: "analytics.buildReport" }),
+);
 
 /** Handler that always overshoots its 80ms deadline. */
-const slow = withTimeoutAsync(async () => {
-  await sleepAsync({ sleep: 500 });
-  return "too late";
-}, { timeoutMs: 80 });
+const slow = withTimeoutAsync(
+  async () => {
+    await sleepAsync({ sleep: 500 });
+    return "too late";
+  },
+  { timeoutMs: 80 },
+);
 
 /**
  * Routes one request; every handler failure funnels through the bottom catch.
  * @param req - The incoming request.
  * @param res - The response to write.
  */
-async function dispatch(req: IncomingMessage, res: ServerResponse): Promise<void> {
-  const url = new URL(req.url ?? "/", `http://${req.headers.host ?? "unknown-host"}`);
+async function dispatch(
+  req: IncomingMessage,
+  res: ServerResponse,
+): Promise<void> {
+  const url = new URL(
+    req.url ?? "/",
+    `http://${req.headers.host ?? "unknown-host"}`,
+  );
   const send = (status: number, payload: unknown) => {
     res.writeHead(status, { "content-type": "application/json" });
     res.end(superjson.stringify(payload));
@@ -108,7 +124,11 @@ async function dispatch(req: IncomingMessage, res: ServerResponse): Promise<void
   try {
     if (url.pathname.startsWith("/users/")) {
       const id = Number(url.pathname.slice("/users/".length));
-      assert(Number.isInteger(id) && id > 0, "user id must be a positive integer", "router");
+      assert(
+        Number.isInteger(id) && id > 0,
+        "user id must be a positive integer",
+        "router",
+      );
       send(200, await findUserGated(id));
       return;
     }
@@ -130,14 +150,18 @@ async function dispatch(req: IncomingMessage, res: ServerResponse): Promise<void
       return;
     }
     if (url.pathname === "/echo" && req.method === "POST") {
-      const payload = superjson.parse<unknown>((await stream2buffer(req)).toString("utf8"));
+      const payload = superjson.parse<unknown>(
+        (await stream2buffer(req)).toString("utf8"),
+      );
       assert(isRecord(payload), "echo payload must be a JSON object", "router");
       send(200, payload);
       return;
     }
     send(404, { error: `no route for ${url.pathname}` });
   } catch (error) {
-    send(error instanceof AssertError ? 404 : 500, { error: renderError(error) });
+    send(error instanceof AssertError ? 404 : 500, {
+      error: renderError(error),
+    });
   }
 }
 
@@ -151,7 +175,8 @@ function listen(server: Server): Promise<number> {
     server.once("error", reject);
     server.listen(0, "127.0.0.1", () => {
       const address = server.address();
-      if (typeof address === "object" && address !== null) resolve(address.port);
+      if (typeof address === "object" && address !== null)
+        resolve(address.port);
       else reject(new Error("server did not report a port"));
     });
   });
@@ -204,17 +229,36 @@ try {
   await show("GET   /flaky (retried)", "/flaky");
   await show("GET   /slow (deadline)", "/slow");
   await show("POST  /echo", "/echo", {
-    body: superjson.stringify({ at: new Date(0), n: 42n, tags: new Set(["core"]) }),
+    body: superjson.stringify({
+      at: new Date(0),
+      n: 42n,
+      tags: new Set(["core"]),
+    }),
     method: "POST",
   });
 
   const echoed = await fetch(`${base}/echo`, {
-    body: superjson.stringify({ at: new Date(0), n: 42n, tags: new Set(["core"]) }),
+    body: superjson.stringify({
+      at: new Date(0),
+      n: 42n,
+      tags: new Set(["core"]),
+    }),
     method: "POST",
   });
-  const back = superjson.parse<{ at: Date; n: bigint; tags: Set<string>; }>(await echoed.text());
-  console.log("echo round-trip restored:", back.at instanceof Date, back.tags instanceof Set, typeof back.n === "bigint");
-  console.log("report computations:", reportComputations, "(1 computation -> cached)");
+  const back = superjson.parse<{ at: Date; n: bigint; tags: Set<string> }>(
+    await echoed.text(),
+  );
+  console.log(
+    "echo round-trip restored:",
+    back.at instanceof Date,
+    back.tags instanceof Set,
+    typeof back.n === "bigint",
+  );
+  console.log(
+    "report computations:",
+    reportComputations,
+    "(1 computation -> cached)",
+  );
 } finally {
   await shutdown(server);
   console.log("api shut down cleanly");
