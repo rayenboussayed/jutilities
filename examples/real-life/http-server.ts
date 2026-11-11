@@ -10,7 +10,7 @@ import { withCacheAsync } from "jutilities/cache";
 import { isRecord } from "jutilities/is";
 import { superjson } from "jutilities/json";
 import { withLoggerAsync } from "jutilities/logger";
-import { stream2buffer } from "jutilities/node-stream";
+import { stream2buffer } from "jutilities/node/stream";
 import { withRetryAsync } from "jutilities/retry";
 import { sleepAsync } from "jutilities/sleep";
 import { withTimeoutAsync } from "jutilities/timeout";

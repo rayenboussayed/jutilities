@@ -6,7 +6,7 @@ import {
   streamSize,
   streamSizeTransform,
   tee,
-} from "jutilities/node-stream";
+} from "jutilities/node/stream";
 import { Readable, Writable } from "node:stream";
 /**
  * Demonstrates the Node stream helpers: `tee` (backpressure-aware duplication),

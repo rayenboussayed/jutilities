@@ -9,7 +9,7 @@ import {
   streamSize,
   streamSizeTransform,
   tee,
-} from "./node-stream.js";
+} from "./stream.js";
 
 /**
  * Consumes a stream via `stream2buffer`, the underlying helper under test.

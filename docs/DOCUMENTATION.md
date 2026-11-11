@@ -579,7 +579,7 @@ const sessionCache = withCacheAsync(processState, {
 ```ts
 import {
   tee, stream2buffer, buffer2stream, streamSizeTransform, streamSize,
-} from "jutilities/node-stream";
+} from "jutilities/node/stream";
 
 function tee(o: { source: Readable; signal?: AbortSignal }): [PassThrough, PassThrough];
 

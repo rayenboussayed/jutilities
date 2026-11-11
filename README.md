@@ -52,7 +52,7 @@ import { superjson } from "jutilities/json";
 | `jutilities/libs/clock` | `now` | The clock the timing-sensitive wrappers measure with (monotonic in Node, `Date.now` in the browser branch) |
 | `jutilities/decorators/<kind>` | `decorateMethod`, `decorateClass`, `decorateProperty`, `decorateGetter` | Turn fn-first HOFs into fully typed Stage 3 decorators (methods / whole classes / function-valued fields / getters) |
 | `jutilities/json` | `Json`, `superjson` | Round-trip Map/Set/Date/bigint/typed arrays/Errors… |
-| `jutilities/node-stream` | `tee`, `stream2buffer`, `buffer2stream`, `streamSizeTransform`, `streamSize` | Bandwidth-aware stream plumbing |
+| `jutilities/node/stream` | `tee`, `stream2buffer`, `buffer2stream`, `streamSizeTransform`, `streamSize` | Bandwidth-aware stream plumbing |
 | `jutilities/hash` | `djb2`, `sdbm`, `fnv1a64` | Fast 32-bit seeds + BigInt (unmasked) hashing |
 | `jutilities/is` | 17 type guards | `isRecord`, `isEmpty`, `isThenable`, … |
 | `jutilities/assert` | `assert`, `assertNotNil`, `assertNever`, `withAssertSync`/`withAssertAsync` + decorator contract guards | Throw-first counterparts of the checks + per-call result gates (narrow, never return to broken state) |
@@ -145,8 +145,8 @@ Handlers cover numeric edge cases (`NaN`/`±Infinity`/`-0`, bigint, symbols via 
 ### Node streams
 
 ```ts
-import { tee } from "jutilities/node-stream";
-import { streamSize } from "jutilities/node-stream";
+import { tee } from "jutilities/node/stream";
+import { streamSize } from "jutilities/node/stream";
 
 const [memory, disk] = tee({ source: upload }); // backpressure-aware duplication
 

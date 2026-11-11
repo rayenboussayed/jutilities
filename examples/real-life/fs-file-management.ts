@@ -1,7 +1,7 @@
 /* eslint-disable deslint/no-prod-console -- examples are demo scripts; printing is their purpose */
 
 import { djb2, sdbm } from "jutilities/hash";
-import { stream2buffer, tee } from "jutilities/node-stream";
+import { stream2buffer, tee } from "jutilities/node/stream";
 import { withRetrySync } from "jutilities/retry";
 import { abort } from "jutilities/signal";
 import { sleepAsync } from "jutilities/sleep";

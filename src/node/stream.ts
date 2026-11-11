@@ -1,6 +1,6 @@
 import { PassThrough, Readable, Transform } from "node:stream";
 
-import type { WithSignal } from "./types/with.js";
+import type { WithSignal } from "../types/with.js";
 
 /**
  * Node.js stream utilities: duplication, buffering, and byte counting.
