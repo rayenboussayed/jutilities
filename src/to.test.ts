@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { fromBase64 } from "./from.js";
-import { toArray, toBase64, toBuffer, toSeconds } from "./to.js";
+import { toArray, toBase64, toBuffer, toSeconds, toUint8Array } from "./to.js";
 
 describe("toArray", () => {
   it("wraps scalars in a single-element array", () => {
@@ -127,5 +127,26 @@ describe("toSeconds", () => {
     expect(toSeconds(0)).toBe(0);
     expect(toSeconds(499)).toBe(0);
     expect(toSeconds(1000)).toBe(1);
+  });
+});
+
+describe("toUint8Array", () => {
+  it("encodes strings", () => {
+    expect([...toUint8Array("ab")]).toStrictEqual([97, 98]);
+  });
+
+  it("wraps ArrayBuffers", () => {
+    const buf = new ArrayBuffer(2);
+    new Uint8Array(buf).set([1, 2]);
+    expect([...toUint8Array(buf)]).toStrictEqual([1, 2]);
+  });
+
+  it("honors view byteOffset/byteLength", () => {
+    const view = new Uint8Array([9, 1, 2, 9]).subarray(1, 3);
+    expect([...toUint8Array(view)]).toStrictEqual([1, 2]);
+  });
+
+  it("wraps number arrays", () => {
+    expect([...toUint8Array([1, 2, 3])]).toStrictEqual([1, 2, 3]);
   });
 });

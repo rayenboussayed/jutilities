@@ -55,3 +55,25 @@ export function toBuffer(chunk: any) {
 export function toSeconds(ms: number): number {
   return Math.round(ms / 1000);
 }
+
+/**
+ * Normalizes a string, ArrayBuffer, typed array (including `Buffer` and
+ * `DataView`), or number array into a fresh `Uint8Array` over the viewed
+ * region (honoring `byteOffset`/`byteLength` for views).
+ * @param value - The value to convert.
+ * @returns The byte representation.
+ */
+export function toUint8Array(
+  value: ArrayBuffer | ArrayBufferView | number[] | string,
+): Uint8Array<ArrayBuffer> {
+  if (typeof value === "string") return new TextEncoder().encode(value);
+  if (value instanceof ArrayBuffer) return new Uint8Array(value);
+  if (ArrayBuffer.isView(value))
+    return new Uint8Array(
+      value.buffer as ArrayBuffer,
+      value.byteOffset,
+      value.byteLength,
+    );
+  return new Uint8Array(value);
+}
+

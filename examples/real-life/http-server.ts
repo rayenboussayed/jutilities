@@ -10,7 +10,7 @@ import { withCacheAsync } from "jutilities/cache";
 import { isRecord } from "jutilities/is";
 import { superjson } from "jutilities/json";
 import { withLoggerAsync } from "jutilities/logger";
-import { stream2buffer } from "jutilities/node/stream";
+import { stream2buffer } from "jutilities/node/stream/buffer";
 import { withRetryAsync } from "jutilities/retry";
 import { sleepAsync } from "jutilities/sleep";
 import { withTimeoutAsync } from "jutilities/timeout";
@@ -151,7 +151,7 @@ async function dispatch(
     }
     if (url.pathname === "/echo" && req.method === "POST") {
       const payload = superjson.parse<unknown>(
-        (await stream2buffer(req)).toString("utf8"),
+        (await stream2buffer({ stream: req })).toString("utf8"),
       );
       assert(isRecord(payload), "echo payload must be a JSON object", "router");
       send(200, payload);

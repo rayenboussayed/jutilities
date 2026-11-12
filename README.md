@@ -1,8 +1,8 @@
 # jutilities
 
-Small, typed, heavily documented TypeScript utilities for Node.js — caching, retries, timeouts, delays, abort-aware sleeps, one-shot signal listeners, Node stream helpers, a super-JSON serializer, non-cryptographic hashes, and type guards.
+Small, typed, heavily documented TypeScript utilities for Node.js — caching, retries, timeouts, delays, abort-aware sleeps, one-shot signal listeners, Node stream and filesystem helpers, a super-JSON serializer, non-cryptographic hashes, and type guards.
 
-Everything is an independent module with a locked, test-verified behavior contract (435 tests). Every non-obvious quirk is documented at the call site.
+Everything is an independent module with a locked, test-verified behavior contract (600 tests). Every non-obvious quirk is documented at the call site.
 
 > **Status:** APIs are stable in practice, but semver guarantees are not yet frozen. Requires **Node ≥ 22** (uses `Buffer` pool semantics, `Symbol.for` round-trips, shared timers).
 
@@ -52,7 +52,14 @@ import { superjson } from "jutilities/json";
 | `jutilities/libs/clock` | `now` | The clock the timing-sensitive wrappers measure with (monotonic in Node, `Date.now` in the browser branch) |
 | `jutilities/decorators/<kind>` | `decorateMethod`, `decorateClass`, `decorateProperty`, `decorateGetter` | Turn fn-first HOFs into fully typed Stage 3 decorators (methods / whole classes / function-valued fields / getters) |
 | `jutilities/json` | `Json`, `superjson` | Round-trip Map/Set/Date/bigint/typed arrays/Errors… |
-| `jutilities/node/stream` | `tee`, `stream2buffer`, `buffer2stream`, `streamSizeTransform`, `streamSize` | Bandwidth-aware stream plumbing |
+| `jutilities/node/stream/buffer` | `buffer2stream`, `stream2buffer` | Buffer ↔ stream conversion |
+| `jutilities/node/stream/size` | `streamSize`, `streamSizeTransform` | Bandwidth-aware stream sizing |
+| `jutilities/node/stream/tee` | `tee` | Backpressure-aware stream duplication |
+| `jutilities/node/stream/cache` | `StreamCache` | Filesystem-backed byte cache with ranges, TTL, size caps, and append-aware fills |
+| `jutilities/node/fs/cache` | `clearFsCache`, `fsCacheKey`, `statPath`, `lstatPath`, `readdirPath`, `readTextPath` | Namespaced filesystem fact cache shared by the `node/fs` helpers |
+| `jutilities/node/fs/utils` | `ensureDirectory`, `fileSize`, `pathExists`, `removeDirectorySync`, `removeFiles` | Cached core filesystem helpers (create, size, existence, cleanup) |
+| `jutilities/node/fs/json` | `readJsonFile`, `writeJsonFile` | JSON sidecar reads/writes with cached text and custom parse/stringify |
+| `jutilities/node/fs/dir` | `directoryEntries`, `walkDirectory`, `directoryFiles`, `directorySize`, `directoryTree`, `directoryMetadata`, `copyDirectory`, `moveDirectory`, `emptyDirectory`, `removeDirectory`, `createTempDirectory` | Cached, sorted, signal-aware directory scans plus copy/move/cleanup management |
 | `jutilities/hash` | `djb2`, `sdbm`, `fnv1a64` | Fast 32-bit seeds + BigInt (unmasked) hashing |
 | `jutilities/is` | 17 type guards | `isRecord`, `isEmpty`, `isThenable`, … |
 | `jutilities/assert` | `assert`, `assertNotNil`, `assertNever`, `withAssertSync`/`withAssertAsync` + decorator contract guards | Throw-first counterparts of the checks + per-call result gates (narrow, never return to broken state) |
@@ -145,12 +152,12 @@ Handlers cover numeric edge cases (`NaN`/`±Infinity`/`-0`, bigint, symbols via 
 ### Node streams
 
 ```ts
-import { tee } from "jutilities/node/stream";
-import { streamSize } from "jutilities/node/stream";
+import { tee } from "jutilities/node/stream/tee";
+import { streamSize } from "jutilities/node/stream/size";
 
-const [memory, disk] = tee({ source: upload }); // backpressure-aware duplication
+const [memory, disk] = tee({ stream: upload }); // backpressure-aware duplication
 
-for await (const chunk of streamSize(fetchStream, { onSize: console.log })) {
+for await (const chunk of streamSize({ onSize: console.log, stream: fetchStream })) {
   // onSize reports cumulative { size, done } per chunk and at flush
 }
 ```
@@ -248,7 +255,7 @@ keys), and a single `skipHof` covers every layer.
 npm run lint        # 0 errors / 0 warnings policy
 npm run lint:fix
 npm run typecheck   # strict TS, tests included
-npm test            # 472 tests
+npm test            # 600 tests
 npm run build       # tsc → dist (tests excluded)
 npm run examples    # run every example in examples/
 ```

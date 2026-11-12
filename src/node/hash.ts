@@ -26,7 +26,16 @@ export class Hash {
    * @param options - Data to digest, with HMAC key; plain hash when omitted.
    * @returns The digest.
    */
-  buffer: (options: BaseHashOptions<{ value: Buffer | string }>) => Buffer;
+  readonly buffer = withCacheSync(
+    (options: BaseHashOptions<{ value: Buffer | string }>) => {
+      const { options: hashOptions, secret, value } = options;
+      const sha = secret
+        ? crypto.createHmac(this.algorithm, secret, hashOptions)
+        : crypto.createHash(this.algorithm, hashOptions);
+      return sha.update(value).digest();
+    },
+    { extraKeys: [this.name] },
+  );
 
   /**
    * The algorithm name passed to `node:crypto`.
@@ -42,20 +51,6 @@ export class Hash {
       throw TypeError(
         `Unsupported hash algorithm (${algorithm}), supported: ${Hash.SUPPORTED.join()}`,
       );
-
-    const computeBuffer = (
-      options: BaseHashOptions<{ value: Buffer | string }>,
-    ) => {
-      const { options: hashOptions, secret, value } = options;
-      const sha = secret
-        ? crypto.createHmac(this.algorithm, secret, hashOptions)
-        : crypto.createHash(this.algorithm, hashOptions);
-      return sha.update(value).digest();
-    };
-
-    this.buffer = withCacheSync(computeBuffer, {
-      extraKeys: [this.algorithm],
-    });
   }
 
   /**

@@ -1,6 +1,7 @@
 import { Readable } from "node:stream";
 import { describe, expect, it } from "vitest";
 
+import { globalCache } from "../cache.js";
 import {
   blake2b512,
   Hash,
@@ -73,9 +74,11 @@ describe("node hash", () => {
   });
 
   it("md5 and blake2 exports work", () => {
+    globalCache.clear();
     expect(md5.buffer({ value: "abc" }).toString("hex")).toBe(
       "900150983cd24fb0d6963f7d28e17f72",
     );
+    globalCache.clear();
     expect(blake2b512.buffer({ value: "abc" })).toHaveLength(64);
   });
 

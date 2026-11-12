@@ -32,15 +32,16 @@ Every statement below is pinned by an executable test in `src/**/*.test.ts` — 
 8. [logger](#logger) — `withLoggerSync` / `withLoggerAsync`
 9. [decorators](#decorators) — `decorateMethod`, `decorateClass`, `decorateProperty`, `decorateGetter`
 10. [json](#json) — `Json`, `superjson`
-11. [node-stream](#node-stream) — `tee`, `stream2buffer`, `buffer2stream`, `streamSizeTransform`, `streamSize`
-12. [hash](#hash) — `djb2`, `sdbm`, `fnv1a64`
-13. [is](#is) — 17 type guards
-14. [assert](#assert) — `assert`, `assertNotNil`, `assertNever`, `withAssertSync`/`withAssertAsync` + decorator contract guards
-15. [to](#to) / [from](#from) — `toArray`, `toBase64`, `fromBase64`
-16. [types](#types) — shared type utilities
-17. [create-hof](#create-hof) — `createHofSync`, `createHofAsync`
-18. [with](#with) — `withAsync`, `withSync` (stack composition)
-19. [clock](#clock) — `now` (the shared timing helper)
+11. [node-stream](#node-stream) — `node/stream/tee`, `node/stream/buffer`, `node/stream/size`, `node/stream/cache`
+12. [node-fs](#node-fs) — `node/fs/utils`, `node/fs/json`, `node/fs/dir`
+13. [hash](#hash) — `djb2`, `sdbm`, `fnv1a64`
+14. [is](#is) — 17 type guards
+15. [assert](#assert) — `assert`, `assertNotNil`, `assertNever`, `withAssertSync`/`withAssertAsync` + decorator contract guards
+16. [to](#to) / [from](#from) — `toArray`, `toBase64`, `fromBase64`
+17. [types](#types) — shared type utilities
+18. [create-hof](#create-hof) — `createHofSync`, `createHofAsync`
+19. [with](#with) — `withAsync`, `withSync` (stack composition)
+20. [clock](#clock) — `now` (the shared timing helper)
 
 ---
 
@@ -577,24 +578,29 @@ const sessionCache = withCacheAsync(processState, {
 ## node-stream
 
 ```ts
-import {
-  tee, stream2buffer, buffer2stream, streamSizeTransform, streamSize,
-} from "jutilities/node/stream";
+import { buffer2stream, stream2buffer } from "jutilities/node/stream/buffer";
+import { streamSize, streamSizeTransform } from "jutilities/node/stream/size";
+import { tee } from "jutilities/node/stream/tee";
 
-function tee(o: { source: Readable; signal?: AbortSignal }): [PassThrough, PassThrough];
+function tee(o: { stream: Readable; signal?: AbortSignal }): [PassThrough, PassThrough];
 
-function stream2buffer(readable: Readable, o?: { signal?: AbortSignal }): Promise<Buffer>;
+function stream2buffer(o: { stream: Readable; signal?: AbortSignal }): Promise<Buffer>;
 
-function buffer2stream(buffer: Buffer, o?: { signal?: AbortSignal; chunkSize?: number }): Readable;
+function buffer2stream(o: {
+  buffer: Buffer;
+  chunkSize?: number;
+  signal?: AbortSignal;
+}): Readable;
 
 function streamSizeTransform(o: {
-  signal?: AbortSignal;
   onSize: (r: { size: number; done: boolean }) => void;
+  signal?: AbortSignal;
 }): Transform;
 
-function streamSize(readable: Readable, o: {
-  signal?: AbortSignal;
+function streamSize(o: {
+  stream: Readable;
   onSize: (r: { size: number; done: boolean }) => void;
+  signal?: AbortSignal;
 }): AsyncGenerator;
 ```
 
@@ -636,19 +642,221 @@ function streamSize(readable: Readable, o: {
   `done: true` report never fires (same skip on underlying stream errors).
 - String chunks are counted by their encoded length.
 
+### `StreamCache` (`jutilities/node/stream/cache`)
+
+```ts
+import { StreamCache } from "jutilities/node/stream/cache";
+
+const cache = new StreamCache({
+  directory: cacheDir,
+  deleteBeforeExit: true,
+  maxFileSize: 64 * 1024 * 1024,
+  onError: console.error,
+  timeToLive: 60_000,
+});
+```
+
+- Entries live at `<directory>/<encodeURIComponent(key)>.bin` with a
+  `<file>.meta.json` sidecar (`{ createdAt, size }`); `createCachePath(key)`
+  returns the data path.
+- `read({ key, start?, end?, signal? })` returns a `Readable` for the inclusive
+  byte range, or `undefined` on a miss. Inverted or out-of-range ranges yield
+  an empty stream rather than an error.
+- `write({ key, readable, append?, signal? })` schedules a background fill and
+  returns immediately — it never rejects. Failures are reported to `onError`
+  and unlink the partial entry. A non-append fill is ignored while another
+  non-append fill for the same key is active; appends queue behind the active
+  fill.
+- `timeToLive` and `maxFileSize` default to `Infinity`. A non-positive TTL
+  skips writes, and `maxFileSize` caps each entry across appends.
+- `getOriginalSize(key)` returns the recorded size (falling back to `stat`), and
+  `unlink(key)` removes both the data file and the sidecar.
+- `deleteBeforeExit: true` removes the whole cache directory on the process
+  `beforeExit` event.
+
 ### Use cases
 
 1. **Duplicate a download to memory *and* disk in one read** (`tee`).
 2. **Upload-size guardrails** — count with `streamSize` and abort over quota.
 3. **Stream a prepared buffer with backpressure** (`buffer2stream`).
 4. **Byte-accurate telemetry** — report real uploaded bytes per request.
+5. **Resumable media/range caching** — store fetched bytes and serve inclusive
+   ranges from disk (`StreamCache`).
 
 ### Composition
 
 ```ts
-const [persisted, counter] = tee({ source: read, signal: cts.signal });
+const [persisted, counter] = tee({ signal: cts.signal, stream: read });
 void pipeline(persisted, diskWrite);
-for await (const chunk of streamSize(counter, { onSize: report })) void chunk;
+for await (const chunk of streamSize({ onSize: report, stream: counter })) void chunk;
+```
+
+---
+
+## node-fs
+
+Three focused modules share the filesystem domain. Successful `stat`, `lstat`,
+`readdir`, and UTF-8 text reads are cached process-wide through
+[`node/fs/cache`](#nodefscache), which uses the shared TTL-backed
+`globalCache` (default 300 s). Mutating helpers invalidate the filesystem
+facts automatically; direct `node:fs` changes are only observed after the TTL
+expires or `clearFsCache()` is called.
+
+### node/fs/cache
+
+```ts
+import {
+  clearFsCache,
+  fsCacheKey,
+  lstatPath,
+  readdirPath,
+  readTextPath,
+  statPath,
+} from "jutilities/node/fs/cache";
+```
+
+- `statPath({ filePath })`, `lstatPath({ filePath })`, and
+  `readTextPath({ filePath })` cache successful reads by exact path. Rejections
+  are never cached, so a failed probe retries on the next call.
+- `readdirPath({ directory })` caches the raw `Dirent` array. The array is
+  shared: callers that sort must copy it first (the directory scanners do).
+- `clearFsCache()` bumps an internal generation and deletes only
+  `jutilities/node/fs:`-prefixed entries from `globalCache`. The generation is
+  part of every key, so a read already in flight before a mutation cannot store
+  a stale result under a key that later reads will use.
+- `fsCacheKey(operation, key)` is the exported key builder used by those
+  primitives; keys encode the path and include the current generation.
+
+### node/fs/utils
+
+```ts
+import {
+  ensureDirectory,
+  fileSize,
+  pathExists,
+  removeDirectorySync,
+  removeFiles,
+} from "jutilities/node/fs/utils";
+```
+
+- All helpers take one options object.
+- `ensureDirectory({ directory })` creates the directory and any missing
+  parents; it is idempotent. It invalidates filesystem cache facts.
+- `removeDirectorySync({ directory })` removes a directory tree with
+  `force`/`recursive` enabled. Missing directories are ignored. It is
+  synchronous so it can run from `process.beforeExit` handlers, and it
+  invalidates filesystem cache facts.
+- `pathExists({ filePath })` returns `true` when the path exists and `false`
+  only when it is missing (`ENOENT`). Any other stat failure is thrown.
+  Successful stats are shared with `fileSize` through the filesystem cache;
+  missing paths are not cached.
+- `fileSize({ filePath })` returns `stat().size`; stat failures are thrown.
+  Successful stats are cached until a mutating helper runs, the TTL expires, or
+  `clearFsCache()` is called.
+- `removeFiles({ filePaths })` removes every path concurrently with
+  `fs.rm(..., { force: true })`. Missing files are ignored; other removal
+  failures reject. Filesystem cache facts are invalidated even when a removal
+  fails.
+
+### node/fs/json
+
+```ts
+import { readJsonFile, writeJsonFile } from "jutilities/node/fs/json";
+```
+
+- `readJsonFile<T>({ filePath, parse? })` reads the file text and applies
+  `parse` (default `JSON.parse`). Read and parse failures are thrown. The text
+  is cached, but parsing runs on every call, so each caller gets a fresh value
+  and custom parsers still receive the cached text.
+- `writeJsonFile({ filePath, stringify?, value })` creates the parent directory
+  and writes `stringify(value)` (default `JSON.stringify`). It throws when
+  `value` is not JSON-serializable (for example `undefined`, a function, or a
+  symbol) or when the write fails. It invalidates filesystem cache facts.
+
+### node/fs/dir
+
+```ts
+import {
+  copyDirectory,
+  createTempDirectory,
+  directoryEntries,
+  directoryFiles,
+  directoryMetadata,
+  directorySize,
+  directoryTree,
+  emptyDirectory,
+  moveDirectory,
+  removeDirectory,
+  walkDirectory,
+} from "jutilities/node/fs/dir";
+```
+
+- Scans take `{ directory, signal? }` and sort entries by name with
+  `localeCompare`, so output order is deterministic. Read and stat failures are
+  thrown. Successful reads are cached (the cached entries array is copied
+  before sorting), and mutating helpers invalidate the cache.
+- `directoryEntries` returns the immediate `Dirent` objects; a read failure
+  rejects.
+- `walkDirectory` is an async generator of descendant paths in sorted
+  depth-first order. The root is not yielded, symlinks are yielded but never
+  followed, and an unreadable subdirectory rejects the scan.
+- `directoryFiles` returns regular-file paths recursively by default;
+  `recursive: false` limits it to immediate children. Symlinks are not
+  reported as files.
+- `directorySize` sums the bytes of regular files and the link length of
+  symlinks; directory inode sizes are ignored. It resolves to `undefined` when
+  the root is not a directory; a missing or unreadable root rejects.
+- `directoryMetadata` returns `{ createdAt, modifiedAt, directories, entries,
+  files, size, symlinks }`; counts cover descendants only and the timestamps
+  come from the root. The root is accepted through an explicit symlink, while
+  descendants are `lstat`ed. It resolves to `undefined` under the same root
+  conditions as `directorySize`.
+- `directoryTree` returns nested `{ children, kind, name, path, size? }` nodes.
+  `kind` is `"directory" | "file" | "symlink"`; `size` is present for files and
+  symlinks only. An unreadable subdirectory rejects the build.
+- `copyDirectory({ source, destination, overwrite? })` creates the destination
+  parent, copies symlinks verbatim, and refuses an existing destination unless
+  `overwrite: true`. Real copy failures are thrown, and filesystem cache facts
+  are invalidated even after a failure.
+- `moveDirectory({ source, destination })` creates the destination parent and
+  attempts `rename` first. Only an `EXDEV` cross-device failure falls back to
+  copy-and-remove; every other error is rethrown. Filesystem cache facts are
+  invalidated.
+- `emptyDirectory({ directory })` removes every child but keeps the directory,
+  creating it when missing. Filesystem cache facts are invalidated even when a
+  removal fails.
+- `removeDirectory({ directory })` removes a tree with `force`/`recursive`
+  enabled and ignores a missing directory. Real removal failures are thrown.
+  Filesystem cache facts are invalidated.
+- `createTempDirectory({ directory?, prefix? })` creates a unique directory
+  under `os.tmpdir()` (default prefix `"jutilities-"`) and creates the parent
+  when missing. Filesystem cache facts are invalidated.
+
+### Use cases
+
+1. Persisting small JSON metadata sidecars next to binary cache files.
+2. Auditing a project tree — file inventory, total size, or deterministic tree
+   rendering.
+3. Provisioning a temp workspace and cleaning it up without repetitive
+   `try`/`catch`.
+4. Caching repeated scans while still observing your own writes; call
+   `clearFsCache()` after changing files through another API when fresh reads
+   are required immediately.
+
+### Composition
+
+```ts
+const workspace = await createTempDirectory();
+await writeJsonFile({ filePath: join(workspace, "meta.json"), value: { size: 42 } });
+
+const files = await directoryFiles({ directory: workspace });
+const metadata = await directoryMetadata({ directory: workspace });
+const tree = await directoryTree({ directory: workspace });
+
+await copyDirectory({ source: workspace, destination: copyPath });
+await moveDirectory({ source: copyPath, destination: finalPath });
+await emptyDirectory({ directory: workspace });
+await removeDirectory({ directory: workspace });
 ```
 
 ---

@@ -1,7 +1,8 @@
 /* eslint-disable deslint/no-prod-console -- examples are demo scripts; printing is their purpose */
 
 import { djb2, sdbm } from "jutilities/hash";
-import { stream2buffer, tee } from "jutilities/node/stream";
+import { stream2buffer } from "jutilities/node/stream/buffer";
+import { tee } from "jutilities/node/stream/tee";
 import { withRetrySync } from "jutilities/retry";
 import { abort } from "jutilities/signal";
 import { sleepAsync } from "jutilities/sleep";
@@ -121,9 +122,9 @@ try {
   // eslint-disable-next-line security/detect-non-literal-fs-filename
   const config = await readFile(configPath, "utf8");
   const [disk, memory] = tee({
-    source: Readable.from([Buffer.from(config, "utf8")]),
+    stream: Readable.from([Buffer.from(config, "utf8")]),
   });
-  const memoryCopy = stream2buffer(memory);
+  const memoryCopy = stream2buffer({ stream: memory });
   // eslint-disable-next-line security/detect-non-literal-fs-filename
   await pipeline(disk, createWriteStream(join(workspace, "app.copy")));
   // eslint-disable-next-line security/detect-non-literal-fs-filename

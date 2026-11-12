@@ -36,7 +36,7 @@ export const defaultGenerateCacheKey = (options: CacheKeyParams<AnyFunction>) =>
 export type CacheKeyParams<T extends AnyFunction> = {
   extraKeys?: unknown[];
   function: string;
-  parameters: Parameters<T>[];
+  parameters: Parameters<T>;
 };
 
 export interface CacheKind<T extends AnyFunction = AnyFunction> extends HofKind<T> {
@@ -70,7 +70,7 @@ export type Options<T extends AnyFunction> = {
 };
 
 export type ShouldCacheParams<T extends AnyFunction> = {
-  parameters: Parameters<T>[];
+  parameters: Parameters<T>;
   result: Awaited<ReturnType<T>>;
 };
 
