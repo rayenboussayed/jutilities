@@ -1,49 +1,43 @@
+import { createHash, randomUUID } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 /* eslint-disable security/detect-non-literal-fs-filename */
 import { Readable } from "node:stream";
+import { pipeline } from "node:stream/promises";
 
 import type { WithSignal } from "../../types/with.js";
-
-import { readJsonFile, writeJsonFile } from "../fs/json.js";
-import {
-  ensureDirectory,
-  fileSize,
-  pathExists,
-  removeDirectorySync,
-  removeFiles,
-} from "../fs/utils.js";
 
 /**
  * Options for {@link StreamCache}.
  */
 export type StreamCacheOptions = {
+  /** Remove the cache directory when the process is about to exit. */
   deleteBeforeExit?: boolean;
+  /** Directory holding the cached files. Created on first write. */
   directory: string;
+  /** Maximum bytes per entry (default unlimited). */
   maxFileSize?: number;
+  /** Receives every background failure; `write` itself never throws. */
   onError?: (error: unknown) => void;
+  /** Entry lifetime in milliseconds (default unlimited, `<= 0` disables caching). */
   timeToLive?: number;
 };
 
-type CacheMetadata = {
-  createdAt?: number;
-  size?: number;
-};
-
-type FillRecord = {
-  append: boolean;
-  gate: Promise<void>;
-  release: () => void;
-  tail: Promise<void>;
-};
+type Fill = { append: boolean; tail: Promise<void> };
 
 /**
- * Filesystem-backed stream cache with resumable writes and concurrent
- * read/write coordination.
+ * Filesystem-backed stream cache with resumable (append) writes.
+ *
+ * One file per key. A full write goes to a temporary file that is renamed
+ * into place when complete, so readers only ever see whole entries (a miss
+ * while a replacement is in flight). The file size is the entry size and its
+ * modification time is the entry age, so no metadata is stored. Fills for
+ * the same key run one after another; a second full write while one is
+ * already running is dropped.
  */
 export class StreamCache {
   private readonly directory: string;
-  private readonly fills = new Map<string, FillRecord>();
+  private readonly fills = new Map<string, Fill>();
   private readonly maxFileSize: number;
   private readonly onError?: (error: unknown) => void;
   private readonly timeToLive: number;
@@ -54,214 +48,188 @@ export class StreamCache {
    */
   constructor(options: StreamCacheOptions) {
     this.directory = options.directory;
-    this.timeToLive = options.timeToLive ?? Infinity;
     this.maxFileSize = options.maxFileSize ?? Infinity;
     this.onError = options.onError;
+    this.timeToLive = options.timeToLive ?? Infinity;
 
     if (options.deleteBeforeExit) {
-      /* c8 ignore next 3 */
+      /* c8 ignore next 3 -- the callback only runs during the real beforeExit */
       process.once("beforeExit", () => {
-        removeDirectorySync({ directory: this.directory });
+        fs.rmSync(this.directory, { force: true, recursive: true });
       });
     }
   }
 
   /**
-   * Absolute on-disk path for `key`.
+   * Absolute on-disk path for `key` (a hash, so any key is a safe file name).
    * @param key - Cache key.
    * @returns File path.
    */
   createCachePath(key: number | string) {
-    return path.join(this.directory, `${encodeURIComponent(String(key))}.bin`);
+    const name = createHash("sha256").update(String(key)).digest("hex");
+    return path.join(this.directory, `${name}.bin`);
   }
 
   /**
-   * Original cached size, or `undefined` on miss.
+   * Wait until every queued write has finished.
+   */
+  async flush() {
+    await Promise.all([...this.fills.values()].map((fill) => fill.tail));
+  }
+
+  /**
+   * Size of the cached entry, or `undefined` on miss or expiry.
    * @param key - Cache key.
    * @returns Size in bytes.
    */
   async getOriginalSize(key: number | string) {
-    const metadata = await this.readMetadata(key);
-    if (metadata?.size !== undefined) return metadata.size;
-    try {
-      return await fileSize({ filePath: this.createCachePath(key) });
-    } catch (error) {
-      /* c8 ignore next */ this.onError?.(error);
+    const cachePath = this.createCachePath(key);
+    const stats = await fs.promises.stat(cachePath).catch(() => undefined);
+    if (!stats) return undefined;
+    if (Date.now() - stats.mtimeMs >= this.timeToLive) {
+      await fs.promises.rm(cachePath, { force: true });
       return undefined;
     }
+    return stats.size;
   }
 
   /**
-   * Open a readable of cached bytes for a range.
+   * Open a readable over a byte range of an entry.
    * @param options - Key, range and signal.
-   * @param options.end - Inclusive end offset.
+   * @param options.end - Inclusive end offset (default: last byte).
    * @param options.key - Cache key.
    * @param options.signal - Optional abort signal.
-   * @param options.start - Inclusive start offset.
-   * @returns Readable or `undefined` on miss.
+   * @param options.start - Inclusive start offset (default 0).
+   * @returns Readable, empty when the range is empty, or `undefined` on miss.
    */
   async read({
-    end,
+    end = Infinity,
     key,
     signal,
-    start,
+    start = 0,
   }: WithSignal<{ end?: number; key: number | string; start?: number }>) {
-    /* c8 ignore next 3 */
     signal?.throwIfAborted();
-    if (this.fills.get(String(key))?.append === false) return undefined;
+    const size = await this.getOriginalSize(key);
+    if (size === undefined) return undefined;
 
-    const cachePath = this.createCachePath(key);
-    const metadata = await this.readMetadata(key);
-    if (!metadata && !(await pathExists({ filePath: cachePath })))
-      return undefined;
-
-    /* c8 ignore start */
-    const normalizedStart =
-      !Number.isFinite(start) || (start ?? 0) < 0 ? 0 : Math.floor(start ?? 0);
-    const size = metadata?.size ?? (await fileSize({ filePath: cachePath }));
-    let normalizedEnd: number;
-    if (!Number.isFinite(end) || (end ?? -1) < 0) {
-      normalizedEnd = size > 0 ? size - 1 : 0;
-    } else {
-      normalizedEnd = Math.floor(end ?? 0);
-    }
-    /* c8 ignore stop */
-    if (normalizedStart > normalizedEnd) {
-      signal?.throwIfAborted();
-      return Readable.from([], { signal });
-    }
-    if (size > 0 && normalizedStart >= size) {
-      signal?.throwIfAborted();
-      return Readable.from([], { signal });
-    }
-
-    /* c8 ignore next */ signal?.throwIfAborted();
-    return fs.createReadStream(cachePath, {
-      end: normalizedEnd,
+    const first = Math.max(start, 0);
+    const last = Math.min(end, size - 1);
+    if (first > last) return Readable.from([], { objectMode: false, signal });
+    return fs.createReadStream(this.createCachePath(key), {
+      end: last,
       signal,
-      start: normalizedStart,
+      start: first,
     });
   }
 
   /**
    * Remove one cached entry.
    * @param key - Cache key.
+   * @returns Resolves once the entry is removed.
    */
-  async unlink(key: number | string) {
-    await removeFiles({
-      filePaths: [this.createCachePath(key), this.metaPath(key)],
-    });
+  unlink(key: number | string) {
+    return fs.promises.rm(this.createCachePath(key), { force: true });
   }
 
   /**
    * Cache `readable` at `key`.
    *
-   * Never rejects; failures go to `onError`.
+   * Returns immediately and never throws; failures go to `onError` and
+   * leave no partial entry behind.
    * @param options - Key, source and flags.
-   * @param options.append - Append to a partial file.
+   * @param options.append - Extend an existing entry instead of replacing it.
    * @param options.key - Cache key.
    * @param options.readable - Source bytes.
    * @param options.signal - Optional abort signal.
    */
   write({
-    append,
+    append = false,
     key,
     readable,
     signal,
-  }: WithSignal<{ append?: boolean; key: number | string; readable: Readable }>) {
-    /* c8 ignore next 2 */
-    const skip = () =>
-      !Readable.isReadable(readable) || signal?.aborted || (this.timeToLive ?? Infinity) <= 0;
-    if (skip()) {
-      if (typeof readable.destroy === "function") readable.destroy();
+  }: WithSignal<{
+    append?: boolean;
+    key: number | string;
+    readable: Readable;
+  }>) {
+    const id = String(key);
+    const running = this.fills.get(id);
+    if (!append && running && !running.append) {
+      readable.destroy();
       return;
     }
 
-    const stringKey = String(key);
-    const running = this.fills.get(stringKey);
-    /* c8 ignore next */ if (!append && running && !running.append) return;
-    const prior = running?.tail ?? Promise.resolve();
-    const { promise: gate, resolve: release } = Promise.withResolvers<void>();
-    const record: FillRecord = {
-      append: append ?? false,
-      gate,
-      release,
-      tail: (async () => {
-        await prior;
-        await gate;
-      })(),
+    const fill: Fill = {
+      append,
+      tail: (running?.tail ?? Promise.resolve())
+        .then(() =>
+          this.fill(this.createCachePath(key), readable, append, signal),
+        )
+        .catch((error: unknown) => this.onError?.(error))
+        .finally(() => {
+          if (this.fills.get(id) === fill) this.fills.delete(id);
+        }),
     };
-    this.fills.set(stringKey, record);
+    this.fills.set(id, fill);
+  }
 
-    setImmediate(async () => {
-      try {
-        await prior;
-        /* c8 ignore next 4 */
-        if (skip()) {
-          readable.destroy();
-          return;
-        }
-        const metadata = await this.readMetadata(key);
-        /* c8 ignore next */ if (append && !metadata) return;
-        const maxBytes =
-          append && metadata?.size ? this.maxFileSize - metadata.size : this.maxFileSize;
-        /* c8 ignore next */ if (maxBytes <= 0) throw new Error("max file size exceeded");
+  private async fill(
+    target: string,
+    readable: Readable,
+    append: boolean,
+    signal?: AbortSignal,
+  ) {
+    const base = append ? await this.sizeOf(target) : 0;
+    if (
+      base === undefined ||
+      signal?.aborted ||
+      this.timeToLive <= 0 ||
+      !readable.readable
+    ) {
+      readable.destroy();
+      return;
+    }
 
-        await ensureDirectory({ directory: this.directory });
-        const destination = fs.createWriteStream(this.createCachePath(key), {
-          flags: append ? "a" : "w",
-          highWaterMark: readable.readableHighWaterMark,
-          signal,
-        });
-        const { Transform } = await import("node:stream");
-        const limiter = new Transform({
-          transform(chunk, _encoding, callback) {
-            (this as { total?: number }).total =
-              ((this as { total?: number }).total ?? 0) + Buffer.byteLength(chunk);
-            /* c8 ignore next */ if (((this as { total?: number }).total ?? 0) > maxBytes) {
-              callback(new Error("max file size exceeded"));
-              return;
-            }
-            callback(null, chunk);
-          },
-        });
-        const { pipeline } = await import("node:stream/promises");
-        await pipeline(readable, limiter, destination, { signal });
-
-        const stats = await fs.promises.stat(this.createCachePath(key));
-        await this.writeMetadata(key, { createdAt: Date.now(), size: stats.size });
-      } catch (error) {
-        /* c8 ignore next */ this.onError?.(error);
-        /* c8 ignore start */
-        try {
-          await this.unlink(key);
-        } catch (cleanupError) {
-          this.onError?.(cleanupError);
-        }
-        /* c8 ignore stop */
-      } finally {
-        release();
-        if (this.fills.get(stringKey) === record) this.fills.delete(stringKey);
+    await fs.promises.mkdir(this.directory, { mode: 0o700, recursive: true });
+    const destination = append ? target : `${target}.${randomUUID()}.tmp`;
+    let total = base;
+    const limit = async function* (
+      this: StreamCache,
+      source: AsyncIterable<Buffer>,
+    ) {
+      for await (const chunk of source) {
+        total += chunk.length;
+        if (total > this.maxFileSize) throw new Error("max file size exceeded");
+        yield chunk;
       }
-    });
-  }
+    }.bind(this);
 
-  private metaPath(key: number | string) {
-    return `${this.createCachePath(key)}.meta.json`;
-  }
-
-  private async readMetadata(key: number | string) {
     try {
-      return await readJsonFile<CacheMetadata>({
-        filePath: this.metaPath(key),
-      });
+      await pipeline(
+        readable,
+        limit,
+        fs.createWriteStream(destination, {
+          flags: append ? "a" : "w",
+          mode: 0o600,
+        }),
+        { signal },
+      );
+      if (!append) await fs.promises.rename(destination, target);
     } catch (error) {
-      /* c8 ignore next */ this.onError?.(error);
-      return undefined;
+      // Roll back to the last complete state.
+      await (
+        append
+          ? fs.promises.truncate(target, base)
+          : fs.promises.rm(destination, { force: true })
+      ).catch(() => {});
+      throw error;
     }
   }
 
-  private writeMetadata(key: number | string, metadata: CacheMetadata) {
-    return writeJsonFile({ filePath: this.metaPath(key), value: metadata });
+  private sizeOf(filePath: string) {
+    return fs.promises.stat(filePath).then(
+      (stats) => stats.size,
+      () => undefined,
+    );
   }
 }

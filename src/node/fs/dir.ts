@@ -6,13 +6,6 @@ import path from "node:path";
 
 import type { WithSignal } from "../../types/with.js";
 
-import {
-  clearFsCache,
-  lstatPath,
-  readdirPath,
-  statPath,
-} from "./cache.js";
-
 /* eslint-disable security/detect-non-literal-fs-filename */
 
 /**
@@ -50,9 +43,9 @@ export type DirectoryTree = {
   name: string;
   path: string;
   /**
-   * Size in bytes. Present for files and symlinks only: symlinks report the
-   * length of the link itself, and directories are not statted beyond the
-   * directory entry.
+   * Size in bytes. Present for files and symlinks only. File and symlink sizes
+   * come from `stat`, so a symlink reports the size of its target; directories
+   * are not given a size.
    */
   size?: number;
 };
@@ -63,12 +56,61 @@ export type DirectoryTree = {
 type ScanOptions = WithSignal<{ directory: string }>;
 
 /**
+ * Builds the sorted tree for one directory level and its descendants.
+ * @param root0 - Options object.
+ * @param root0.directory - Directory to read.
+ * @param root0.name - Name to give the node.
+ * @param root0.signal - Optional abort signal checked between entries.
+ * @returns The directory node.
+ */
+export async function buildTree({
+  directory,
+  name,
+  signal,
+}: ScanOptions & { name: string }): Promise<DirectoryTree> {
+  const node: DirectoryTree = {
+    children: [],
+    kind: "directory",
+    name,
+    path: directory,
+  };
+
+  const entries = await readEntries({ directory });
+
+  for (const entry of entries) {
+    signal?.throwIfAborted();
+    const entryPath = path.join(directory, entry.name);
+
+    if (entry.isDirectory()) {
+      node.children.push(
+        await buildTree({
+          directory: entryPath,
+          name: entry.name,
+          signal,
+        }),
+      );
+      continue;
+    }
+
+    const stats = await fs.promises.stat(entryPath);
+    node.children.push({
+      children: [],
+      kind: entry.isSymbolicLink() ? "symlink" : "file",
+      name: entry.name,
+      path: entryPath,
+      size: stats.size,
+    });
+  }
+
+  return node;
+}
+
+/**
  * Copies a directory tree, including symlinks as symlinks.
  *
  * The destination parent is created when missing. Relative symlink targets are
  * preserved verbatim rather than rewritten to absolute paths. Real copy
- * failures are thrown. Cached filesystem facts are invalidated, including
- * after a failure.
+ * failures are thrown.
  * @param root0 - Options object.
  * @param root0.source - Directory to copy.
  * @param root0.destination - Destination path.
@@ -83,25 +125,20 @@ export async function copyDirectory({
   overwrite?: boolean;
   source: string;
 }) {
-  try {
-    await fs.promises.mkdir(path.dirname(destination), { recursive: true });
-    await fs.promises.cp(source, destination, {
-      dereference: false,
-      errorOnExist: !overwrite,
-      force: overwrite,
-      recursive: true,
-      verbatimSymlinks: true,
-    });
-  } finally {
-    clearFsCache();
-  }
+  await fs.promises.mkdir(path.dirname(destination), { recursive: true });
+  await fs.promises.cp(source, destination, {
+    dereference: false,
+    errorOnExist: !overwrite,
+    force: overwrite,
+    recursive: true,
+    verbatimSymlinks: true,
+  });
 }
 
 /**
  * Creates a unique temporary directory.
  *
- * The parent directory is created when missing. Cached filesystem facts are
- * invalidated, including after a failure.
+ * The parent directory is created when missing.
  * @param root0 - Options object.
  * @param root0.directory - Parent directory (default `os.tmpdir()`).
  * @param root0.prefix - Name prefix (default `"jutilities-"`).
@@ -114,29 +151,8 @@ export async function createTempDirectory({
   directory?: string;
   prefix?: string;
 } = {}) {
-  try {
-    await fs.promises.mkdir(directory, { recursive: true });
-    return await fs.promises.mkdtemp(path.join(directory, prefix));
-  } finally {
-    clearFsCache();
-  }
-}
-
-/**
- * Lists the immediate children of a directory.
- *
- * Entries are sorted by name. A read failure is thrown.
- * @param root0 - Options object.
- * @param root0.directory - Directory to list.
- * @param root0.signal - Optional abort signal.
- * @returns Sorted `Dirent` objects.
- */
-export async function directoryEntries({
-  directory,
-  signal,
-}: ScanOptions): Promise<Dirent[]> {
-  signal?.throwIfAborted();
-  return readEntries({ directory });
+  await fs.promises.mkdir(directory, { recursive: true });
+  return fs.promises.mkdtemp(path.join(directory, prefix));
 }
 
 /**
@@ -175,12 +191,11 @@ export async function directoryFiles({
 /**
  * Computes aggregate facts about a directory tree.
  *
- * The root is statted (`stat`, so an explicitly passed symlink to a directory
- * is accepted), while descendants are `lstat`ed and symlinks are never
- * followed. File and symlink sizes contribute to `size`; directory sizes do
- * not. Counts cover descendants only. Read and stat failures are thrown.
- * Successful reads are cached until the entry expires, a mutating helper runs,
- * or {@link clearFsCache} is called.
+ * The root and every descendant are statted, so an explicitly passed symlink
+ * to a directory is accepted and a symlink contributes the size of its target.
+ * Symlinks are never traversed. File and symlink sizes contribute to `size`;
+ * directory sizes do not. Counts cover descendants only. Read and stat
+ * failures are thrown.
  * @param root0 - Options object.
  * @param root0.directory - Directory to inspect.
  * @param root0.signal - Optional abort signal checked between entries.
@@ -192,7 +207,7 @@ export async function directoryMetadata({
 }: ScanOptions): Promise<DirectoryMetadata | undefined> {
   signal?.throwIfAborted();
 
-  const rootStats = await statPath({ filePath: directory });
+  const rootStats = await fs.promises.stat(directory);
   if (!rootStats.isDirectory()) return undefined;
 
   let directories = 0;
@@ -205,7 +220,7 @@ export async function directoryMetadata({
       directories += 1;
       continue;
     }
-    const stats = await entryStats({ filePath: item.path });
+    const stats = await fs.promises.stat(item.path);
     size += stats.size;
     if (item.entry.isSymbolicLink()) {
       symlinks += 1;
@@ -259,7 +274,7 @@ export async function directoryTree({
 }: ScanOptions): Promise<DirectoryTree | undefined> {
   signal?.throwIfAborted();
 
-  const stats = await statPath({ filePath: directory });
+  const stats = await fs.promises.stat(directory);
   if (!stats.isDirectory()) return undefined;
 
   return buildTree({
@@ -273,25 +288,42 @@ export async function directoryTree({
  * Removes every child of a directory while keeping the directory itself.
  *
  * The directory is created when missing. Real removal failures are thrown.
- * Cached filesystem facts are invalidated, including after a failure.
  * @param root0 - Options object.
  * @param root0.directory - Directory to empty.
  */
 export async function emptyDirectory({ directory }: { directory: string }) {
-  try {
-    await fs.promises.mkdir(directory, { recursive: true });
-    const entries = await fs.promises.readdir(directory);
-    await Promise.all(
-      entries.map((name) =>
-        fs.promises.rm(path.join(directory, name), {
-          force: true,
-          recursive: true,
-        }),
-      ),
-    );
-  } finally {
-    clearFsCache();
-  }
+  await fs.promises.mkdir(directory, { recursive: true });
+  const entries = await fs.promises.readdir(directory);
+  await Promise.all(
+    entries.map((name) =>
+      fs.promises.rm(path.join(directory, name), {
+        force: true,
+        recursive: true,
+      }),
+    ),
+  );
+}
+
+/**
+ * Creates a directory and any missing parents.
+ *
+ * Idempotent: resolves without error when the directory already exists.
+ * @param root0 - Options object.
+ * @param root0.directory - Directory to create.
+ * @returns Resolves once the directory exists.
+ */
+export function ensureDirectory({ directory }: { directory: string }) {
+   
+  return fs.promises.mkdir(directory, { recursive: true });
+}
+
+/**
+ * Detects the `EXDEV` error raised when a rename crosses filesystems.
+ * @param error - The caught value.
+ * @returns `true` for an `Error` whose `code` is `"EXDEV"`.
+ */
+export function isCrossDeviceError(error: unknown): boolean {
+  return error instanceof Error && "code" in error && error.code === "EXDEV";
 }
 
 /**
@@ -299,8 +331,7 @@ export async function emptyDirectory({ directory }: { directory: string }) {
  *
  * The destination parent is created when missing. Renames are attempted
  * first; only `EXDEV` triggers the copy fallback. Other rename, copy, and
- * removal failures are thrown. Cached filesystem facts are invalidated,
- * including after a failure.
+ * removal failures are thrown.
  * @param root0 - Options object.
  * @param root0.source - Directory to move.
  * @param root0.destination - Destination path.
@@ -312,139 +343,16 @@ export async function moveDirectory({
   destination: string;
   source: string;
 }) {
+  await fs.promises.mkdir(path.dirname(destination), { recursive: true });
   try {
-    await fs.promises.mkdir(path.dirname(destination), { recursive: true });
-    try {
-      await fs.promises.rename(source, destination);
-    } catch (error) {
-      if (!isCrossDeviceError(error)) throw error;
-      await copyDirectory({ destination, source });
-      await fs.promises.rm(source, { force: true, recursive: true });
-    }
-  } finally {
-    clearFsCache();
+    await fs.promises.rename(source, destination);
+  } catch (error) {
+    if (!isCrossDeviceError(error)) throw error;
+    await copyDirectory({ destination, source });
+    await fs.promises.rm(source, { force: true, recursive: true });
   }
 }
 
-/**
- * Removes a directory tree, ignoring a missing directory.
- *
- * Real removal failures are thrown. Cached filesystem facts are invalidated,
- * including after a failure.
- * @param root0 - Options object.
- * @param root0.directory - Directory to remove.
- */
-export async function removeDirectory({ directory }: { directory: string }) {
-  try {
-    await fs.promises.rm(directory, { force: true, recursive: true });
-  } finally {
-    clearFsCache();
-  }
-}
-
-/**
- * Lazily walks every descendant of a directory in sorted depth-first order.
- *
- * The root itself is not yielded. Symlinks are yielded but not followed. Read
- * failures are thrown. Throws synchronously when the signal is already
- * aborted; aborting later rejects the next `next()` call.
- * @param options - Scan options.
- * @yields Each descendant path, in sorted depth-first order.
- */
-export async function* walkDirectory(
-  options: ScanOptions,
-): AsyncGenerator<string> {
-  for await (const item of walkEntries(options)) {
-    yield item.path;
-  }
-}
-
-/**
- * Builds the sorted tree for one directory level and its descendants.
- * @param root0 - Options object.
- * @param root0.directory - Directory to read.
- * @param root0.name - Name to give the node.
- * @param root0.signal - Optional abort signal checked between entries.
- * @returns The directory node.
- */
-async function buildTree({
-  directory,
-  name,
-  signal,
-}: ScanOptions & { name: string }): Promise<DirectoryTree> {
-  const node: DirectoryTree = {
-    children: [],
-    kind: "directory",
-    name,
-    path: directory,
-  };
-
-  const entries = await readEntries({ directory });
-
-  for (const entry of entries) {
-    signal?.throwIfAborted();
-    const entryPath = path.join(directory, entry.name);
-
-    if (entry.isDirectory()) {
-      node.children.push(
-        await buildTree({
-          directory: entryPath,
-          name: entry.name,
-          signal,
-        }),
-      );
-      continue;
-    }
-
-    const stats = await entryStats({ filePath: entryPath });
-    node.children.push({
-      children: [],
-      kind: entry.isSymbolicLink() ? "symlink" : "file",
-      name: entry.name,
-      path: entryPath,
-      size: stats.size,
-    });
-  }
-
-  return node;
-}
-
-/**
- * `lstat`s one path without following symlinks.
- *
- * Stat failures are thrown, and successful stats join the shared cache.
- * @param root0 - Options object.
- * @param root0.filePath - Path to inspect.
- * @returns The entry stats.
- */
-async function entryStats({ filePath }: { filePath: string }) {
-  return lstatPath({ filePath });
-}
-
-/**
- * Detects the `EXDEV` error raised when a rename crosses filesystems.
- * @param error - The caught value.
- * @returns `true` for an `Error` whose `code` is `"EXDEV"`.
- */
-function isCrossDeviceError(error: unknown): boolean {
-  return error instanceof Error && "code" in error && error.code === "EXDEV";
-}
-
-/**
- * Reads one directory level, sorted by name.
- *
- * Read failures are thrown. The cached entries array is copied before sorting
- * so the shared cache value is not mutated.
- * @param root0 - Options object.
- * @param root0.directory - Directory to read.
- * @returns Sorted entries.
- */
-async function readEntries({ directory }: { directory: string }) {
-  const entries = await readdirPath({ directory });
-  return [...entries].sort((left, right) =>
-    left.name.localeCompare(right.name),
-  );
-}
 
 /**
  * Depth-first walk over the entries below `directory`.
@@ -456,18 +364,34 @@ async function readEntries({ directory }: { directory: string }) {
  * @param root0.signal - Optional abort signal checked between entries.
  * @yields Each descendant entry together with its absolute path.
  */
-async function* walkEntries({
+export async function* walkEntries({
   directory,
   signal,
 }: ScanOptions): AsyncGenerator<{ entry: Dirent; path: string }> {
   signal?.throwIfAborted();
   const entries = await readEntries({ directory });
+
   for (const entry of entries) {
     signal?.throwIfAborted();
+
     const entryPath = path.join(directory, entry.name);
     yield { entry, path: entryPath };
+
     if (entry.isDirectory()) {
       yield* walkEntries({ directory: entryPath, signal });
     }
   }
+}
+
+/**
+ * Reads one directory level, sorted by name.
+ *
+ * Read failures are thrown.
+ * @param root0 - Options object.
+ * @param root0.directory - Directory to read.
+ * @returns Sorted entries.
+ */
+async function readEntries({ directory }: { directory: string }) {
+  const entries = await fs.promises.readdir(directory, { withFileTypes: true });
+  return entries.sort((left, right) => left.name.localeCompare(right.name));
 }

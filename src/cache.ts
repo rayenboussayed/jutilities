@@ -94,9 +94,9 @@ export type ShouldCacheParams<T extends AnyFunction> = {
  * @param options.cacheStore - Object with `get`/`set`/`delete` (defaults to a
  * process-wide TTL-backed `ExpiredMap`).
  * @param options.generateCacheKey - Custom key factory over
- * `{ parameters, function, extraKeys }` (defaults to the hashed keygen
+ * the `(parameters, function, extraKeys)` record (defaults to the hashed keygen
  * `djb2(superjson.stringify(...))`); may return a string or a number.
- * @param options.shouldCache - Predicate over `{ parameters, result }` deciding
+ * @param options.shouldCache - Predicate over the `(parameters, result)` record deciding
  * whether a computed value may be stored (defaults to always `true`).
  * @param options.extraKeys - Extra lexical keys mixed into the cache
  * identity (e.g. tenant id).
@@ -158,10 +158,10 @@ export const withCacheSync = createHofSync<CacheKind>(
  * @param options.cacheStore - Object with `get`/`set`/`delete` (defaults to a
  * process-wide TTL-backed `ExpiredMap`).
  * @param options.generateCacheKey - Custom (optionally async) key factory over
- * `{ parameters, function, extraKeys }` (defaults to the hashed keygen
+ * the `(parameters, function, extraKeys)` record (defaults to the hashed keygen
  * `djb2(superjson.stringify(...))`); may return a string or a number.
  * @param options.shouldCache - (Optionally async) predicate over
- * `{ parameters, result }` deciding whether a computed value may be stored.
+ * the `(parameters, result)` record deciding whether a computed value may be stored.
  * @param options.extraKeys - Extra lexical keys mixed into the cache identity
  * (e.g. tenant id).
  * @param options.skipHof - Per-call bypass switch: `true` resolves the wrapper

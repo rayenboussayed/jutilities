@@ -106,7 +106,7 @@ export type EnhancerPair<
  * ```
  * @template HS - The sync slot's HOF type.
  * @template HA - The async slot's HOF type.
- * @param enhancers - A `{ sync?, async? }` pair of HOFs.
+ * @param enhancers - A sync/async pair of HOFs.
  * @param options - Slot resolution options.
  * @param options.pick - Slot resolution mode: `"sync"`, `"async"`, or
  * `"detect"` (default).
@@ -182,7 +182,7 @@ export function decorateClass(
  * enhancers bypass mode selection entirely; pair modes select by `pick`
  * (forced) or by the member's async-ness (detected), and absent pair slots are
  * fail-fast errors.
- * @param enhancers - The raw user input (a HOF or a `{ sync?, async? }` bag).
+ * @param enhancers - The raw user input (a HOF or a sync/async bag).
  * @param pick - The requested slot resolution mode.
  * @param fn - The member value being wrapped.
  * @param name - The member's name, for error messages.

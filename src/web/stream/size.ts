@@ -5,8 +5,8 @@ import { toUint8Array } from "../../to.js";
 /**
  * Async generator that passes chunks through while reporting cumulative size.
  * @param root0 - Options object.
- * @param root0.onSize - Callback receiving `{ size, done }` per chunk and at
- * the end.
+ * @param root0.onSize - Callback receiving the `(size, done)` record per chunk
+ * and at the end.
  * @param root0.signal - Optional per-chunk abort check.
  * @param root0.stream - The source stream to read through.
  * @yields The original chunks, in order.
@@ -41,8 +41,8 @@ export async function* streamSize({
 /**
  * Creates a `TransformStream` that reports cumulative byte size.
  * @param root0 - Options object.
- * @param root0.onSize - Callback receiving `{ size, done }` per chunk and at
- * flush.
+ * @param root0.onSize - Callback receiving the `(size, done)` record per chunk
+ * and at flush.
  * @param root0.signal - Optional signal checked per chunk.
  * @returns A `TransformStream`.
  */

@@ -2,7 +2,7 @@
 
 Small, typed, heavily documented TypeScript utilities for Node.js — caching, retries, timeouts, delays, abort-aware sleeps, one-shot signal listeners, Node stream and filesystem helpers, a super-JSON serializer, non-cryptographic hashes, and type guards.
 
-Everything is an independent module with a locked, test-verified behavior contract (600 tests). Every non-obvious quirk is documented at the call site.
+Everything is an independent module with a locked, test-verified behavior contract (572 tests). Every non-obvious quirk is documented at the call site.
 
 > **Status:** APIs are stable in practice, but semver guarantees are not yet frozen. Requires **Node ≥ 22** (uses `Buffer` pool semantics, `Symbol.for` round-trips, shared timers).
 
@@ -52,14 +52,14 @@ import { superjson } from "jutilities/json";
 | `jutilities/libs/clock` | `now` | The clock the timing-sensitive wrappers measure with (monotonic in Node, `Date.now` in the browser branch) |
 | `jutilities/decorators/<kind>` | `decorateMethod`, `decorateClass`, `decorateProperty`, `decorateGetter` | Turn fn-first HOFs into fully typed Stage 3 decorators (methods / whole classes / function-valued fields / getters) |
 | `jutilities/json` | `Json`, `superjson` | Round-trip Map/Set/Date/bigint/typed arrays/Errors… |
+| `jutilities/runtime` | `isServer`, `isClient`, `serverFn`, `clientFn`, `createConditionalFn` | Server/client guards returning `undefined` on the inert side |
 | `jutilities/node/stream/buffer` | `buffer2stream`, `stream2buffer` | Buffer ↔ stream conversion |
 | `jutilities/node/stream/size` | `streamSize`, `streamSizeTransform` | Bandwidth-aware stream sizing |
 | `jutilities/node/stream/tee` | `tee` | Backpressure-aware stream duplication |
-| `jutilities/node/stream/cache` | `StreamCache` | Filesystem-backed byte cache with ranges, TTL, size caps, and append-aware fills |
-| `jutilities/node/fs/cache` | `clearFsCache`, `fsCacheKey`, `statPath`, `lstatPath`, `readdirPath`, `readTextPath` | Namespaced filesystem fact cache shared by the `node/fs` helpers |
-| `jutilities/node/fs/utils` | `ensureDirectory`, `fileSize`, `pathExists`, `removeDirectorySync`, `removeFiles` | Cached core filesystem helpers (create, size, existence, cleanup) |
-| `jutilities/node/fs/json` | `readJsonFile`, `writeJsonFile` | JSON sidecar reads/writes with cached text and custom parse/stringify |
-| `jutilities/node/fs/dir` | `directoryEntries`, `walkDirectory`, `directoryFiles`, `directorySize`, `directoryTree`, `directoryMetadata`, `copyDirectory`, `moveDirectory`, `emptyDirectory`, `removeDirectory`, `createTempDirectory` | Cached, sorted, signal-aware directory scans plus copy/move/cleanup management |
+| `jutilities/node/stream/cache` | `StreamCache` | Filesystem-backed byte cache with ranges, TTL, size caps, append-aware fills, and `flush()` |
+| `jutilities/node/fs/file` | `removeFiles` | Concurrent multi-file removal, ignoring missing paths |
+| `jutilities/node/fs/json` | `readJsonFile`, `writeJsonFile` | JSON sidecar reads/writes with custom parse/stringify |
+| `jutilities/node/fs/dir` | `ensureDirectory`, `directoryFiles`, `directorySize`, `directoryTree`, `directoryMetadata`, `copyDirectory`, `moveDirectory`, `emptyDirectory`, `createTempDirectory`, `buildTree`, `walkEntries`, `isCrossDeviceError` | Sorted, signal-aware directory scans plus copy/move/cleanup management |
 | `jutilities/hash` | `djb2`, `sdbm`, `fnv1a64` | Fast 32-bit seeds + BigInt (unmasked) hashing |
 | `jutilities/is` | 17 type guards | `isRecord`, `isEmpty`, `isThenable`, … |
 | `jutilities/assert` | `assert`, `assertNotNil`, `assertNever`, `withAssertSync`/`withAssertAsync` + decorator contract guards | Throw-first counterparts of the checks + per-call result gates (narrow, never return to broken state) |
@@ -255,7 +255,7 @@ keys), and a single `skipHof` covers every layer.
 npm run lint        # 0 errors / 0 warnings policy
 npm run lint:fix
 npm run typecheck   # strict TS, tests included
-npm test            # 600 tests
+npm test            # 572 tests
 npm run build       # tsc → dist (tests excluded)
 npm run examples    # run every example in examples/
 ```
@@ -272,4 +272,4 @@ The config never disables a rule globally. The 0/0 gate holds by *solving* warni
 
 Examples are ordinary TypeScript: the flat demos live in `examples/` — including five `generic-*` case studies (typed sync-cache boundaries, conditional `HandleAsyncFunction` branches, parameterized `Json` handlers, and the wrap-and-consume matrix that shows sync generics degrading to `any`) — the stage-3 decorator showcases live in `examples/decorators/` (they need a transpile pass, like every plain-Node consumer of this repo), and the multi-module scenarios live in `examples/real-life/` — a `node:http` API, an SQLite store, file management, a worker pool, schedulers. `npm run examples` drives them all through tsx (`examples/run-all.ts`), seeded by a fresh build.
 
-Community guides live in [docs/DOCUMENTATION.md](./docs/DOCUMENTATION.md) — per-module behavior contracts, quirks, and worked use cases; every snippet there has an executable, runnable copy in [examples/](./examples) that runs through the same gate.
+Community guides live in [docs/DOCUMENTATION.md](./docs/DOCUMENTATION.md) — per-module behavior contracts, quirks, and worked use cases; every snippet there has an executable, runnable copy in [examples/](./examples) that runs through the same gate. Per-module API reference lives in [docs/api/](./docs/api/README.md) — one page per module, generated from the JSDoc with [`jsdoc-to-markdown`](https://github.com/jsdoc2md/jsdoc-to-markdown) via `npm run docs:api`; regenerate it after changing the docs comments.

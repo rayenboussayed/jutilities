@@ -7,28 +7,14 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   copyDirectory,
   createTempDirectory,
-  directoryEntries,
   directoryFiles,
   directoryMetadata,
   directorySize,
   directoryTree,
   emptyDirectory,
+  ensureDirectory,
   moveDirectory,
-  removeDirectory,
-  walkDirectory,
 } from "./dir.js";
-import { fileSize } from "./utils.js";
-
-/**
- * Consumes an async iterable into an array.
- * @param iterable - The iterable to drain.
- * @returns Every yielded value, in order.
- */
-async function collect<T>(iterable: AsyncIterable<T>) {
-  const values: T[] = [];
-  for await (const value of iterable) values.push(value);
-  return values;
-}
 
 /**
  * Builds the shared fixture:
@@ -57,6 +43,32 @@ function createFixture() {
 }
 
 /**
+ * Builds a signal that aborts itself after a fixed number of checks.
+ *
+ * The scan helpers call `throwIfAborted` once before reading each level and
+ * again for every entry, so a low limit aborts in the middle of a scan.
+ * @param allowedChecks - Number of checks that pass before aborting.
+ * @returns The signal.
+ */
+function signalAbortingAfter(allowedChecks: number) {
+  const controller = new AbortController();
+  const throwIfAborted = controller.signal.throwIfAborted.bind(
+    controller.signal,
+  );
+  let checks = 0;
+
+  Object.defineProperty(controller.signal, "throwIfAborted", {
+    value: () => {
+      checks += 1;
+      if (checks > allowedChecks) controller.abort();
+      throwIfAborted();
+    },
+  });
+
+  return controller.signal;
+}
+
+/**
  * Creates an isolated temporary directory for one test.
  * @returns The created directory path.
  */
@@ -68,76 +80,22 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-describe("directoryEntries", () => {
-  it("returns immediate entries sorted by name", async () => {
-    const directory = createFixture();
-    const entries = await directoryEntries({ directory });
-    expect(entries.map((entry) => entry.name)).toStrictEqual([
-      "a.txt",
-      "b",
-      "link-dir",
-      "link.txt",
-    ]);
-    expect(entries[1]?.isDirectory()).toBeTruthy();
-    expect(entries[3]?.isSymbolicLink()).toBeTruthy();
+describe("ensureDirectory", () => {
+  it("creates nested directories idempotently", async () => {
+    const directory = path.join(tempDir(), "a", "b");
+    await ensureDirectory({ directory });
+    expect(fs.statSync(directory).isDirectory()).toBeTruthy();
+    await ensureDirectory({ directory });
+    expect(fs.statSync(directory).isDirectory()).toBeTruthy();
   });
 
-  it("rejects for missing directories", async () => {
-    const directory = path.join(tempDir(), "missing");
-    await expect(directoryEntries({ directory })).rejects.toThrow();
-  });
+  it("rejects when the directory cannot be created", async () => {
+    const blocked = path.join(tempDir(), "file.txt");
+    fs.writeFileSync(blocked, "x");
 
-  it("rejects when the signal is already aborted", async () => {
-    const controller = new AbortController();
-    controller.abort();
     await expect(
-      directoryEntries({ directory: tempDir(), signal: controller.signal }),
+      ensureDirectory({ directory: path.join(blocked, "nested") }),
     ).rejects.toThrow();
-  });
-});
-
-describe("walkDirectory", () => {
-  it("yields descendants in sorted depth-first order without following links", async () => {
-    const directory = createFixture();
-    expect(await collect(walkDirectory({ directory }))).toStrictEqual([
-      path.join(directory, "a.txt"),
-      path.join(directory, "b"),
-      path.join(directory, "b", "c.txt"),
-      path.join(directory, "b", "d"),
-      path.join(directory, "b", "d", "e.txt"),
-      path.join(directory, "link-dir"),
-      path.join(directory, "link.txt"),
-    ]);
-  });
-
-  it("rejects when a subdirectory cannot be read", async () => {
-    const directory = createFixture();
-    const blocked = path.join(directory, "b");
-    const iterator = walkDirectory({ directory });
-
-    expect((await iterator.next()).value).toBe(path.join(directory, "a.txt"));
-    expect((await iterator.next()).value).toBe(blocked);
-    fs.rmSync(blocked, { recursive: true });
-
-    await expect(iterator.next()).rejects.toThrow();
-  });
-
-  it("rejects when the signal is already aborted", async () => {
-    const controller = new AbortController();
-    controller.abort();
-    await expect(
-      collect(walkDirectory({ directory: tempDir(), signal: controller.signal })),
-    ).rejects.toThrow();
-  });
-
-  it("stops when aborted between entries", async () => {
-    const directory = createFixture();
-    const controller = new AbortController();
-    const iterator = walkDirectory({ directory, signal: controller.signal });
-
-    await iterator.next();
-    controller.abort();
-    await expect(iterator.next()).rejects.toThrow();
   });
 });
 
@@ -173,21 +131,33 @@ describe("directoryFiles", () => {
       directoryFiles({ directory: tempDir(), signal: controller.signal }),
     ).rejects.toThrow();
   });
+
+  it("stops when aborted between entries", async () => {
+    await expect(
+      directoryFiles({
+        directory: createFixture(),
+        signal: signalAbortingAfter(2),
+      }),
+    ).rejects.toThrow();
+  });
 });
 
 describe("directoryMetadata", () => {
-  it("counts descendants and sums file and symlink sizes", async () => {
+  it("counts descendants and sums file and symlink target sizes", async () => {
     const directory = createFixture();
     const rootStats = fs.statSync(directory);
     const expectedSize =
-      3 +
-      2 +
-      1 +
-      fs.lstatSync(path.join(directory, "link.txt")).size +
-      fs.lstatSync(path.join(directory, "link-dir")).size;
+      fs.statSync(path.join(directory, "a.txt")).size +
+      fs.statSync(path.join(directory, "b", "c.txt")).size +
+      fs.statSync(path.join(directory, "b", "d", "e.txt")).size +
+      fs.statSync(path.join(directory, "link.txt")).size +
+      fs.statSync(path.join(directory, "link-dir")).size;
 
     expect(
-      await directoryMetadata({ directory, signal: new AbortController().signal }),
+      await directoryMetadata({
+        directory,
+        signal: new AbortController().signal,
+      }),
     ).toStrictEqual({
       createdAt: rootStats.birthtimeMs,
       directories: 2,
@@ -200,9 +170,9 @@ describe("directoryMetadata", () => {
     });
   });
 
-  it("throws when an entry cannot be lstat'ed", async () => {
+  it("throws when the root cannot be statted", async () => {
     const directory = createFixture();
-    vi.spyOn(fs.promises, "lstat").mockRejectedValueOnce(
+    vi.spyOn(fs.promises, "stat").mockRejectedValueOnce(
       new Error("vanished"),
     );
 
@@ -276,8 +246,14 @@ describe("directoryTree", () => {
       name: "e.txt",
       size: 1,
     });
-    expect(linkDir?.kind).toBe("symlink");
-    expect(linkFile?.kind).toBe("symlink");
+    expect(linkDir).toMatchObject({
+      kind: "symlink",
+      size: fs.statSync(path.join(directory, "link-dir")).size,
+    });
+    expect(linkFile).toMatchObject({
+      kind: "symlink",
+      size: fs.statSync(path.join(directory, "link.txt")).size,
+    });
   });
 
   it("accepts an explicit symlink to a directory as the root", async () => {
@@ -303,9 +279,9 @@ describe("directoryTree", () => {
     await expect(directoryTree({ directory })).rejects.toThrow("blocked");
   });
 
-  it("rejects when an entry cannot be lstat'ed", async () => {
+  it("rejects when the root cannot be statted", async () => {
     const directory = createFixture();
-    vi.spyOn(fs.promises, "lstat").mockRejectedValueOnce(
+    vi.spyOn(fs.promises, "stat").mockRejectedValueOnce(
       new Error("vanished"),
     );
 
@@ -327,6 +303,15 @@ describe("directoryTree", () => {
     controller.abort();
     await expect(
       directoryTree({ directory: tempDir(), signal: controller.signal }),
+    ).rejects.toThrow();
+  });
+
+  it("stops when aborted between entries", async () => {
+    await expect(
+      directoryTree({
+        directory: createFixture(),
+        signal: signalAbortingAfter(2),
+      }),
     ).rejects.toThrow();
   });
 });
@@ -366,21 +351,6 @@ describe("copyDirectory", () => {
         source: path.join(tempDir(), "missing"),
       }),
     ).rejects.toThrow();
-  });
-
-  it("invalidates cached destination entries", async () => {
-    const source = createFixture();
-    const destination = tempDir();
-    fs.writeFileSync(path.join(destination, "old.txt"), "old");
-    expect(await directoryEntries({ directory: destination })).toHaveLength(1);
-
-    await copyDirectory({ destination, overwrite: true, source });
-
-    expect(
-      (await directoryEntries({ directory: destination })).map(
-        (entry) => entry.name,
-      ),
-    ).toContain("a.txt");
   });
 });
 
@@ -435,16 +405,6 @@ describe("moveDirectory", () => {
       moveDirectory({ destination: path.join(tempDir(), "moved"), source }),
     ).rejects.toBe("not an error");
   });
-
-  it("invalidates cached stats for the source", async () => {
-    const source = createFixture();
-    const filePath = path.join(source, "a.txt");
-    expect(await fileSize({ filePath })).toBe(3);
-
-    await moveDirectory({ destination: path.join(tempDir(), "moved"), source });
-
-    await expect(fileSize({ filePath })).rejects.toThrow();
-  });
 });
 
 describe("emptyDirectory", () => {
@@ -466,54 +426,6 @@ describe("emptyDirectory", () => {
     vi.spyOn(fs.promises, "rm").mockRejectedValueOnce(new Error("locked"));
     await expect(emptyDirectory({ directory })).rejects.toThrow("locked");
   });
-
-  it("invalidates cached entries", async () => {
-    const directory = createFixture();
-    expect(await directoryEntries({ directory })).not.toHaveLength(0);
-
-    await emptyDirectory({ directory });
-
-    expect(await directoryEntries({ directory })).toHaveLength(0);
-  });
-
-  it("invalidates cached entries even when a removal fails", async () => {
-    const directory = createFixture();
-    expect(await directoryEntries({ directory })).not.toHaveLength(0);
-    vi.spyOn(fs.promises, "rm").mockRejectedValueOnce(new Error("locked"));
-
-    await expect(emptyDirectory({ directory })).rejects.toThrow("locked");
-
-    fs.rmSync(path.join(directory, "a.txt"));
-    expect(
-      (await directoryEntries({ directory })).map((entry) => entry.name),
-    ).not.toContain("a.txt");
-  });
-});
-
-describe("removeDirectory", () => {
-  it("removes a tree and ignores missing directories", async () => {
-    const directory = createFixture();
-    await removeDirectory({ directory });
-    expect(fs.existsSync(directory)).toBeFalsy();
-    await expect(removeDirectory({ directory })).resolves.toBeUndefined();
-  });
-
-  it("surfaces removal failures", async () => {
-    vi.spyOn(fs.promises, "rm").mockRejectedValueOnce(new Error("locked"));
-    await expect(
-      removeDirectory({ directory: createFixture() }),
-    ).rejects.toThrow("locked");
-  });
-
-  it("invalidates cached stats", async () => {
-    const directory = createFixture();
-    const filePath = path.join(directory, "a.txt");
-    expect(await fileSize({ filePath })).toBe(3);
-
-    await removeDirectory({ directory });
-
-    await expect(fileSize({ filePath })).rejects.toThrow();
-  });
 });
 
 describe("createTempDirectory", () => {
@@ -531,16 +443,5 @@ describe("createTempDirectory", () => {
     });
     expect(path.dirname(created)).toBe(parent);
     expect(path.basename(created).startsWith("demo-")).toBeTruthy();
-  });
-
-  it("invalidates cached parent entries", async () => {
-    const parent = tempDir();
-    fs.writeFileSync(path.join(parent, "seed.txt"), "x");
-    expect(await directoryEntries({ directory: parent })).toHaveLength(1);
-
-    const created = await createTempDirectory({ directory: parent });
-
-    expect(fs.existsSync(created)).toBeTruthy();
-    expect(await directoryEntries({ directory: parent })).toHaveLength(2);
   });
 });
