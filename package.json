@@ -1,7 +1,7 @@
 {
   "name": "jutilities",
   "version": "1.3.0",
-  "description": "Small, typed, extensively documented TypeScript utilities for Node.js and Browser: caching, retries, timeouts, delays, abort-aware sleeps, streams, super-JSON serialization, hashing, and type guards. Subpath imports: no barrel, every utility is jutilities/<module>.",
+  "description": "TypeScript utilities (588 tests, 100% coverage) for Node + browser: cache, retry, timeout, sleep, streams, super-JSON, hash, type guards. No barrel \u2014 subpath imports only.",
   "keywords": [
     "utilities",
     "utils",
@@ -10,7 +10,9 @@
     "browser",
     "cache",
     "memoize",
+    "lazy",
     "retry",
+    "retries",
     "timeout",
     "sleep",
     "abort-signal",
@@ -18,9 +20,18 @@
     "superjson",
     "serialization",
     "streams",
+    "node-streams",
     "base64",
     "hash",
-    "type-guards"
+    "hmac",
+    "type-guards",
+    "exponential-backoff",
+    "jitter",
+    "ttl",
+    "worker-threads",
+    "decorators",
+    "graceful-shutdown",
+    "filesystem"
   ],
   "exports": {
     "./*": "./dist/*.js"

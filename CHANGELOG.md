@@ -18,6 +18,8 @@ All notable changes to this project are documented here.
 - **Breaking:** the clock moved `jutilities/libs/clock` → `jutilities/clock` (`src/clock.ts`).
 - The remaining `typeof window === "undefined"` guards (`to`, `from`, the `Json` `Buffer` handler) now route through `isServer` from `jutilities/runtime`, so the whole library keys off one environment definition. Browser-branch tests stub `window` and re-import the module instead of mutating globals after import.
 
+- README rebuilt around real-world use cases: evidence-first hero (test count, coverage, single runtime dependency), runnable snippets for retry / timeout / sleep / cache / lazy / superjson / tee / decorators, an honest "why not roll your own" and "when jutilities is not the pick" section, and a benchmark evidence table; `package.json` `description` and `keywords` refreshed for npm search. No runtime or API changes; `docs/` remains the canonical API reference.
+
 ## [1.3.0] - 2026-11-14
 
 ### Changed
