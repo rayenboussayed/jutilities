@@ -1,6 +1,7 @@
 import type { AnyFunction } from "./types/type.js";
 
 import { djb2 } from "./hash.js";
+import { superjson } from "./json.js";
 
 const globalStore = new Map<number, unknown>();
 
@@ -20,7 +21,7 @@ export function lazy<T extends AnyFunction>(fn: T) {
   const functionString = fn.toString();
 
   return function (this: ThisParameterType<T>, ...args: Parameters<T>) {
-    const storeKey = djb2(JSON.stringify({ args, functionString }));
+    const storeKey = djb2(superjson.stringify({ args, functionString }));
 
     const storedValue = globalStore.get(storeKey);
     if (storedValue) return storedValue;

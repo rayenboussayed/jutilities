@@ -37,7 +37,7 @@ describe("lazy", () => {
     expect(count).toBe(2);
   });
 
-  it("deep-equal object args hit; key order misses (JSON.stringify order)", () => {
+  it("deep-equal object args hit; key order misses (superjson key order)", () => {
     let count = 0;
     const fn = lazy((o: Record<string, number>) => {
       count++;
@@ -137,16 +137,22 @@ describe("lazy", () => {
     expect(count).toBe(2);
   });
 
-  it("throws for circular args (JSON.stringify fails)", () => {
+  it("throws for circular args (superjson rejects circular references)", () => {
     const fn = lazy((o: unknown) => o);
     const circular: Record<string, unknown> = {};
     circular["self"] = circular;
     expect(() => (fn as (o: unknown) => unknown)(circular)).toThrow();
   });
 
-  it("throws for BigInt args (JSON.stringify fails)", () => {
-    const fn = lazy((x: unknown) => x);
-    expect(() => (fn as (x: unknown) => unknown)(10n)).toThrow();
+  it("memoizes BigInt args (superjson serializes them)", () => {
+    let count = 0;
+    const fn = lazy((x: bigint) => {
+      count++;
+      return `value:${x}`;
+    });
+    expect(fn(10n)).toBe("value:10");
+    expect(fn(10n)).toBe("value:10");
+    expect(count).toBe(1);
   });
 
   it("wrappers of the same initializer share one process-wide cache", () => {

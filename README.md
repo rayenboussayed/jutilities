@@ -238,7 +238,7 @@ keys), and a single `skipHof` covers every layer.
 - `withDelayAsync`: abort **mid-delay rejects the wrapped call with `signal.reason` — the wrapped function never runs**; `withDelaySync` blocks the loop, so only pre-aborts are observable.
 - `withTimeoutAsync` rejects with `signal.reason` even for wall-clock timeouts.
 - `withLoggerSync`/`withLoggerAsync`/`withCache*` timing switches from `performance.now` (Node) to `Date.now` (browser branch, `window` present).
-- `lazy` caches only truthy results, evicts rejected promises, and keys on `djb2(source + args)` (32-bit, collidable). The store is process-wide: wrappers of the same initializer share one memo.
+- `lazy` caches only truthy results, evicts rejected promises, and keys on `djb2(superjson.stringify({ args, function source }))` (32-bit, collidable). superjson widens what can serve as a key (BigInt, symbols, typed arrays all serialize); circular arguments still throw. The store is process-wide: wrappers of the same initializer share one memo.
 - `superjson.parse` of typed-array payloads rebuilds views over a fresh, exactly sized buffer (the decoded bytes are copied out of Node's shared pool), so no neighboring allocation's bytes are reachable.
 - `sleepSync` is a busy-wait and can only observe signals that aborted *before* it started.
 - `decorators/<kind>` annotations must be applied as `@f(...options)` / `@f()`: bare `@f` applications are type-rejected, and method/class/getter bare applications additionally throw a `TypeError` at runtime.
