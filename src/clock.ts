@@ -1,3 +1,5 @@
+import { isServer } from "./runtime.js";
+
 /**
  * The clock the timing-sensitive wrappers measure with.
  *
@@ -11,6 +13,6 @@
  * the retry loop — share one definition instead of repeating the branch.
  * @returns The current timestamp in milliseconds.
  */
-export function now(): number {
-  return typeof window === "undefined" ? performance.now() : Date.now();
+export function now() {
+  return isServer ? performance.now() : Date.now();
 }

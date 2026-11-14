@@ -1,3 +1,5 @@
+import { isServer } from "./runtime.js";
+
 /**
  * Small conversion helpers.
  */
@@ -25,7 +27,7 @@ export function toArray<T>(value: T | T[]): T[] {
  * @returns The base64 representation (`""` for empty input).
  */
 export function toBase64(bytes: Uint8Array) {
-  if (typeof window === "undefined") {
+  if (isServer) {
     return Buffer.from(
       bytes.buffer,
       bytes.byteOffset,

@@ -39,7 +39,7 @@ pre-registered.</p>
 <code>undefined</code>, non-finite/<code>-0</code> numbers, <code>bigint</code>, globally-registered symbols
 (only <code>Symbol.for</code> keys round-trip), boxed <code>Number</code>/<code>String</code>/<code>Boolean</code>,
 invalid dates, <code>Date</code>, <code>Map</code>, <code>Set</code>, <code>Buffer</code> (Node only — guarded with
-<code>typeof window === &quot;undefined&quot;</code>), all typed arrays (10 ctors),
+<code>isServer</code> from <code>jutilities/runtime</code>), all typed arrays (10 ctors),
 <code>DataView</code>, <code>ArrayBuffer</code>, <code>Error</code> (preserves name/message/stack/cause plus
 own enumerable props, but NOT subclasses of <code>Error</code> — which always rebuild
 as plain <code>Error</code>), <code>RegExp</code>, <code>URL</code>, <code>URLSearchParams</code>, <code>Headers</code>, `Function.</p>
@@ -205,7 +205,7 @@ Handler coverage (registration order — first match wins):
 `undefined`, non-finite/`-0` numbers, `bigint`, globally-registered symbols
 (only `Symbol.for` keys round-trip), boxed `Number`/`String`/`Boolean`,
 invalid dates, `Date`, `Map`, `Set`, `Buffer` (Node only — guarded with
-`typeof window === "undefined"`), all typed arrays (10 ctors),
+`isServer` from `jutilities/runtime`), all typed arrays (10 ctors),
 `DataView`, `ArrayBuffer`, `Error` (preserves name/message/stack/cause plus
 own enumerable props, but NOT subclasses of `Error` — which always rebuild
 as plain `Error`), `RegExp`, `URL`, `URLSearchParams`, `Headers`, `Function.

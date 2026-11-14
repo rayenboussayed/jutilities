@@ -10,6 +10,7 @@ public surface.
 
 ## Modules
 
+- [jutilities/clock](./clock.md) — The clock the timing-sensitive wrappers measure with.
 - [jutilities/decorators/class](./decorators/class.md) — Class-level enhancer fan-out.
 - [jutilities/decorators/getter](./decorators/getter.md) — Getter decorators from fn-first enhancers.
 - [jutilities/decorators/hof](./decorators/hof.md) — Decorator conversion contract.
@@ -25,7 +26,6 @@ public surface.
 - [jutilities/is](./is.md) — Utilities for checking common runtime values and shapes without throwing.
 - [jutilities/json](./json.md) — Branded serialization ("super JSON") built on native `JSON`: a `Json` class with a set of named, typed handlers that add round-trip support for values `JSON` cannot represent natively (bigint, Map/Set, Date, RegExp, typed arrays, Errors, URLs, boxed primitives, NaN family, globally-registered symbols, .
 - [jutilities/lazy](./lazy.md) — Memoizes a function's results keyed by a hash of its source and arguments.
-- [jutilities/libs/clock](./libs/clock.md) — The clock the timing-sensitive wrappers measure with.
 - [jutilities/libs/create-hof](./libs/create-hof.md) — Resolves a HofKind's `options` for the concrete function type `TF`.
 - [jutilities/libs/sync-guard](./libs/sync-guard.md) — Runtime guard for the sync HOF flavor.
 - [jutilities/libs/with](./libs/with.md) — The kind of a composed stack: its options are the merged option bags of every layer, resolved for the concrete wrapped function type.
@@ -37,7 +37,7 @@ public surface.
 - [jutilities/node/stream/cache](./node/stream/cache.md) — Options for StreamCache.
 - [jutilities/node/stream/size](./node/stream/size.md) — Async generator that passes chunks through while reporting cumulative size.
 - [jutilities/node/stream/tee](./node/stream/tee.md) — Duplicates a readable stream into two backpressure-aware branches.
-- [jutilities/runtime](./runtime.md) — Builds a conditional wrapper that returns `fn` only when `condition` holds.
+- [jutilities/runtime](./runtime.md) — `true` in every non-browser runtime (Node.
 - [jutilities/signal](./signal.md) — `AbortSignal` helper: run a callback on abort and be able to detach it.
 - [jutilities/sleep](./sleep.md) — Promisified sleep helpers.
 - [jutilities/to](./to.md) — Small conversion helpers.

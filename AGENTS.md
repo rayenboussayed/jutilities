@@ -11,10 +11,11 @@
 ```bash
 npm run typecheck          # tsc --noEmit
 npm run lint               # eslint . --cache --max-warnings 0 (no --fix)
+npm run knip               # knip (unused files/exports/dependencies)
 npm run test               # vitest run with 100% coverage thresholds
 npm run build              # tsc -> dist/ + regenerate docs/
 npm run examples           # npm run build && node --import tsx examples/run-all.ts
-npm run check              # typecheck && lint && test && test:memory && build && examples
+npm run check              # typecheck && lint && knip && test && test:memory && build && examples
 ```
 
 - Single test file: `npx vitest run src/hof/cache.test.ts`
@@ -33,6 +34,9 @@ npm run check              # typecheck && lint && test && test:memory && build &
 ## Constraints and gotchas
 
 - Node `>=22.13.0` is required.
+- `src/runtime.ts` is isomorphic (browser bundles import it): no static `node:` imports. Node-only synchronous detection goes through the guarded `process.getBuiltinModule("node:worker_threads")` (Node ≥ 22.3), evaluated once at module load.
+- Environment-dependent branches read `isServer`/`isBrowser` at module import time. Tests that stub `window`/`self`/`process` must use `vi.stubGlobal` + `vi.resetModules()` + dynamic `import()` — per-test global mutation no longer flips the branch.
+- Examples are discovered at runtime by `readdirSync` + `spawn` (`examples/run-all.ts`), invisible to static analysis — `knip.json` declares `examples/**/*.ts` as entry. Keep example subfolders covered by that glob.
 - Do not change ESLint configuration; it lives in `eslint.config.js`.
 - Keep JSDoc and tests aligned. `docs/` is generated from the JSDoc; README documents runtime caveats at call sites.
 - `npm audit --omit=dev` should be clean. Dev-only advisories can remain from the toolchain.

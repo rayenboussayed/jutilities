@@ -1,3 +1,5 @@
+import { isServer } from "./runtime.js";
+
 /**
  * Base64 decoding, working in Node and browsers.
  */
@@ -13,7 +15,7 @@
  * @returns A `Buffer` in Node, or a fresh `Uint8Array` in browsers.
  */
 export function fromBase64(b64: string) {
-  if (typeof window === "undefined") return Buffer.from(b64, "base64");
+  if (isServer) return Buffer.from(b64, "base64");
   const bin = atob(b64);
   const out = new Uint8Array(bin.length);
   // eslint-disable-next-line security/detect-object-injection

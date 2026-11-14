@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { fromBase64 } from "./from.js";
 import { toArray, toBase64, toBuffer, toSeconds, toUint8Array } from "./to.js";
@@ -97,14 +97,16 @@ describe("toBase64 (Node branch)", () => {
 });
 
 describe("toBase64 (browser branch via window stub)", () => {
-  it("encodes through btoa", () => {
-    const g = globalThis as { window?: unknown };
-    g.window = {};
-    try {
-      expect(toBase64(new Uint8Array([104, 105]))).toBe("aGk=");
-    } finally {
-      delete g.window;
-    }
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.resetModules();
+  });
+
+  it("encodes through btoa", async () => {
+    vi.stubGlobal("window", {});
+    vi.resetModules();
+    const fresh = await import("./to.js");
+    expect(fresh.toBase64(new Uint8Array([104, 105]))).toBe("aGk=");
   });
 });
 

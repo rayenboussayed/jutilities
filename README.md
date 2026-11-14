@@ -2,9 +2,9 @@
 
 Small, typed, heavily documented TypeScript utilities for Node.js — caching, retries, timeouts, delays, abort-aware sleeps, one-shot signal listeners, Node stream and filesystem helpers, a super-JSON serializer, non-cryptographic hashes, and type guards.
 
-Everything is an independent module with a locked, test-verified behavior contract (581 tests). Every non-obvious quirk is documented at the call site.
+Everything is an independent module with a locked, test-verified behavior contract (588 tests). Every non-obvious quirk is documented at the call site.
 
-> **Status:** APIs are stable in practice, but semver guarantees are not yet frozen. Requires **Node ≥ 22** (uses `Buffer` pool semantics, `Symbol.for` round-trips, shared timers).
+> **Status:** APIs are stable in practice, but semver guarantees are not yet frozen. Requires **Node ≥ 22.13** (uses `Buffer` pool semantics, `Symbol.for` round-trips, shared timers, `node:sqlite` in the examples).
 
 ## Install
 
@@ -37,44 +37,18 @@ import { superjson } from "jutilities/json";
 
 ## Modules
 
-| Subpath import | Exports | One-line summary |
-| --- | --- | --- |
-| `jutilities/hof/cache` | `withCacheSync`, `withCacheAsync` + `Key`/`CacheStore`/`Options`/`CacheKeyParams`/`ShouldCacheParams` types | Memoize with a pluggable (TTL-aware default) store |
-| `jutilities/hof/retry` | `withRetryAsync`, `withRetrySync` | Policy-driven retries (`onError` decides) |
-| `jutilities/hof/timeout` | `withTimeoutAsync` | Race an async call against a deadline / signal |
-| `jutilities/hof/delay` | `withDelayAsync`, `withDelaySync` | Sleep before each invocation |
-| `jutilities/sleep` | `sleepAsync`, `sleepSync` | Promisified (and blocking) waits, abort-aware |
-| `jutilities/signal` | `abort` | Flatten `AbortSignal` add/remove into two callables |
-| `jutilities/lazy` | `lazy` | Memoize by (source + args) hash (sync or async initializers) |
-| `jutilities/hof/logger` | `withLoggerSync`, `withLoggerAsync` | Log invocation args + awaited result + duration (timestamp-prefixed lines) |
-| `jutilities/libs/create-hof` | `createHofSync`, `createHofAsync` + `HofKind`/`ApplyKind`/`WithSkipHof` types | Build fn-first HOFs in this package's exact shape (kind → factory), with the shared bypass pre-wired |
-| `jutilities/libs/with` | `withAsync`, `withSync` + `MergeOptions` type | Compose several fn-first HOFs into one wrapper (the first one is the outermost layer) |
-| `jutilities/libs/clock` | `now` | The clock the timing-sensitive wrappers measure with (monotonic in Node, `Date.now` in the browser branch) |
-| `jutilities/decorators/<kind>` | `decorateMethod`, `decorateClass`, `decorateGetter` | Turn fn-first HOFs into fully typed legacy decorators (`experimentalDecorators`; methods / whole classes / getters) |
-| `jutilities/json` | `Json`, `superjson` | Round-trip Map/Set/Date/bigint/typed arrays/Errors… |
-| `jutilities/runtime` | `isServer`, `isClient`, `serverFn`, `clientFn`, `createConditionalFn` | Server/client guards returning `undefined` on the inert side |
-| `jutilities/node/stream/buffer` | `buffer2stream`, `stream2buffer` | Buffer ↔ stream conversion |
-| `jutilities/node/stream/size` | `streamSize`, `streamSizeTransform` | Bandwidth-aware stream sizing |
-| `jutilities/node/stream/tee` | `tee` | Backpressure-aware stream duplication |
-| `jutilities/node/stream/cache` | `StreamCache` | Filesystem-backed byte cache with ranges, TTL, size caps, append-aware fills, and `flush()` |
-| `jutilities/node/fs/file` | `removeFiles` | Concurrent multi-file removal, ignoring missing paths |
-| `jutilities/node/fs/json` | `readJsonFile`, `writeJsonFile` | JSON sidecar reads/writes with custom parse/stringify |
-| `jutilities/node/fs/dir` | `ensureDirectory`, `directoryFiles`, `directorySize`, `directoryTree`, `directoryMetadata`, `copyDirectory`, `moveDirectory`, `emptyDirectory`, `createTempDirectory`, `buildTree`, `walkEntries`, `isCrossDeviceError` | Sorted, signal-aware directory scans plus copy/move/cleanup management |
-| `jutilities/hash` | `djb2`, `sdbm`, `fnv1a64` | Fast 32-bit seeds + BigInt (unmasked) hashing |
-| `jutilities/is` | 17 type guards | `isRecord`, `isEmpty`, `isThenable`, … |
-| `jutilities/hof/assert` | `assert`, `assertNotNil`, `assertNever`, `withAssertSync`/`withAssertAsync` + decorator contract guards | Throw-first counterparts of the checks + per-call result gates (narrow, never return to broken state) |
-| `jutilities/to` | `toArray`, `toBase64` | Normalize wrappers / encode bytes |
-| `jutilities/from` | `fromBase64` | Decode bytes (Node `Buffer` / browser `atob`) |
-| `jutilities/types/type` | `AnyFunction`, `AnySyncFunction`, … | Shared callable/utility types |
-| `jutilities/types/with` | `WithSignal` | `{ signal?: AbortSignal } & T` convention |
+No barrel, no `main` — every module imports by its own subpath, and the complete,
+generated index of every public module — one page each with the full export surface
+from the JSDoc — lives in [docs/](./docs/README.md). The map:
 
-**Shared bypass (`skipHof`)** — every fn-first HOF in the table accepts
-`options.skipHof`: `true` returns the original `fn` untouched at wrap time; a
-predicate function receives the call arguments and a truthy result runs `fn`
-raw for that single call with the same `this` and arguments (async HOFs may
-pass an async predicate; sync ones must stay sync). Omitted / `false` applies
-the enhancement normally. The `withAsync` / `withSync` composers handle it
-once for the whole stack.
+- **Higher-order wrappers** — `jutilities/hof/cache`, `hof/retry`, `hof/timeout`, `hof/delay`, `hof/logger`, `hof/assert`
+- **Composition and decorators** — `jutilities/libs/create-hof`, `jutilities/libs/with`, `jutilities/decorators/method` · `class` · `getter` (TypeScript legacy decorators)
+- **Environment and clock** — `jutilities/runtime` (`isServer`, `isBrowser`, `isBrowserWorker`, `isServerWorker`, `serverFn`/`browserFn`), `jutilities/clock`
+- **General utilities** — `jutilities/lazy`, `sleep`, `signal`, `json` + `superjson`, `hash`, `is`, `to`, `from`
+- **Node and Web** — `jutilities/node/stream/*`, `jutilities/node/fs/*`, `jutilities/node/hash`, `jutilities/web/stream/*`, `jutilities/web/hash`
+- **Types** — `jutilities/types/type`, `jutilities/types/with` (type-only; no generated pages)
+
+**Shared bypass (`skipHof`)** — every fn-first HOF accepts `options.skipHof` (`true` returns the original `fn` untouched; a predicate selects raw invocation per call); the `withAsync` / `withSync` composers handle it once for the whole stack. Details: [docs/libs/create-hof](./docs/libs/create-hof.md) and [docs/libs/with](./docs/libs/with.md).
 
 `AsyncFunction`, `MaybePromise`, `Generator`, and friends are all re-exportable straight from `dist/types/type.js`.
 
@@ -147,7 +121,7 @@ superjson.stringify(new Map([["k", 1n]]));
 const back = superjson.parse(sameString); // Map with 1n — bit-for-bit
 ```
 
-Handlers cover numeric edge cases (`NaN`/`±Infinity`/`-0`, bigint, symbols via `Symbol.for`, boxed primitives, invalid dates, `Date`, `Map`, `Set`, `Buffer`, all typed arrays, `DataView`, `ArrayBuffer`, `Error` (+ `cause`), `RegExp`, `URL`, `URLSearchParams`, `Headers`); invalid-date detection is strict (`Number.isNaN(getTime())` — no coercion). Build your own registry with `new Json().addHandler(type, { isApplicable, stringify, parse })`.
+Handlers cover the `JSON`-incompatible values — the full registry, invalid-date semantics and the `addHandler` authoring API are documented in [docs/json](./docs/json.md).
 
 ### Node streams
 
@@ -237,7 +211,8 @@ keys), and a single `skipHof` covers every layer.
 - `withCacheSync/Async` skip caching for empty/falsy results; default keys are 32-bit `djb2` hashes (theoretically collidable) and object-arg keys are order-sensitive.
 - `withDelayAsync`: abort **mid-delay rejects the wrapped call with `signal.reason` — the wrapped function never runs**; `withDelaySync` blocks the loop, so only pre-aborts are observable.
 - `withTimeoutAsync` rejects with `signal.reason` even for wall-clock timeouts.
-- `withLoggerSync`/`withLoggerAsync`/`withCache*` timing switches from `performance.now` (Node) to `Date.now` (browser branch, `window` present).
+- `withLoggerSync`/`withLoggerAsync`/`withCache*` timing goes through `jutilities/clock`: `performance.now` outside a `window` (Node — and browser Web Workers too, since the branch keys off `isServer`) and `Date.now` in classic browsers.
+- `jutilities/runtime`: `isServer` is `true` anywhere `window` is absent — including browser Web Workers. Refine with `isBrowserWorker` (classic workers: `self === globalThis` plus `importScripts`; module service workers have neither and report `isServer`) or `isServerWorker` (Node `worker_threads`, detected synchronously via `process.getBuiltinModule`, so browser bundles see nothing Node-specific).
 - `lazy` caches only truthy results, evicts rejected promises, and keys on `djb2(superjson.stringify({ args, function source }))` (32-bit, collidable). superjson widens what can serve as a key (BigInt, symbols, typed arrays all serialize); circular arguments still throw. The store is process-wide: wrappers of the same initializer share one memo.
 - `superjson.parse` of typed-array payloads rebuilds views over a fresh, exactly sized buffer (the decoded bytes are copied out of Node's shared pool), so no neighboring allocation's bytes are reachable.
 - `sleepSync` is a busy-wait and can only observe signals that aborted *before* it started.
@@ -267,7 +242,8 @@ See [test/benchmark/README.md](./test/benchmark/README.md) for methodology, prof
 npm run lint        # 0 errors / 0 warnings policy
 npm run lint:fix
 npm run typecheck   # strict TS, tests included
-npm test            # 581 tests
+npm run knip        # unused files/exports/dependencies (in check)
+npm test            # 588 tests
 npm run test:memory # leak/resource suite (in check)
 npm run build       # tsc → dist + regenerate docs/ (tests excluded)
 npm run examples    # run every example in examples/

@@ -4,6 +4,20 @@ All notable changes to this project are documented here.
 
 ## [Unreleased]
 
+### Added
+- `jutilities/runtime` now exports `isBrowserWorker` and `isServerWorker`. `isBrowserWorker` is `true` inside a browser Web Worker (dedicated, shared, or classic service worker): no `window`, but the global scope is `self` exposing the `importScripts` function. `isServerWorker` is `true` inside a Node.js `worker_threads` worker — the module is loaded synchronously via `process.getBuiltinModule("node:worker_threads")`, so importing `jutilities/runtime` never pulls Node builtins into a browser bundle; it is `false` outside Node and in browser Web Workers. Edge runtimes without `process.getBuiltinModule` (and module service workers, which have neither `window` nor `importScripts`) report `isServer`.
+
+- Knip integration: `npm run knip` reports unused files, exports and dependencies and is part of `npm run check`. Examples are declared as knip entry points (they are spawned at runtime and invisible to static analysis).
+
+### Fixed
+- `sleepAsync`/`sleepSync` now short-circuit non-positive and `NaN` durations explicitly (`Number.isNaN(sleep) || sleep <= 0`), matching the documented contract — previously `NaN` failed the `sleep <= 0` check, fell through to `setTimeout(…, NaN)` and made Node emit `TimeoutNaNWarning` (clamped to 1 ms).
+- `vitest.memory.config.ts` and `vitest.profile.config.ts` import `./vitest.config.ts` with an explicit file extension, as required by Vite's future native config loader.
+
+### Changed
+- **Breaking:** `jutilities/runtime` export renames — `isClient` → `isBrowser`, `clientFn` → `browserFn`.
+- **Breaking:** the clock moved `jutilities/libs/clock` → `jutilities/clock` (`src/clock.ts`).
+- The remaining `typeof window === "undefined"` guards (`to`, `from`, the `Json` `Buffer` handler) now route through `isServer` from `jutilities/runtime`, so the whole library keys off one environment definition. Browser-branch tests stub `window` and re-import the module instead of mutating globals after import.
+
 ## [1.3.0] - 2026-11-14
 
 ### Changed

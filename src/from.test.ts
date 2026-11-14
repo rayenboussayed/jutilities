@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { fromBase64 } from "./from.js";
 import { toBase64 } from "./to.js";
@@ -42,25 +42,25 @@ describe("fromBase64 (Node branch)", () => {
 });
 
 describe("fromBase64 (browser branch via window stub)", () => {
-  const g = globalThis as { window?: unknown };
-
-  it("round-trips through atob", () => {
-    g.window = {};
-    try {
-      const bytes = new Uint8Array([0, 1, 2, 250, 255]);
-      expect(fromBase64(toBase64(bytes))).toStrictEqual(bytes);
-      expect(fromBase64("aGk=")).toStrictEqual(new Uint8Array([104, 105]));
-    } finally {
-      delete g.window;
-    }
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.resetModules();
   });
 
-  it("atob branch is strict with invalid input", () => {
-    g.window = {};
-    try {
-      expect(() => fromBase64("!!!")).toThrow();
-    } finally {
-      delete g.window;
-    }
+  it("round-trips through atob", async () => {
+    vi.stubGlobal("window", {});
+    vi.resetModules();
+    const freshFrom = await import("./from.js");
+    const freshTo = await import("./to.js");
+    const bytes = new Uint8Array([0, 1, 2, 250, 255]);
+    expect(freshFrom.fromBase64(freshTo.toBase64(bytes))).toStrictEqual(bytes);
+    expect(freshFrom.fromBase64("aGk=")).toStrictEqual(new Uint8Array([104, 105]));
+  });
+
+  it("atob branch is strict with invalid input", async () => {
+    vi.stubGlobal("window", {});
+    vi.resetModules();
+    const fresh = await import("./from.js");
+    expect(() => fresh.fromBase64("!!!")).toThrow();
   });
 });

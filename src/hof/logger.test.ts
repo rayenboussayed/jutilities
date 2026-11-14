@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { withLoggerAsync, withLoggerSync } from "./logger.js";
 
@@ -10,8 +10,8 @@ describe("withLoggerSync", () => {
   afterEach(() => {
     console.debug = originalDebug;
     performance.now = originalPerfNow;
-    // @ts-expect-error cleanup browser stub
-    if (typeof globalThis.window !== "undefined") delete globalThis.window;
+    vi.unstubAllGlobals();
+    vi.resetModules();
   });
 
   /**
@@ -130,16 +130,17 @@ describe("withLoggerSync", () => {
     expect(String(logs[1]?.[0])).toMatch(/15ms/);
   });
 
-  it("uses Date.now when window is defined (browser branch)", () => {
+  it("uses Date.now when window is defined (browser branch)", async () => {
+    vi.stubGlobal("window", {});
+    vi.resetModules();
+    const fresh = await import("./logger.js");
     capture();
-    // @ts-expect-error stub browser env
-    globalThis.window = {};
     const times = [100, 130];
     let i = 0;
     const origNow = Date.now;
     Date.now = () => times[i++] ?? 0;
     try {
-      withLoggerSync(() => 1, { name: "b" })();
+      fresh.withLoggerSync(() => 1, { name: "b" })();
       expect(String(logs[1]?.[0])).toMatch(/30ms/);
     } finally {
       Date.now = origNow;

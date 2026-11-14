@@ -1,11 +1,11 @@
-# `jutilities/libs/clock`
+# `jutilities/clock`
 
-<!-- This file is generated. Do not edit by hand — change the JSDoc in [`src/libs/clock.ts`](https://github.com/rayenboussayed/jutilities/blob/main/src/libs/clock.ts) and run `npm run build` instead. -->
+<!-- This file is generated. Do not edit by hand — change the JSDoc in [`src/clock.ts`](https://github.com/rayenboussayed/jutilities/blob/main/src/clock.ts) and run `npm run build` instead. -->
 
-> Generated with [jsdoc-to-markdown](https://github.com/jsdoc2md/jsdoc-to-markdown/tree/master/docs/API.md) from the JSDoc in [`src/libs/clock.ts`](https://github.com/rayenboussayed/jutilities/blob/main/src/libs/clock.ts). Behavior contracts and quirks are pinned by the tests.
+> Generated with [jsdoc-to-markdown](https://github.com/jsdoc2md/jsdoc-to-markdown/tree/master/docs/API.md) from the JSDoc in [`src/clock.ts`](https://github.com/rayenboussayed/jutilities/blob/main/src/clock.ts). Behavior contracts and quirks are pinned by the tests.
 
 ```ts
-import { now } from "jutilities/libs/clock";
+import { now } from "jutilities/clock";
 ```
 <a name="now"></a>
 

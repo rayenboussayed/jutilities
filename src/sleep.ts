@@ -27,7 +27,7 @@ export type Options = WithSignal<{
 export function sleepAsync({ signal, sleep = 0 }: Options = {}) {
   const activeSignal = signal ?? { throwIfAborted() {} };
   activeSignal.throwIfAborted();
-  if (sleep <= 0) return Promise.resolve();
+  if (Number.isNaN(sleep) || sleep <= 0) return Promise.resolve();
 
   return new Promise<void>((resolve, reject) => {
     const timeout = setTimeout(() => {
@@ -62,7 +62,7 @@ export function sleepAsync({ signal, sleep = 0 }: Options = {}) {
 export function sleepSync({ signal, sleep = 0 }: Options = {}) {
   const activeSignal = signal ?? { throwIfAborted() {} };
   activeSignal.throwIfAborted();
-  if (sleep <= 0) return;
+  if (Number.isNaN(sleep) || sleep <= 0) return;
   const finish = Math.round(Date.now() + sleep);
   while (Date.now() < finish) {
     const activeSignal = signal ?? { throwIfAborted() {} };

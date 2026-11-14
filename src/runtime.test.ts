@@ -6,30 +6,110 @@ afterEach(() => {
 });
 
 describe("runtime", () => {
-  it("reports the server on node and guards clientFn", async () => {
-    const { clientFn, isClient, isServer, serverFn } = await import(
-      "./runtime.js"
-    );
+  it("reports the server on node and guards browserFn", async () => {
+    const {
+      browserFn,
+      isBrowser,
+      isBrowserWorker,
+      isServer,
+      isServerWorker,
+      serverFn,
+    } = await import("./runtime.js");
     const fn = () => "call";
 
     expect(isServer).toBe(true);
-    expect(isClient).toBe(false);
+    expect(isBrowser).toBe(false);
+    expect(isBrowserWorker).toBe(false);
+    expect(isServerWorker).toBe(false);
     expect(serverFn(fn)).toBe(fn);
-    expect(clientFn(fn)).toBeUndefined();
+    expect(browserFn(fn)).toBeUndefined();
   });
 
-  it("reports the client when window exists and guards serverFn", async () => {
+  it("reports the browser when window exists and guards serverFn", async () => {
     vi.stubGlobal("window", {});
     vi.resetModules();
-    const { clientFn, isClient, isServer, serverFn } = await import(
-      "./runtime.js"
-    );
+    const {
+      browserFn,
+      isBrowser,
+      isBrowserWorker,
+      isServer,
+      isServerWorker,
+      serverFn,
+    } = await import("./runtime.js");
     const fn = () => "call";
 
     expect(isServer).toBe(false);
-    expect(isClient).toBe(true);
-    expect(clientFn(fn)).toBe(fn);
+    expect(isBrowser).toBe(true);
+    expect(isBrowserWorker).toBe(false);
+    expect(isServerWorker).toBe(false);
+    expect(browserFn(fn)).toBe(fn);
     expect(serverFn(fn)).toBeUndefined();
+  });
+
+  it("detects a browser worker scope (window absent, self scope, importScripts)", async () => {
+    vi.stubGlobal("self", globalThis);
+    vi.stubGlobal("importScripts", () => undefined);
+    vi.resetModules();
+    const { isBrowserWorker, isServer, isServerWorker } = await import(
+      "./runtime.js"
+    );
+
+    expect(isServer).toBe(true);
+    expect(isBrowserWorker).toBe(true);
+    expect(isServerWorker).toBe(false);
+  });
+
+  it("is not a browser worker when self is not the global scope", async () => {
+    vi.stubGlobal("self", {});
+    vi.stubGlobal("importScripts", () => undefined);
+    vi.resetModules();
+    const { isBrowserWorker } = await import("./runtime.js");
+
+    expect(isBrowserWorker).toBe(false);
+  });
+
+  it("is not a browser worker when importScripts is missing", async () => {
+    vi.stubGlobal("self", globalThis);
+    vi.resetModules();
+    const { isBrowserWorker } = await import("./runtime.js");
+
+    expect(isBrowserWorker).toBe(false);
+  });
+
+  it("reports no server worker when process is missing", async () => {
+    vi.stubGlobal("process", undefined);
+    vi.resetModules();
+    const { isServerWorker } = await import("./runtime.js");
+
+    expect(isServerWorker).toBe(false);
+  });
+
+  it("reports no server worker when getBuiltinModule is unavailable", async () => {
+    vi.stubGlobal("process", {});
+    vi.resetModules();
+    const { isServerWorker } = await import("./runtime.js");
+
+    expect(isServerWorker).toBe(false);
+  });
+
+  it("reports no server worker on the main thread", async () => {
+    vi.stubGlobal("process", {
+      getBuiltinModule: () => ({ isMainThread: true }),
+    });
+    vi.resetModules();
+    const { isServerWorker } = await import("./runtime.js");
+
+    expect(isServerWorker).toBe(false);
+  });
+
+  it("detects a Node worker thread via worker_threads", async () => {
+    vi.stubGlobal("process", {
+      getBuiltinModule: () => ({ isMainThread: false }),
+    });
+    vi.resetModules();
+    const { isServerWorker } = await import("./runtime.js");
+
+    expect(isServerWorker).toBe(true);
   });
 
   it("supports static boolean conditions", async () => {

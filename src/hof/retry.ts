@@ -4,7 +4,7 @@ import type {
   MaybePromise,
 } from "../types/type.js";
 
-import { now } from "../libs/clock.js";
+import { now } from "../clock.js";
 import {
   createHofAsync,
   createHofSync,
@@ -56,7 +56,9 @@ export type Options<T extends AnyFunction = AnyFunction> = {
   onError?: OnErrorFn<T>;
 };
 
-export interface RetryKind<T extends AnyFunction = AnyFunction> extends HofKind<T> {
+export interface RetryKind<
+  T extends AnyFunction = AnyFunction,
+> extends HofKind<T> {
   options: Options<this["fn"]>;
 }
 

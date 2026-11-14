@@ -20,6 +20,7 @@
  */
 import { fromBase64 } from "./from.js";
 import { isRecord } from "./is.js";
+import { isServer } from "./runtime.js";
 import { toBase64 } from "./to.js";
 
 /**
@@ -223,7 +224,7 @@ export const typedArray = <T extends ArrayBufferView>(
  * `undefined`, non-finite/`-0` numbers, `bigint`, globally-registered symbols
  * (only `Symbol.for` keys round-trip), boxed `Number`/`String`/`Boolean`,
  * invalid dates, `Date`, `Map`, `Set`, `Buffer` (Node only — guarded with
- * `typeof window === "undefined"`), all typed arrays (10 ctors),
+ * `isServer` from `jutilities/runtime`), all typed arrays (10 ctors),
  * `DataView`, `ArrayBuffer`, `Error` (preserves name/message/stack/cause plus
  * own enumerable props, but NOT subclasses of `Error` — which always rebuild
  * as plain `Error`), `RegExp`, `URL`, `URLSearchParams`, `Headers`, `Function.
@@ -300,7 +301,7 @@ export const superjson = new Json()
   })
   .addHandler("buffer", {
     isApplicable: (_, v): v is Buffer =>
-      typeof window === "undefined" && Buffer.isBuffer(v),
+      isServer && Buffer.isBuffer(v),
     parse: (_, v: string) => Buffer.from(v, "base64"),
     stringify: (_, v) => toBase64(v),
   })

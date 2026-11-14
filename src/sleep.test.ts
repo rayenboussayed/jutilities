@@ -53,7 +53,7 @@ describe("sleepAsync", () => {
     expect(await sleepAsync({ sleep: 5 })).toBeUndefined();
   });
 
-  it("NaN sleep resolves quickly (setTimeout NaN ~= 0)", async () => {
+  it("NaN sleep resolves immediately (non-positive short-circuit)", async () => {
     const start = performance.now();
     await sleepAsync({ sleep: NaN });
     expect(performance.now() - start < 200).toBeTruthy();
@@ -126,7 +126,7 @@ describe("sleepSync", () => {
     expect(() => sleepSync({ signal: controller.signal })).toThrow();
   });
 
-  it("NaN sleep returns immediately (finish is NaN, loop never runs)", () => {
+  it("NaN sleep returns immediately (non-positive short-circuit)", () => {
     const start = Date.now();
     sleepSync({ sleep: NaN });
     expect(Date.now() - start < 100).toBeTruthy();

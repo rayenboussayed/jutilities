@@ -1,6 +1,6 @@
 import type { AnyFunction } from "../types/type.js";
 
-import { now } from "../libs/clock.js";
+import { now } from "../clock.js";
 import {
   createHofAsync,
   createHofSync,
@@ -28,7 +28,9 @@ import {
  * non-`Promise` thenable logs that object without awaiting it.
  */
 
-export interface LoggerKind<T extends AnyFunction = AnyFunction> extends HofKind<T> {
+export interface LoggerKind<
+  T extends AnyFunction = AnyFunction,
+> extends HofKind<T> {
   options: Options;
 }
 
