@@ -4,6 +4,8 @@ All notable changes to this project are documented here.
 
 ## [Unreleased]
 
+## [1.3.0] - 2026-11-14
+
 ### Changed
 - Standardized superjson handler keys to hyphenated forms: `invalid-date`, `number-object`, `string-object`, and `boolean-object`.
 - Restored function handler round-trip behavior using `new Function(\`return ${v}\`)()` and `v.toString()`.
