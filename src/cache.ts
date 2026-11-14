@@ -21,6 +21,11 @@ export type Key = number | string;
  * The process-wide `ExpiredMap` singleton backing every cache wrapper in this
  * module. Exposed so consumers can inspect or clear the shared store (e.g.
  * between tests); wrappers share entries through it.
+ *
+ * Entries expire after the store's default TTL (5 minutes) and are removed
+ * lazily on access; there is no size cap. For high-cardinality or high-churn
+ * keys, pass a bounded `cacheStore` (e.g. your own `ExpiredMap` with
+ * `maxSize`) in `options`.
  */
 export const globalCache = new ExpiredMap<Key, any>().start();
 

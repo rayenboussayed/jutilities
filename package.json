@@ -40,11 +40,18 @@
     "README.md"
   ],
   "scripts": {
-    "check": "npm run typecheck && npm run lint && npm run test && npm run build && npm run examples",
+    "check": "npm run typecheck && npm run lint && npm run test && npm run test:memory && npm run build && npm run examples",
     "test": "vitest run --coverage",
+    "test:memory": "vitest run --config vitest.memory.config.ts",
+    "test:heap": "vitest run --logHeapUsage",
+    "bench": "npm run build && vitest bench",
+    "bench:json": "npm run build && vitest bench --reporter=json --outputFile=benchmarks/results/bench.json",
+    "profile": "vitest run --config vitest.profile.config.ts",
     "typecheck": "tsc --noEmit",
     "lint": "eslint . --cache --max-warnings 0",
+    "prebuild": "node scripts/clean-dist.mjs",
     "build": "tsc -p tsconfig.build.json && node scripts/generate-api-docs.mjs",
+    "prepack": "npm run build",
     "examples": "npm run build && node --import tsx examples/run-all.ts",
     "prepare": "husky && node scripts/link-self.mjs"
   },
@@ -58,7 +65,7 @@
     "@deslint/eslint-plugin": "^0.10.0",
     "@eslint/js": "^10.0.1",
     "@types/node": "^26.6.5",
-    "@vitest/coverage-v8": "^3.2.7",
+    "@vitest/coverage-v8": "^5.1.0",
     "@vitest/eslint-plugin": "^1.6.28",
     "eslint": "^10.13.0",
     "eslint-config-prettier": "^10.1.8",
@@ -77,7 +84,7 @@
     "tsx": "^4.23.15",
     "typescript": "^6.0.3",
     "typescript-eslint": "^8.71.2",
-    "vitest": "^3.2.7"
+    "vitest": "^5.1.0"
   },
   "dependencies": {
     "expired-map": "^1.0.0"

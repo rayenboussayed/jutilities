@@ -54,14 +54,14 @@ try {
 }
 
 try {
-  assertNotRawApplication({ kind: "method", name: "load" }, "decorateMethod");
+  assertNotRawApplication(() => undefined, "decorateMethod");
 } catch (error) {
   console.log("raw @decorator misfire :", (error as Error).message);
 }
 
 try {
   assertNotRawMemberApplication(
-    [(value: unknown) => value, { kind: "method", name: "load" }],
+    [Object.prototype, "load", { value: () => undefined }],
     "decorateMethod",
   );
 } catch (error) {

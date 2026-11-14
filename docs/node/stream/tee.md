@@ -13,9 +13,10 @@ import { tee } from "jutilities/node/stream/tee";
 Duplicates a readable stream into two backpressure-aware branches.
 
 The source is paused as soon as either branch is full and resumed only when
-neither needs to drain, in both orders. Source `end` ends both branches and
-source `error` destroys both. Closing one branch (destroying it) does not
-affect the other.
+neither needs to drain, in both orders. Source `end` ends both branches,
+`close` (e.g. a source destroyed without `end`/`error`) ends both branches
+the same way, and source `error` destroys both. Closing one branch
+(destroying it) does not affect the other.
 
 Throws synchronously when the signal is already aborted.
 
@@ -27,6 +28,59 @@ Throws synchronously when the signal is already aborted.
 | root0 | Options object. |
 | root0.stream | The readable stream to duplicate. |
 | root0.signal | Optional signal: pre-aborted throws immediately; aborting mid-flight destroys both branches via the internal `PassThrough`. |
+
+
+* [tee(root0)](#tee) ⇒
+    * [~cleanup()](#tee..cleanup)
+    * [~onData(chunk)](#tee..onData)
+    * [~onEnd()](#tee..onEnd)
+    * [~onError(error)](#tee..onError)
+
+
+* * *
+
+<a name="tee..cleanup"></a>
+
+### tee~cleanup()
+Detaches every source listener so the source no longer retains the branches.
+
+**Kind**: inner method of [<code>tee</code>](#tee)  
+
+* * *
+
+<a name="tee..onData"></a>
+
+### tee~onData(chunk)
+Writes one chunk to both branches, pausing the source on backpressure.
+
+**Kind**: inner method of [<code>tee</code>](#tee)  
+
+| Param | Description |
+| --- | --- |
+| chunk | Chunk emitted by the source. |
+
+
+* * *
+
+<a name="tee..onEnd"></a>
+
+### tee~onEnd()
+Ends the branches that are still open and detaches the source listeners.
+
+**Kind**: inner method of [<code>tee</code>](#tee)  
+
+* * *
+
+<a name="tee..onError"></a>
+
+### tee~onError(error)
+Destroys the branches that are still open and detaches the source listeners.
+
+**Kind**: inner method of [<code>tee</code>](#tee)  
+
+| Param | Description |
+| --- | --- |
+| error | Error emitted by the source. |
 
 
 * * *

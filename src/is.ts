@@ -33,23 +33,6 @@ export function isAsyncGeneratorFunction(
 }
 
 /**
- * Detects a paren-less Stage 3 decoration: the runtime hands decorators
- * `(member, context)` where the context carries a string-ish `kind`, so a
- * guard/options object with a `kind` property is a telling misfire instead of
- * an options bag.
- * @param arg - The second argument a factory received (options or context).
- * @returns `true` when the argument looks like a decoration context.
- */
-export function isDecorationContext(arg: unknown): arg is { kind: string } {
-  return (
-    typeof arg === "object" &&
-    arg !== null &&
-    "kind" in arg &&
-    typeof (arg as { kind: unknown }).kind === "string"
-  );
-}
-
-/**
  * Aggregated emptiness check: `null`/`undefined`, the empty string, an empty
  * array, or a record with no keys all count as "empty".
  *
@@ -171,19 +154,24 @@ export function isPromise(v: unknown): v is Promise<any> {
 
 /**
  * Detects a paren-less application of a decorator-converter RESULT (the
- * decorator factory): Stage 3 invokes it with `(member, context)`, which
- * arrives as the factory's rest options — a leading function followed by a
- * decoration context is the misfire fingerprint. Legit option slots (option
- * bags, keys, delays) cannot mimic both stripes at those positions, so this is
- * a safe heuristic guarded by a documented caveat in the package docs.
+ * decorator factory): legacy (experimentalDecorators) decorators invoke a
+ * member decorator as `(target, propertyKey, descriptor)`, which arrives as
+ * three positional arguments — an object target, a string/symbol key and a
+ * descriptor-shaped third argument is the misfire fingerprint. Legit option
+ * slots (option bags) cannot mimic all three stripes at those positions, so
+ * this is a safe heuristic guarded by a documented caveat in the package
+ * docs.
  * @param rest - The rest arguments a factory received.
  * @returns `true` when the rest looks like a raw decoration invocation.
  */
 export function isRawMemberApplication(rest: unknown[]): boolean {
+  const descriptor = rest[2];
   return (
-    rest.length === 2 &&
-    typeof rest[0] === "function" &&
-    isDecorationContext(rest[1])
+    rest.length === 3 &&
+    isObject(rest[0]) &&
+    (typeof rest[1] === "string" || typeof rest[1] === "symbol") &&
+    isObject(descriptor) &&
+    ("value" in descriptor || "get" in descriptor || "set" in descriptor)
   );
 }
 

@@ -9,7 +9,7 @@ import { memberEnhancer } from "./hof.js";
  */
 
 /**
- * Standard Stage 3 getter decorator shape returned by
+ * Legacy (experimentalDecorators) getter decorator shape returned by
  * {@link decorateGetter}: replaces the getter's access function with the
  * enhanced (wrapped) one.
  *
@@ -17,13 +17,22 @@ import { memberEnhancer } from "./hof.js";
  * (getters live on the prototype) — e.g. caching a getter memoizes once for
  * the whole class.
  */
-export type GetterDecoratorOf = <This, Value>(
-  getter: (this: This) => Value,
-  context: ClassGetterDecoratorContext<This, Value>,
-) => (this: This) => Value;
+export type GetterDecoratorOf = (
+  target: unknown,
+  propertyKey: string | symbol,
+  descriptor: PropertyDescriptor,
+) => PropertyDescriptor;
 
+export function decorateGetter<
+  H extends HofFn<any, HofFlavor>,
+>(
+  hof: H,
+  options?: DecoratorGuard,
+): (
+  hofOptions?: HofOptionsOf<H>,
+) => GetterDecoratorOf;
 /**
- * Converts a fn-first HOF into a reusable Stage 3 getter decorator factory.
+ * Converts a fn-first HOF into a reusable legacy getter decorator factory.
  * The getter's access function runs through the HOF once at class-definition
  * time; every subsequent access calls the wrapped getter with the instance as
  * `this`. The HOF's option bag (one object, resolved from the HOF's kind) is
@@ -50,14 +59,6 @@ export type GetterDecoratorOf = <This, Value>(
  * sync/async discipline.
  * @returns A decorator factory whose options are forwarded to `hof`.
  */
-export function decorateGetter<
-  H extends HofFn<any, HofFlavor>,
->(
-  hof: H,
-  options?: DecoratorGuard,
-): (
-  hofOptions?: HofOptionsOf<H>,
-) => GetterDecoratorOf;
 export function decorateGetter(
   hof: (fn: any, hofOptions?: any) => any,
   options?: DecoratorGuard,
@@ -66,8 +67,18 @@ export function decorateGetter(
     assertNotRawApplication(options, "decorateGetter");
     const enhance = memberEnhancer("decorateGetter", hof, options, args);
     return (
-      getter: (this: unknown) => unknown,
-      context: ClassGetterDecoratorContext<unknown, unknown>,
-    ) => enhance(getter, String(context.name)) as (this: unknown) => unknown;
+      _target: unknown,
+      propertyKey: string | symbol,
+      descriptor: PropertyDescriptor,
+    ) => {
+      const getter = descriptor.get as ((this: unknown) => unknown) | undefined;
+      if (!getter) {
+        throw new TypeError(
+          `decorateGetter: accessor "${String(propertyKey)}" has no getter to enhance`,
+        );
+      }
+      descriptor.get = enhance(getter, String(propertyKey)) as (this: unknown) => unknown;
+      return descriptor;
+    };
   }) as (hofOptions?: unknown) => GetterDecoratorOf;
 }

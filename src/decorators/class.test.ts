@@ -235,21 +235,18 @@ describe("decorateClass", () => {
   });
 
   it("runtime paren-less factory application fails fast (class)", () => {
-    // Decorator syntax cannot express this shape, so the invocation is
-    // synthesized: the factory receives (class, context) as its options rest.
+    // Decorator syntax cannot express the paren-less shape, so the invocation
+    // is synthesized: the factory receives the constructor as its options.
     const factory = decorateClass(withLoggerSync) as (...args: any[]) => unknown;
-    const member = class Source {};
-    const context = { addInitializer() {}, kind: "class", name: "Source" };
-    expect(() => void factory(member, context)).toThrow();
+    const target = class Source {};
+    expect(() => void factory(target)).toThrow();
   });
 
   it("runtime converter-level paren-less misfire fails fast (class)", () => {
-    // Calling decorateClass with a class in the enhancer slot and a context
+    // Calling decorateClass with a class in the enhancer slot and a function
     // in the options slot is the raw application fingerprint.
     const raw = decorateClass as unknown as (...args: any[]) => unknown;
-    const member = class Raw {};
-    const context = { addInitializer() {}, kind: "class", name: "Raw" };
-    expect(() => void raw(member, context)).toThrow();
+    expect(() => void raw(class Raw {}, () => {})).toThrow();
   });
 
   // eslint-disable-next-line sonarjs/assertions-in-tests

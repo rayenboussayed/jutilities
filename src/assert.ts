@@ -5,7 +5,6 @@ import type {
 } from "./types/type.js";
 
 import {
-  isDecorationContext,
   isNil,
   isRawMemberApplication,
 } from "./is.js";
@@ -227,8 +226,9 @@ export function assertGuardConsistency(
 }
 
 /**
- * Fails fast when a decorator factory was applied paren-less (the decoration
- * context arrived where options are expected). This turns silent member
+ * Fails fast when a decorator factory was applied paren-less (the class
+ * constructor arrived where the options bag is expected — legacy decorators
+ * evaluate the bare `@cached` as `cached(ctor)`). This turns silent member
  * corruption into a readable `AssertError` at class-definition time.
  * @param options - The second factory argument.
  * @param factoryName - The reporting decorator's name for the error message.
@@ -238,7 +238,7 @@ export function assertNotRawApplication(
   options: unknown,
   factoryName: string,
 ): void {
-  if (isDecorationContext(options)) {
+  if (typeof options === "function") {
     throw new AssertError(
       `${factoryName}: applied without parentheses — decorate with ${factoryName}(...options) instead`,
     );
@@ -246,8 +246,10 @@ export function assertNotRawApplication(
 }
 
 /**
- * Fails fast when a decorator factory received the member value directly
- * (paren-less application of the converter result). Pairs with
+ * Fails fast when a decorator factory received the decorator invocation
+ * itself (paren-less application of the converter result): legacy
+ * decorators invoke member decorators as `(target, propertyKey, descriptor)`.
+ * Pairs with
  * {@link assertNotRawApplication} so every misfire path throws a readable
  * `AssertError` instead of silently wrapping members in decorator machinery.
  * @param rest - The rest arguments a factory received.

@@ -3,7 +3,6 @@ import { describe, expect, it } from "vitest";
 import {
   isAsyncFunction,
   isAsyncGeneratorFunction,
-  isDecorationContext,
   isEmpty,
   isEmptyArray,
   isEmptyRecord,
@@ -365,37 +364,23 @@ describe("isAsyncGeneratorFunction", () => {
   });
 });
 
-describe("isDecorationContext", () => {
-  it("returns true for objects carrying a string kind", () => {
-    expect(isDecorationContext({ kind: "method" })).toBe(true);
-    // A synthesized (partial) Stage 3 decoration context:
-    expect(isDecorationContext({ addInitializer() {}, kind: "field", name: "f" })).toBe(true);
-  });
-
-  it("returns false for non-contexts", () => {
-    expect(isDecorationContext({})).toBe(false);
-    expect(isDecorationContext({ kind: 1 })).toBe(false);
-    expect(isDecorationContext(null)).toBe(false);
-    expect(isDecorationContext(undefined)).toBe(false);
-    expect(isDecorationContext("method")).toBe(false);
-    expect(isDecorationContext(() => {})).toBe(false);
-  });
-});
-
 describe("isRawMemberApplication", () => {
-  it("returns true for the (member, context) fingerprint", () => {
-    const wrap = (x: unknown): unknown => x;
-    expect(isRawMemberApplication([wrap, { kind: "method" }])).toBe(true);
+  const descriptor = { value: () => undefined };
+
+  it("returns true for the (target, key, descriptor) fingerprint", () => {
+    expect(isRawMemberApplication([Object.prototype, "member", descriptor])).toBe(true);
+    expect(isRawMemberApplication([Object.prototype, Symbol("member"), { get: () => 1 }])).toBe(true);
+    expect(isRawMemberApplication([Object.prototype, "member", { set: () => undefined }])).toBe(true);
   });
 
   it("returns false for rests that are not raw decoration invocations", () => {
-    const wrap = (x: unknown): unknown => x;
     expect(isRawMemberApplication([])).toBe(false);
-    expect(isRawMemberApplication([wrap])).toBe(false);
-    expect(isRawMemberApplication([{}])).toBe(false);
-    expect(isRawMemberApplication([wrap, { kind: "method" }, 1])).toBe(false);
-    expect(isRawMemberApplication([wrap, {}])).toBe(false);
-    expect(isRawMemberApplication([{}, { kind: "method" }])).toBe(false);
-    expect(isRawMemberApplication([1, { kind: "method" }])).toBe(false);
+    expect(isRawMemberApplication([Object.prototype])).toBe(false);
+    expect(isRawMemberApplication([Object.prototype, "member"])).toBe(false);
+    expect(isRawMemberApplication([() => undefined, "member", descriptor])).toBe(false);
+    expect(isRawMemberApplication([Object.prototype, 1, descriptor])).toBe(false);
+    expect(isRawMemberApplication([Object.prototype, "member", 1])).toBe(false);
+    expect(isRawMemberApplication([Object.prototype, "member", {}])).toBe(false);
+    expect(isRawMemberApplication([null, "member", descriptor])).toBe(false);
   });
 });

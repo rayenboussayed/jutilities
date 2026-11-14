@@ -226,11 +226,15 @@ describe("decorateMethod", () => {
     // Decorator syntax cannot express the paren-less zero-option shape
     // (tsc rejects it while parsing), so the invocation is synthesized:
     const factory = decorateMethod(lazy) as (...args: any[]) => unknown;
-    const member = function member() {
-      return 1;
+    const descriptor = {
+      configurable: true,
+      enumerable: false,
+      value: function member() {
+        return 1;
+      },
+      writable: true,
     };
-    const context = { addInitializer() {}, kind: "method", name: "member" };
-    expect(() => void factory(member, context)).toThrow();
+    expect(() => void factory(Object.prototype, "member", descriptor)).toThrow();
   });
 });
 

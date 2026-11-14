@@ -1,4 +1,5 @@
 /* eslint-disable sonarjs/void-use */
+import { once } from "node:events";
 import { PassThrough, Readable } from "node:stream";
 import { describe, expect, it } from "vitest";
 
@@ -53,9 +54,76 @@ describe("tee", () => {
     b2.on("end", () => (ended2 = true));
     source.end("hello");
     await Promise.all([collect(b1), collect(b2)]);
+    expect(source.listenerCount("data")).toBe(0);
+    expect(source.listenerCount("end")).toBe(0);
+    expect(source.listenerCount("error")).toBe(0);
     // collect consumes; ended flags should be true after consumption
     expect(ended1 || true).toBeTruthy(); // stream ended (collect resolved)
     expect(ended2 || true).toBeTruthy();
+  });
+
+  it("ends both branches when the source closes without end or error", async () => {
+    const source = new PassThrough();
+    const [b1, b2] = tee({ stream: source });
+    const first = collect(b1);
+    const second = collect(b2);
+    source.destroy();
+    const [r1, r2] = await Promise.all([first, second]);
+    expect(r1.toString()).toBe("");
+    expect(r2.toString()).toBe("");
+    expect(source.listenerCount("data")).toBe(0);
+    expect(source.listenerCount("end")).toBe(0);
+    expect(source.listenerCount("error")).toBe(0);
+    expect(source.listenerCount("close")).toBe(0);
+  });
+
+  it("source error after both branches are destroyed does not throw", async () => {
+    const source = new PassThrough();
+    const [b1, b2] = tee({ stream: source });
+    b1.destroy();
+    b2.destroy();
+    source.destroy(new Error("boom"));
+    const [emitted] = await once(source, "error");
+    expect(emitted.message).toBe("boom");
+    expect(source.listenerCount("data")).toBe(0);
+    expect(source.listenerCount("end")).toBe(0);
+    expect(source.listenerCount("error")).toBe(0);
+  });
+
+  it("source error with one branch destroyed destroys only the live branch", async () => {
+    const source = new PassThrough();
+    const [b1, b2] = tee({ stream: source });
+    b1.destroy();
+    const outcome = collect(b2).catch(() => "stopped");
+    source.destroy(new Error("boom"));
+    await expect(outcome).resolves.toBe("stopped");
+    expect(b2.destroyed).toBe(true);
+  });
+
+  it("resumes the source only when both branches are drained", async () => {
+    const source = new PassThrough();
+    const [b1, b2] = tee({ stream: source });
+    source.write(Buffer.alloc(64 * 1024, 1));
+    await new Promise((resolve) => {
+      setImmediate(resolve);
+    });
+    expect(source.isPaused()).toBe(true);
+    Object.defineProperty(b2, "writableNeedDrain", { configurable: true, value: true });
+    b1.emit("drain");
+    expect(source.isPaused()).toBe(true);
+    Object.defineProperty(b2, "writableNeedDrain", { configurable: true, value: false });
+    b1.emit("drain");
+    expect(source.isPaused()).toBe(false);
+    source.pause();
+    Object.defineProperty(b1, "writableNeedDrain", { configurable: true, value: true });
+    b2.emit("drain");
+    expect(source.isPaused()).toBe(true);
+    Object.defineProperty(b1, "writableNeedDrain", { configurable: true, value: false });
+    b2.emit("drain");
+    expect(source.isPaused()).toBe(false);
+    b1.destroy();
+    b2.destroy();
+    source.destroy();
   });
 
   it("destroys both branches on source error with same error", async () => {
@@ -67,6 +135,9 @@ describe("tee", () => {
     // destroy source on next tick to let tee attach handlers
     setImmediate(() => source.destroy(err));
     await Promise.all([p1, p2]);
+    expect(source.listenerCount("data")).toBe(0);
+    expect(source.listenerCount("end")).toBe(0);
+    expect(source.listenerCount("error")).toBe(0);
   });
 
   it("copies readableHighWaterMark and objectMode", () => {

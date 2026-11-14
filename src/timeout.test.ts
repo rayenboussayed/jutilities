@@ -171,19 +171,15 @@ describe("withTimeoutAsync", () => {
     void reason;
   });
 
-  it("sync-throwing fn propagates synchronously (signal-only to avoid timer leak)", () => {
+  it("sync-throwing fn propagates synchronously and cleans up its timer", () => {
     /**
      * Sync-declared producer that throws the instant it is invoked.
      */
     function syncThrow(): Promise<number> {
       throw new Error("sync boom");
     }
-    // NOTE: with timeoutMs>0, sync throw leaks the internal timer (no finally),
-    // causing unhandled rejection later. Use signal-only wrapper (no timer) here.
-    // Do NOT abort afterwards: the internal timeoutPromise would reject unhandled.
-    const controller = new AbortController();
     const wrapped = withTimeoutAsync(syncThrow as never, {
-      signal: controller.signal,
+      timeoutMs: 60_000,
     });
     expect(() => (wrapped as () => void)()).toThrow(/sync boom/);
   });

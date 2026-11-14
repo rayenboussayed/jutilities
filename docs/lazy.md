@@ -13,6 +13,10 @@ import type { LazyKind, LazyOptions } from "jutilities/lazy";
 ## lazy ⇒
 Memoizes a function's results keyed by a hash of its source and arguments.
 
+The memoization store is process-lifetime and unbounded: every distinct
+(function source, arguments) pair is retained until the process exits. Use
+it for stable, low-cardinality inputs.
+
 **Kind**: global constant  
 **Returns**: The cached function.  
 

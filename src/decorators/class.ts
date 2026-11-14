@@ -13,14 +13,14 @@ import { isAsyncFunction, isFunction } from "../is.js";
  */
 
 /**
- * Standard Stage 3 class decorator shape returned by {@link decorateClass}:
+ * Legacy (experimentalDecorators) class decorator shape returned by
+ * {@link decorateClass}:
  * type-preserving; the class itself is passed through unchanged while its own
  * prototype methods are replaced in place.
  */
 export type ClassDecoratorOf =
   <Class_ extends abstract new (...args: any[]) => unknown>(
     cls: Class_,
-    context: ClassDecoratorContext<Class_>,
   ) => Class_;
 
 /**
@@ -70,12 +70,38 @@ export type EnhancerPair<
   sync?: HS;
 };
 
+export function decorateClass<
+  HS extends HofFn<any, "any"> | HofFn<any, "sync">,
+  HA extends HofFn<any, "any"> | HofFn<any, "async">,
+>(
+  enhancers: EnhancerPair<HS, HA>,
+  options?: { pick?: ClassPick },
+): (hofOptions?: EnhancerOptions<HS, HA>) => ClassDecoratorOf;
+/**
+ * Single-HOF variant of {@link decorateClass}: the one HOF is applied to
+ * every own prototype method. See the primary signature for full details.
+ * @template H - The HOF type, recovered from its `__kind` and `__flavor`
+ * brands.
+ * @param enhancers - The HOF to apply to every member.
+ * @param options - Slot resolution options.
+ * @param options.pick - Slot resolution mode (informative for a single HOF).
+ * @returns A decorator factory whose options are forwarded to every wrapped
+ * member.
+ */
+export function decorateClass<
+  H extends HofFn<any, HofFlavor>,
+>(
+  enhancers: H,
+  options?: { pick?: ClassPick },
+): (
+  hofOptions?: HofOptionsOf<H>,
+) => ClassDecoratorOf;
 /**
  * Applies a fn-first HOF (or a sync/async pair of them) to every OWN prototype
  * method of the decorated class. Constructor, statics, getters/setters and
  * `#private` members are left untouched (`#private` fields are not visible to
  * property enumeration, but each can still be decorated individually with the
- * method/property factories).
+ * method/getter factories).
  *
  * The HOF's option bag (one object, resolved from the HOF's kind) is declared
  * ONCE at decorate time and forwarded verbatim to every wrapped method.
@@ -113,38 +139,13 @@ export type EnhancerPair<
  * @returns A decorator factory whose options are forwarded to every wrapped
  * member.
  */
-export function decorateClass<
-  HS extends HofFn<any, "any"> | HofFn<any, "sync">,
-  HA extends HofFn<any, "any"> | HofFn<any, "async">,
->(
-  enhancers: EnhancerPair<HS, HA>,
-  options?: { pick?: ClassPick },
-): (hofOptions?: EnhancerOptions<HS, HA>) => ClassDecoratorOf;
-/**
- * Single-HOF variant of {@link decorateClass}: the one HOF is applied to
- * every own prototype method. See the primary signature for full details.
- * @template H - The HOF type, recovered from its `__kind` and `__flavor`
- * brands.
- * @param enhancers - The HOF to apply to every member.
- * @param options - Slot resolution options.
- * @param options.pick - Slot resolution mode (informative for a single HOF).
- * @returns A decorator factory whose options are forwarded to every wrapped
- * member.
- */
-export function decorateClass<
-  H extends HofFn<any, HofFlavor>,
->(
-  enhancers: H,
-  options?: { pick?: ClassPick },
-): (
-  hofOptions?: HofOptionsOf<H>,
-) => ClassDecoratorOf;
 export function decorateClass(
   enhancers: unknown,
   options?: { pick?: ClassPick },
 ): any {
   assertNotRawApplication(options, "decorateClass");
   return ((...args: unknown[]) => {
+    assertNotRawApplication(args[0], "decorateClass");
     assertNotRawMemberApplication(args, "decorateClass");
     const hofOptions = args[0];
     return <Class_ extends abstract new (...args: any[]) => unknown>(

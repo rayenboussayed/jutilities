@@ -11,10 +11,10 @@ import { withLoggerSync } from "jutilities/logger";
  * `lazy` here memoizes its value once for the whole class (across all
  * instances), while a logger wrapper keeps firing on every read.
  *
- * Stage 3 decorators cannot be parsed by plain Node, so this file is
- * TypeScript and is executed through tsx alongside the flat demos by
- * `examples/run-all.ts`. Setter pairing and guard misfires are pinned in
- * `src/decorators/getter.test.ts`, not here.
+ * Legacy decorators (`experimentalDecorators`) need a transpile pass, so
+ * this file is TypeScript and is executed through tsx alongside the flat
+ * demos by `examples/run-all.ts`. Setter pairing and guard misfires are
+ * pinned in `src/decorators/getter.test.ts`, not here.
  */
 import assert from "node:assert/strict";
 

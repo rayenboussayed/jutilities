@@ -11,7 +11,9 @@ Per-module behavior contracts, quirks, composition patterns and worked use cases
 - [jutilities/assert](./assert.md) — Fail-fast invariants: violated preconditions throw immediately with a readable message instead of corrupting downstream state.
 - [jutilities/cache](./cache.md) — The process-wide `ExpiredMap` singleton backing every cache wrapper in this module.
 - [jutilities/decorators/class](./decorators/class.md) — Class-level enhancer fan-out.
+- [jutilities/decorators/getter](./decorators/getter.md) — Getter decorators from fn-first enhancers.
 - [jutilities/decorators/hof](./decorators/hof.md) — Decorator conversion contract.
+- [jutilities/decorators/method](./decorators/method.md) — Method decorators from fn-first enhancers.
 - [jutilities/delay](./delay.md) — Higher-order wrappers that sleep before invoking a function.
 - [jutilities/from](./from.md) — Base64 decoding, working in Node and browsers.
 - [jutilities/hash](./hash.md) — Small, fast, non-cryptographic string hashes.

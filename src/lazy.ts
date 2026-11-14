@@ -33,6 +33,10 @@ export type LazyOptions<T extends AnyFunction = AnyFunction> = {
 
 /**
  * Memoizes a function's results keyed by a hash of its source and arguments.
+ *
+ * The memoization store is process-lifetime and unbounded: every distinct
+ * (function source, arguments) pair is retained until the process exits. Use
+ * it for stable, low-cardinality inputs.
  * @template T - The function to memoize (sync or async).
  * @param fn - The initializer whose results should be cached.
  * @param options - Options object.

@@ -5,11 +5,11 @@ export default defineConfig({
     environment: "node",
     globals: false,
     include: ["src/**/*.test.ts"],
+    benchmark: { include: ["benchmarks/**/*.bench.ts"] },
     pool: "forks",
     testTimeout: 30_000,
     hookTimeout: 30_000,
     coverage: {
-      all: true,
       provider: "v8",
       include: ["src/**/*.ts"],
       exclude: [

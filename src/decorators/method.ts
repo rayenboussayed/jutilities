@@ -10,9 +10,10 @@ import { memberEnhancer } from "./hof.js";
  */
 
 /**
- * Standard Stage 3 method decorator shape returned by
+ * Legacy (experimentalDecorators) method decorator shape returned by
  * {@link decorateMethod}. Applies to any member whose value satisfies the
- * converter's gate and replaces it with the enhanced function.
+ * converter's gate and replaces the descriptor's value with the enhanced
+ * function.
  *
  * The flavor decides what the converted HOF may wrap: an async HOF
  * refuses a non-promise-returning member at compile time; a sync HOF preserves
@@ -23,12 +24,21 @@ import { memberEnhancer } from "./hof.js";
 export type MethodDecoratorOf<F extends HofFlavor = "any"> = <
   M extends AnyFunction,
 >(
-  method: GatedMember<F, M>,
-  context: ClassMethodDecoratorContext<unknown, M>,
-) => M | void;
+  target: unknown,
+  propertyKey: string | symbol,
+  descriptor: TypedPropertyDescriptor<GatedMember<F, M>>,
+) => TypedPropertyDescriptor<GatedMember<F, M>>;
 
+export function decorateMethod<
+  H extends HofFn<any, HofFlavor>,
+>(
+  hof: H,
+  options?: DecoratorGuard,
+): (
+  hofOptions?: HofOptionsOf<H>,
+) => MethodDecoratorOf<FlavorOf<H>>;
 /**
- * Converts a fn-first HOF into a reusable Stage 3 method decorator factory.
+ * Converts a fn-first HOF into a reusable legacy method decorator factory.
  * The HOF's first parameter receives the member value; its option bag (one
  * object, resolved from the HOF's kind) is forwarded verbatim, evaluated once
  * at decorate time and shared by its wrap.
@@ -56,14 +66,6 @@ export type MethodDecoratorOf<F extends HofFlavor = "any"> = <
  * @returns A decorator factory whose options are forwarded to `hof` exactly
  * once per decorated member.
  */
-export function decorateMethod<
-  H extends HofFn<any, HofFlavor>,
->(
-  hof: H,
-  options?: DecoratorGuard,
-): (
-  hofOptions?: HofOptionsOf<H>,
-) => MethodDecoratorOf<FlavorOf<H>>;
 export function decorateMethod(
   hof: (fn: any, hofOptions?: any) => any,
   options?: DecoratorGuard,
@@ -72,8 +74,12 @@ export function decorateMethod(
     assertNotRawApplication(options, "decorateMethod");
     const enhance = memberEnhancer("decorateMethod", hof, options, args);
     return (
-      method: AnyFunction,
-      context: ClassMethodDecoratorContext<unknown, AnyFunction>,
-    ) => enhance(method, String(context.name));
+      _target: unknown,
+      propertyKey: string | symbol,
+      descriptor: TypedPropertyDescriptor<AnyFunction>,
+    ) => {
+      descriptor.value = enhance(descriptor.value as AnyFunction, String(propertyKey));
+      return descriptor;
+    };
   }) as (hofOptions?: unknown) => MethodDecoratorOf;
 }

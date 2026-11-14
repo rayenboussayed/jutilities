@@ -38,3 +38,9 @@ Thumbs.db
 .husky/_
 
 .eslintcache
+
+# ---- profiling & benchmark artifacts ----
+profiles/
+benchmarks/results/
+*.cpuprofile
+*.heapprofile

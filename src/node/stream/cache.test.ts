@@ -377,6 +377,15 @@ describe("StreamCache", () => {
     const cache = open({ deleteBeforeExit: true });
     expect(cache).toBeTruthy();
   });
+
+  it("shares one beforeExit listener across instances", () => {
+    const baseline = process.listenerCount("beforeExit");
+    const first = open({ deleteBeforeExit: true });
+    const second = open({ deleteBeforeExit: true });
+    expect(first).toBeTruthy();
+    expect(second).toBeTruthy();
+    expect(process.listenerCount("beforeExit")).toBeLessThanOrEqual(baseline + 1);
+  });
 });
 
 describe("StreamCache deleteBeforeExit", () => {

@@ -136,15 +136,28 @@ describe("decorateGetter", () => {
     expect(temps.celsius).toBe(21);
   });
 
+  it("throws a TypeError when the accessor has no getter to enhance", () => {
+    const cached = decorateGetter(withCacheSync);
+    expect(() => {
+      const decorator = cached({
+        cacheStore: new Map(),
+        extraKeys: ["getter-only-set"],
+      });
+      const descriptor: PropertyDescriptor = {
+        set: () => undefined,
+      };
+      decorator(Object.prototype, "onlySet", descriptor);
+    }).toThrow(/has no getter/);
+  });
+
   it("bare factory application fails fast at decorate time and is type-rejected", () => {
-    // Single-line directive: tsc flags the bare application (TS1241/TS1270)
-    // while tsx still executes it — and the runtime fingerprint throws the
-    // paren-less misfire on the getter slot (the getter is a function, so the
-    // (value, context) pair matches the raw application fingerprint).
+    // tsc flags the bare application while tsx still executes it — the
+    // runtime fingerprint throws the paren-less misfire on the getter slot
+    // (the bare factory grabs (target, key, descriptor) as its options rest).
     expect(() => {
         const factory = decorateGetter(withCacheSync);
         class Bad {
-          // @ts-expect-error - the bare factory grabs (getter, context) as its options rest.
+          // @ts-expect-error - the bare factory grabs (target, key, descriptor) as its options rest.
           @factory
           get val() {
             return 1;
@@ -156,15 +169,14 @@ describe("decorateGetter", () => {
 
   it("runtime converter-level paren-less misfire fails fast (getter)", () => {
     // Calling decorateGetter with a fn-first HOF in the enhancer slot and a
-    // decoration context in the options slot is the raw application
-    // fingerprint. The assert runs inside the returned factory, so the probe
-    // invokes it: raw(fn, context)() must throw before any member binds.
+    // function in the options slot is the raw application fingerprint. The
+    // assert runs inside the returned factory, so the probe invokes it:
+    // raw(fn, fn)() must throw before any member binds.
     const raw = decorateGetter as unknown as (
       hof: (value: unknown) => unknown,
       options: unknown,
     ) => () => unknown;
-    const context = { addInitializer() {}, kind: "getter", name: "val" };
-    expect(() => void raw((value: unknown) => value, context)()).toThrow();
+    expect(() => void raw((value: unknown) => value, () => {})()).toThrow();
   });
 });
 

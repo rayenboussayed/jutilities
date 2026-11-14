@@ -5,7 +5,7 @@
 > Generated with [jsdoc-to-markdown](https://github.com/jsdoc2md/jsdoc-to-markdown/tree/master/docs/API.md) from the JSDoc in [`src/is.ts`](https://github.com/rayenboussayed/jutilities/blob/main/src/is.ts). Behavior contracts and quirks are pinned by the tests.
 
 ```ts
-import { isAsyncFunction, isAsyncGeneratorFunction, isDecorationContext, isEmpty, isEmptyArray, isEmptyRecord, isEmptyString, isFunction, isGeneratorFunction, isNil, isNull, isObject, isPromise, isRawMemberApplication, isRecord, isThenable, isUndefined } from "jutilities/is";
+import { isAsyncFunction, isAsyncGeneratorFunction, isEmpty, isEmptyArray, isEmptyRecord, isEmptyString, isFunction, isGeneratorFunction, isNil, isNull, isObject, isPromise, isRawMemberApplication, isRecord, isThenable, isUndefined } from "jutilities/is";
 ```
 ## Functions
 
@@ -17,12 +17,6 @@ transpilers/minifiers that lower <code>async</code> functions.</p>
 </dd>
 <dt><a href="#isAsyncGeneratorFunction">isAsyncGeneratorFunction(fn)</a> ⇒</dt>
 <dd><p>Async generator function check via the function&#39;s constructor name.</p>
-</dd>
-<dt><a href="#isDecorationContext">isDecorationContext(arg)</a> ⇒</dt>
-<dd><p>Detects a paren-less Stage 3 decoration: the runtime hands decorators
-<code>(member, context)</code> where the context carries a string-ish <code>kind</code>, so a
-guard/options object with a <code>kind</code> property is a telling misfire instead of
-an options bag.</p>
 </dd>
 <dt><a href="#isEmpty">isEmpty(value)</a> ⇒</dt>
 <dd><p>Aggregated emptiness check: <code>null</code>/<code>undefined</code>, the empty string, an empty
@@ -69,11 +63,13 @@ expose <code>catch</code> and <code>finally</code>. Thenables missing either met
 </dd>
 <dt><a href="#isRawMemberApplication">isRawMemberApplication(rest)</a> ⇒</dt>
 <dd><p>Detects a paren-less application of a decorator-converter RESULT (the
-decorator factory): Stage 3 invokes it with <code>(member, context)</code>, which
-arrives as the factory&#39;s rest options — a leading function followed by a
-decoration context is the misfire fingerprint. Legit option slots (option
-bags, keys, delays) cannot mimic both stripes at those positions, so this is
-a safe heuristic guarded by a documented caveat in the package docs.</p>
+decorator factory): legacy (experimentalDecorators) decorators invoke a
+member decorator as <code>(target, propertyKey, descriptor)</code>, which arrives as
+three positional arguments — an object target, a string/symbol key and a
+descriptor-shaped third argument is the misfire fingerprint. Legit option
+slots (option bags) cannot mimic all three stripes at those positions, so
+this is a safe heuristic guarded by a documented caveat in the package
+docs.</p>
 </dd>
 <dt><a href="#isRecord">isRecord(value)</a> ⇒</dt>
 <dd><p>Checks whether a value is a key/value object and not an array.
@@ -118,24 +114,6 @@ Async generator function check via the function's constructor name.
 | Param | Description |
 | --- | --- |
 | fn | The function to test. |
-
-
-* * *
-
-<a name="isDecorationContext"></a>
-
-## isDecorationContext(arg) ⇒
-Detects a paren-less Stage 3 decoration: the runtime hands decorators
-`(member, context)` where the context carries a string-ish `kind`, so a
-guard/options object with a `kind` property is a telling misfire instead of
-an options bag.
-
-**Kind**: global function  
-**Returns**: `true` when the argument looks like a decoration context.  
-
-| Param | Description |
-| --- | --- |
-| arg | The second argument a factory received (options or context). |
 
 
 * * *
@@ -313,11 +291,13 @@ expose `catch` and `finally`. Thenables missing either method yield `false`.
 
 ## isRawMemberApplication(rest) ⇒
 Detects a paren-less application of a decorator-converter RESULT (the
-decorator factory): Stage 3 invokes it with `(member, context)`, which
-arrives as the factory's rest options — a leading function followed by a
-decoration context is the misfire fingerprint. Legit option slots (option
-bags, keys, delays) cannot mimic both stripes at those positions, so this is
-a safe heuristic guarded by a documented caveat in the package docs.
+decorator factory): legacy (experimentalDecorators) decorators invoke a
+member decorator as `(target, propertyKey, descriptor)`, which arrives as
+three positional arguments — an object target, a string/symbol key and a
+descriptor-shaped third argument is the misfire fingerprint. Legit option
+slots (option bags) cannot mimic all three stripes at those positions, so
+this is a safe heuristic guarded by a documented caveat in the package
+docs.
 
 **Kind**: global function  
 **Returns**: `true` when the rest looks like a raw decoration invocation.  

@@ -29,8 +29,8 @@ export interface TimeoutKind<T extends AnyFunction = AnyFunction>
  *   default, or whatever reason was used to abort).
  * - Losing the race does not stop the underlying work; the caller's promise
  *   simply rejects first.
- * - A sync-throwing wrapped function propagates synchronously and may leak the
- *   internal timer.
+ * - A sync-throwing wrapped function propagates synchronously after the timer
+ *   and abort listener are cleaned up.
  * @template T - The function being wrapped.
  * @param fn - The async function to wrap.
  * @param options - Options object.
@@ -66,11 +66,19 @@ export const withTimeoutAsync = createHofAsync<TimeoutKind>(
         }
       });
 
-      return Promise.race([fn.apply(this, args), timeoutPromise]).finally(
-        () => {
-          cleanup.forEach((fn) => fn());
-        },
-      );
+      const runCleanup = () => {
+        for (const remove of cleanup) remove();
+      };
+
+      let result: ReturnType<TimeoutKind["fn"]>;
+      try {
+        result = fn.apply(this, args);
+      } catch (error) {
+        runCleanup();
+        throw error;
+      }
+
+      return Promise.race([result, timeoutPromise]).finally(runCleanup);
     };
   },
 );

@@ -16,9 +16,8 @@ The shared skeleton of a member decorator: it validates the factory call
 function that enhances one member — checking the member's async-ness against
 the guard before handing it to the HOF.
 
-Every member converter (`decorateMethod`, `decorateGetter`,
-`decorateProperty`) shares this, so the misfire and guard rules are defined
-once.
+Every member converter (`decorateMethod`, `decorateGetter`) shares this,
+so the misfire and guard rules are defined once.
 
 **Kind**: global function  
 **Returns**: The function that enhances one member.  

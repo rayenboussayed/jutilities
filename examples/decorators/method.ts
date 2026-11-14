@@ -9,7 +9,7 @@ import { withRetryAsync } from "jutilities/retry";
 /**
  * Runnable demo for `decorateMethod` (`jutilities/decorators/method`): any
  * fn-first HOF built by this package converts into a reusable method
- * decorator. Stage 3 decorators cannot be parsed by plain Node, so this file
+ * decorator. Legacy decorators (`experimentalDecorators`) need a transpile pass, so this file
  * is TypeScript and is executed through tsx alongside the flat demos by
  * `examples/run-all.ts`.
  *

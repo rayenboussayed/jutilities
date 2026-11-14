@@ -43,3 +43,10 @@ yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 *.tgz
+
+# ---- performance/memory tooling & artifacts (not published) ----
+test/
+benchmarks/
+profiles/
+vitest.*.config.ts
+benchmarks/results/

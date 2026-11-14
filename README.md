@@ -2,7 +2,7 @@
 
 Small, typed, heavily documented TypeScript utilities for Node.js — caching, retries, timeouts, delays, abort-aware sleeps, one-shot signal listeners, Node stream and filesystem helpers, a super-JSON serializer, non-cryptographic hashes, and type guards.
 
-Everything is an independent module with a locked, test-verified behavior contract (572 tests). Every non-obvious quirk is documented at the call site.
+Everything is an independent module with a locked, test-verified behavior contract (585 tests). Every non-obvious quirk is documented at the call site.
 
 > **Status:** APIs are stable in practice, but semver guarantees are not yet frozen. Requires **Node ≥ 22** (uses `Buffer` pool semantics, `Symbol.for` round-trips, shared timers).
 
@@ -14,10 +14,10 @@ npm install jutilities
 
 ESM only. The package ships compiled `dist/` output — no barrel, no `main`.
 
-**Published contents** (guarded by `files` in `package.json` + `.npmignore`):
-`dist/` (compiled modules + types with source maps), `docs/DOCUMENTATION.md`,
-`examples/` (runnable demos), `README.md`, `package.json`. Sources (`src/`),
-tests, and all dev tooling stay in the repository only.
+**Published contents** (guarded by `files` in `package.json` + `.npmignore`; `prepack` rebuilds `dist/` and `docs/` before packing so the tarball is always fresh):
+`dist/` (compiled modules + types with source maps), `docs/` (generated API
+reference), `examples/` (runnable demos), `README.md`, `package.json`. Sources
+(`src/`), tests, and all dev tooling stay in the repository only.
 
 ### Subpath imports (the only supported style)
 
@@ -50,7 +50,7 @@ import { superjson } from "jutilities/json";
 | `jutilities/libs/create-hof` | `createHofSync`, `createHofAsync` + `HofKind`/`ApplyKind`/`WithSkipHof` types | Build fn-first HOFs in this package's exact shape (kind → factory), with the shared bypass pre-wired |
 | `jutilities/libs/with` | `withAsync`, `withSync` + `MergeOptions` type | Compose several fn-first HOFs into one wrapper (the first one is the outermost layer) |
 | `jutilities/libs/clock` | `now` | The clock the timing-sensitive wrappers measure with (monotonic in Node, `Date.now` in the browser branch) |
-| `jutilities/decorators/<kind>` | `decorateMethod`, `decorateClass`, `decorateProperty`, `decorateGetter` | Turn fn-first HOFs into fully typed Stage 3 decorators (methods / whole classes / function-valued fields / getters) |
+| `jutilities/decorators/<kind>` | `decorateMethod`, `decorateClass`, `decorateGetter` | Turn fn-first HOFs into fully typed legacy decorators (`experimentalDecorators`; methods / whole classes / getters) |
 | `jutilities/json` | `Json`, `superjson` | Round-trip Map/Set/Date/bigint/typed arrays/Errors… |
 | `jutilities/runtime` | `isServer`, `isClient`, `serverFn`, `clientFn`, `createConditionalFn` | Server/client guards returning `undefined` on the inert side |
 | `jutilities/node/stream/buffer` | `buffer2stream`, `stream2buffer` | Buffer ↔ stream conversion |
@@ -164,6 +164,8 @@ for await (const chunk of streamSize({ onSize: console.log, stream: fetchStream 
 
 ### Decorators — promote any HOF to `@decorator`
 
+Decorators here are the TypeScript **legacy** decorators (`"experimentalDecorators": true` in `tsconfig.json`); plain Node cannot parse decorator syntax, so decorator-consuming files are TypeScript executed through a transpiler (the examples run via tsx).
+
 ```ts
 import { decorateMethod } from "jutilities/decorators/method";
 import { decorateClass } from "jutilities/decorators/class";
@@ -199,11 +201,7 @@ class Repo {
 // The class decorator also skips constructor, statics, and accessors.
 ```
 
-`decorateProperty` enhances function-valued fields **per instance** (arrow
-fields keep their lexical `this`; a non-function initializer throws at
-construction), `decorateGetter` wraps a getter **once, prototype-wide** (a
-cached getter is shared across every instance), and `require: "sync" | "async"`
-guards turn declared-async mismatches into decorate-time `TypeError`s.
+`decorateGetter` wraps a getter **once, prototype-wide** (a cached getter is shared across every instance). Plain fields are not supported — TypeScript legacy field decorators receive no initializer value, so the decorators module covers methods, classes and getters only. `require: "sync" | "async"` guards turn declared-async mismatches into decorate-time `TypeError`s.
 
 Only HOFs built by `createHofSync` / `createHofAsync` (or composed by `withAsync` / `withSync`) are convertible — they carry the kind brand the converter types the option bag from. A hand-written fn-first function is rejected at compile time; an async member contradicts the async gate, while sync HOFs preserve signatures and rely on runtime guards (or `require`) to reject promise/generator results.
 
@@ -243,11 +241,25 @@ keys), and a single `skipHof` covers every layer.
 - `lazy` caches only truthy results, evicts rejected promises, and keys on `djb2(source + args)` (32-bit, collidable).
 - `superjson.parse` of typed-array payloads rebuilds views over a fresh, exactly sized buffer (the decoded bytes are copied out of Node's shared pool), so no neighboring allocation's bytes are reachable.
 - `sleepSync` is a busy-wait and can only observe signals that aborted *before* it started.
-- `decorators/<kind>` annotations must be applied as `@f(...options)` / `@f()`: bare `@f` applications are type-rejected, and method/class/getter bare applications additionally throw a `TypeError` at runtime. A bare application on a **field** is runtime-silent (fields hand `undefined`, not the member, to the decorator — only the type layer catches it), which is why the field shape is pinned compile-only.
+- `decorators/<kind>` annotations must be applied as `@f(...options)` / `@f()`: bare `@f` applications are type-rejected, and method/class/getter bare applications additionally throw a `TypeError` at runtime.
 - `decorators/<kind>` convert only factory-built HOFs (they carry the `__kind` brand); a hand-written fn-first function is type-rejected, and a member whose async-ness contradicts the HOF's slot is rejected in both directions.
 - Decorator async detection (`class` pair `pick: "detect"`, and the `require` guards) uses `fn.constructor.name === "AsyncFunction"`. It holds under tsx/esbuild and native Node, but transpilers that *lower* `async` functions into plain functions returning promises defeat it — declare `pick`/`require` explicitly in such toolchains.
 - `withCacheSync` forced onto a declared-`async` member (class `pick: "sync"`) does not memoize: promises count as "empty" under `isEmpty`, so every call recomputes — keep async members on the async slot (`pick: "detect"` does this automatically).
 - `withCacheSync` (and every sync-flavored wrapper) now preserves the generic/polymorphic signature end-to-end, just like `withCacheAsync` and `lazy`. Sync discipline is enforced at runtime: any Promise, Generator, or AsyncGenerator result throws a `TypeError` before the enhancer/caller can consume it, and `skipHof` predicates are likewise validated. Async-oriented workloads should use `withCacheAsync`/`lazy`; sync wrappers no longer reject promise-returning functions at compile time.
+
+## Performance and memory
+
+The unit suite stays fast (~3 s with coverage). Performance and memory checks are opt-in so they never add noise to `npm test`:
+
+| Command | What it does |
+| --- | --- |
+| `npm run bench` | Tinybench benchmarks for hash, json, cache, node streams, stream cache, fs (rebuilds first; opt-in, not in `check`) |
+| `npm run bench:json` | Rebuild and dump a full JSON report to `benchmarks/results/bench.json` |
+| `npm run test:memory` | Memory/leak suite with `--expose-gc` (part of `npm run check`) |
+| `npm run test:heap` | Per-test heap usage |
+| `npm run profile` | CPU + heap profiles (pass a file filter, e.g. `npm run profile -- src/json.test.ts`) |
+
+See [benchmarks/README.md](./benchmarks/README.md) for methodology, profiling how-tos and reference numbers.
 
 ## Development
 
@@ -255,7 +267,8 @@ keys), and a single `skipHof` covers every layer.
 npm run lint        # 0 errors / 0 warnings policy
 npm run lint:fix
 npm run typecheck   # strict TS, tests included
-npm test            # 572 tests
+npm test            # 585 tests
+npm run test:memory # leak/resource suite (in check)
 npm run build       # tsc → dist (tests excluded)
 npm run examples    # run every example in examples/
 ```
@@ -270,6 +283,6 @@ The config never disables a rule globally. The 0/0 gate holds by *solving* warni
 - `examples/**/*.ts` — one file-level `deslint/no-prod-console` disable per example: examples are demo scripts and printing is their purpose.
 - `examples/real-life/sqlite-db.ts` — one extra file-level `n/no-unsupported-features/node-builtins` disable: `node:sqlite` has no stable release in eslint-plugin-n's dataset, so no `engines` range can satisfy the rule; the example pins the real unflagged floor (Node ≥ 22.13) in its header.
 
-Examples are ordinary TypeScript: the flat demos live in `examples/` — including five `generic-*` case studies (typed sync-cache boundaries, conditional `HandleAsyncFunction` branches, parameterized `Json` handlers, and the wrap-and-consume matrix that shows sync generics degrading to `any`) — the stage-3 decorator showcases live in `examples/decorators/` (they need a transpile pass, like every plain-Node consumer of this repo), and the multi-module scenarios live in `examples/real-life/` — a `node:http` API, an SQLite store, file management, a worker pool, schedulers. `npm run examples` drives them all through tsx (`examples/run-all.ts`), seeded by a fresh build.
+Examples are ordinary TypeScript: the flat demos live in `examples/` — including five `generic-*` case studies (typed sync-cache boundaries, conditional `HandleAsyncFunction` branches, parameterized `Json` handlers, and the wrap-and-consume matrix that shows sync generics degrading to `any`) — the legacy decorator showcases live in `examples/decorators/` (they need a transpile pass, like every plain-Node consumer of this repo), and the multi-module scenarios live in `examples/real-life/` — a `node:http` API, an SQLite store, file management, a worker pool, schedulers. `npm run examples` drives them all through tsx (`examples/run-all.ts`), seeded by a fresh build.
 
 Community guides live in [docs/DOCUMENTATION.md](./docs/DOCUMENTATION.md) — per-module behavior contracts, quirks, and worked use cases; every snippet there has an executable, runnable copy in [examples/](./examples) that runs through the same gate. Per-module API reference lives in [docs/api/](./docs/api/README.md) — one page per module, generated from the JSDoc with [`jsdoc-to-markdown`](https://github.com/jsdoc2md/jsdoc-to-markdown) via `npm run docs:api`; regenerate it after changing the docs comments.

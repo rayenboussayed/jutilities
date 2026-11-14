@@ -6,9 +6,9 @@ import { withLoggerSync } from "jutilities/logger";
 /**
  * Runnable demo for `decorateClass` (`jutilities/decorators/class`): apply a
  * fn-first HOF — or a `{ sync, async }` pair resolved per member — to every
- * own prototype method at once. Stage 3 decorators cannot be parsed by plain
- * Node, so this file is TypeScript and is executed through tsx alongside the
- * flat demos by `examples/run-all.ts`.
+ * own prototype method at once. Legacy decorators need a transpile pass, so
+ * this file is TypeScript and is executed through tsx alongside the flat
+ * demos by `examples/run-all.ts`.
  *
  * Note the option slots are declared once on the class decoration and
  * forwarded verbatim to every wrapped member, and each wrapped method shares

@@ -11,6 +11,9 @@
     // See also https://aka.ms/tsconfig/module
     "module": "nodenext",
     "target": "esnext",
+    // Legacy decorators (experimentalDecorators) drive the decorators module:
+    // Stage 3 decorators are unsupported by the current toolchain.
+    "experimentalDecorators": true,
     // For nodejs:
     // "lib": ["esnext"],
     "types": ["node"],
@@ -47,5 +50,5 @@
   },
 
   // Project sources; tests and examples are type-checked too on purpose.
-  "include": ["src", "examples"]
+  "include": ["src", "examples", "benchmarks", "test"]
 }

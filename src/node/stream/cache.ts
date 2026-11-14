@@ -7,11 +7,14 @@ import { pipeline } from "node:stream/promises";
 
 import type { WithSignal } from "../../types/with.js";
 
+const exitDirectories = new Set<string>();
+let exitHandlerRegistered = false;
+
 /**
  * Options for {@link StreamCache}.
  */
 export type StreamCacheOptions = {
-  /** Remove the cache directory when the process is about to exit. */
+  /** Remove the cache directory when the process is about to exit (one shared listener is used for all instances). */
   deleteBeforeExit?: boolean;
   /** Directory holding the cached files. Created on first write. */
   directory: string;
@@ -52,12 +55,7 @@ export class StreamCache {
     this.onError = options.onError;
     this.timeToLive = options.timeToLive ?? Infinity;
 
-    if (options.deleteBeforeExit) {
-      /* c8 ignore next 3 -- the callback only runs during the real beforeExit */
-      process.once("beforeExit", () => {
-        fs.rmSync(this.directory, { force: true, recursive: true });
-      });
-    }
+    if (options.deleteBeforeExit) registerExitDirectory(this.directory);
   }
 
   /**
@@ -232,4 +230,33 @@ export class StreamCache {
       () => undefined,
     );
   }
+}
+
+/* c8 ignore start -- the callback only runs during the real beforeExit */
+/**
+ * The shared `beforeExit` handler: removes every registered cache directory.
+ * Runs only during the real process exit, so unit coverage cannot reach it.
+ */
+function onBeforeExit() {
+  for (const pending of exitDirectories) fs.rmSync(
+    pending,
+    { force: true, recursive: true },
+  );
+  exitDirectories.clear();
+  exitHandlerRegistered = false;
+}
+/* c8 ignore stop */
+
+/**
+ * Registers `directory` to be removed when the process is about to exit.
+ *
+ * All instances share one `beforeExit` listener instead of registering one
+ * per cache (many instances used to trip `MaxListenersExceededWarning`).
+ * @param directory - Cache directory to remove at process exit.
+ */
+function registerExitDirectory(directory: string) {
+  exitDirectories.add(directory);
+  if (exitHandlerRegistered) return;
+  exitHandlerRegistered = true;
+  process.once("beforeExit", onBeforeExit);
 }

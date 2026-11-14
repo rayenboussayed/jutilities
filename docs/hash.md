@@ -37,6 +37,10 @@ to an unsigned 32-bit integer.</p>
 NOT wrap with a 2^64 mask, so results grow past 64 bits for longer inputs
 (deterministic, positive bigint, unique-ish distribution — not a
 wire-compatible FNV-1a).</p>
+<p>Cost grows with the unmasked BigInt result, so large inputs are much slower
+than the 32-bit hashes (measured at roughly 57 ops/sec for a 4 KiB input on
+Node 24 vs ~24,000 ops/sec for <a href="#djb2">djb2</a>). Prefer <a href="#djb2">djb2</a> or
+<a href="#sdbm">sdbm</a> for large cache keys.</p>
 </dd>
 </dl>
 
@@ -105,6 +109,11 @@ Note: unlike the canonical 64-bit FNV-1a algorithm, this implementation does
 NOT wrap with a 2^64 mask, so results grow past 64 bits for longer inputs
 (deterministic, positive bigint, unique-ish distribution — not a
 wire-compatible FNV-1a).
+
+Cost grows with the unmasked BigInt result, so large inputs are much slower
+than the 32-bit hashes (measured at roughly 57 ops/sec for a 4 KiB input on
+Node 24 vs ~24,000 ops/sec for [djb2](#djb2)). Prefer [djb2](#djb2) or
+[sdbm](#sdbm) for large cache keys.
 
 **Kind**: global function  
 **Returns**: The hash as a positive `bigint` (unmasked; larger than 64 bits for

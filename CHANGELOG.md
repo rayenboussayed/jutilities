@@ -8,11 +8,16 @@ All notable changes to this project are documented here.
 - Standardized superjson handler keys to hyphenated forms: `invalid-date`, `number-object`, `string-object`, and `boolean-object`.
 - Restored function handler round-trip behavior using `new Function(\`return ${v}\`)()` and `v.toString()`.
 - Aligned docs and tests with the updated handler keys and function behavior.
+- Upgraded Vitest `^3.2.7` → `^5.1.0` and `@vitest/coverage-v8` to match. Benchmarks now use the Vitest 5 benchmark API (`test()` + `bench` fixture); `--outputJson`/`--compare` are gone — `bench:json` writes a full JSON report via `--reporter=json`, and stored-baseline comparisons use `writeResult`/`bench.from()` (see `benchmarks/README.md`). Coverage is now the AST-aware V8 remapping; the 100% branch/line/function/statement gate is re-earned against it.
+- **Breaking:** the `decorators/<kind>` converters (`decorateMethod`, `decorateClass`, `decorateGetter`) now target TypeScript legacy decorators (`"experimentalDecorators": true`, added to `tsconfig.json`) because Vite 8 / Rolldown (oxc) cannot parse TC39 Stage 3 decorator syntax. The Stage 3 public API (`ClassDecoratorContext`-typed signatures, `isDecorationContext`) is discarded.
+- **Breaking:** `decorateProperty` is removed — legacy field decorators receive no initializer value, so function-valued field decoration is impossible. Plain fields are not supported; the decorators module covers methods, classes and getters only. The 15 `decorateProperty` tests and the `decorators/property` example are gone.
+- Paren-less-misfire guards now fingerprint legacy decorator invocations: `isRawMemberApplication` matches `(target, propertyKey, descriptor)` and `assertNotRawApplication` matches a function passed as the options bag.
 
 ### Tests
 - Replaced `node:assert/strict` with Vitest `expect` assertions across all test suites.
 - Added function round-trip and invalid-syntax assertions for `SyntaxError`.
-- Full `npm run check` remains green: typecheck, lint, 487 tests, build, and 25 examples.
+- Benchmarks run against the built artifact (`jutilities/*` self-link) after a fresh `npm run build`.
+- Full `npm run check` is green on Vitest 5: typecheck, lint, 585 tests, build, 25 examples.
 
 ## [1.2.0] - 2026-11-06
 

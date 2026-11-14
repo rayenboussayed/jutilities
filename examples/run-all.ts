@@ -1,15 +1,15 @@
 /* eslint-disable deslint/no-prod-console -- examples are demo scripts; printing is their purpose */
 
 /**
- * Runs every example in this directory — the flat module demos, the Stage 3
+ * Runs every example in this directory — the flat module demos, the legacy
  * decorator demos in `decorators/`, and the multi-module real-life scenarios
  * in `real-life/` — as its own Node process and reports pass/fail; sets a
  * non-zero `process.exitCode` when one fails.
  *
- * Examples are TypeScript, and the decorator demos additionally rely on Stage 3
- * decorator syntax that plain Node cannot parse, so every child starts through
- * tsx (`node --import tsx <file>`); the runner itself needs the same loader,
- * which is why `npm run examples` invokes it the same way.
+ * Examples are TypeScript, and the decorator demos additionally rely on
+ * legacy decorator syntax that plain Node cannot parse, so every child starts
+ * through tsx (`node --import tsx <file>`); the runner itself needs the same
+ * loader, which is why `npm run examples` invokes it the same way.
  */
 import { spawn } from "node:child_process";
 import { readdirSync } from "node:fs";

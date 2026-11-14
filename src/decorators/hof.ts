@@ -22,8 +22,8 @@ import { isAsyncFunction } from "../is.js";
  */
 
 /**
- * Optional sync/async discipline knob accepted by `decorateMethod`,
- * `decorateGetter` and `decorateProperty`. When set, the decorator verifies
+ * Optional sync/async discipline knob accepted by `decorateMethod` and
+ * `decorateGetter`. When set, the decorator verifies
  * the member value at decorate time (not call time) via
  * {@link ../is.ts | isAsyncFunction} and fails fast with a `TypeError` naming
  * the offending member.
@@ -80,9 +80,8 @@ export type HofOptionsOf<H> = HofOptions<H, HofConstraint<FlavorOf<H>>>;
  * function that enhances one member — checking the member's async-ness against
  * the guard before handing it to the HOF.
  *
- * Every member converter (`decorateMethod`, `decorateGetter`,
- * `decorateProperty`) shares this, so the misfire and guard rules are defined
- * once.
+ * Every member converter (`decorateMethod`, `decorateGetter`) shares this,
+ * so the misfire and guard rules are defined once.
  * @param name - The converter's name, used in the error messages.
  * @param hof - The converted HOF.
  * @param options - The converter's guard options.
@@ -111,9 +110,8 @@ export function memberEnhancer(
 
 /**
  * Runtime guards shared by the converters live elsewhere:
- * {@link ../is.ts | isDecorationContext} and
- * {@link ../is.ts | isRawMemberApplication} probe decoration contexts and
- * paren-less-misfire fingerprints, while their fail-fast wrappers
+ * {@link ../is.ts | isRawMemberApplication} probes the paren-less-misfire
+ * fingerprint, while its fail-fast wrappers
  * (`assertNotRawApplication`, `assertNotRawMemberApplication`,
  * `assertGuardConsistency`) live in {@link ../assert.ts}.
  */

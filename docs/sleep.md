@@ -18,6 +18,7 @@ import type { Options } from "jutilities/sleep";
 <li><code>sleep &lt;= 0</code> (and <code>undefined</code>/<code>NaN</code>) resolves immediately.</li>
 <li>Throws synchronously when the signal is already aborted.</li>
 <li>Aborting mid-sleep cuts the wait short and rejects with <code>signal.reason</code>.</li>
+<li>Aborting clears the pending timer and removes the abort listener.</li>
 </ul>
 </dd>
 <dt><a href="#sleepSync">sleepSync(root0)</a></dt>
@@ -42,6 +43,7 @@ Behavior notes:
 - `sleep <= 0` (and `undefined`/`NaN`) resolves immediately.
 - Throws synchronously when the signal is already aborted.
 - Aborting mid-sleep cuts the wait short and rejects with `signal.reason`.
+- Aborting clears the pending timer and removes the abort listener.
 
 **Kind**: global function  
 **Returns**: A promise resolving to `undefined` once the wait completes; rejects

@@ -490,6 +490,15 @@ describe("superjson: error", () => {
     expect((back as Error).message).toBe("out of range");
   });
 
+  it("round-trips a stack-less error (stack branch omitted)", () => {
+    const err = new Error("no-stack");
+    delete err.stack;
+    const back = rt(err);
+    expect(back instanceof Error).toBeTruthy();
+    expect(back.message).toBe("no-stack");
+    expect(back.stack).toEqual(expect.any(String));
+  });
+
   it("round-trips cause chains incl. Error causes", () => {
     const outer = new Error("outer", { cause: new Error("inner") });
     const back = rt(outer);

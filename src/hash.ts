@@ -52,6 +52,11 @@ export const FNV_PRIME = BigInt("1099511628211");
  * NOT wrap with a 2^64 mask, so results grow past 64 bits for longer inputs
  * (deterministic, positive bigint, unique-ish distribution — not a
  * wire-compatible FNV-1a).
+ *
+ * Cost grows with the unmasked BigInt result, so large inputs are much slower
+ * than the 32-bit hashes (measured at roughly 57 ops/sec for a 4 KiB input on
+ * Node 24 vs ~24,000 ops/sec for {@link djb2}). Prefer {@link djb2} or
+ * {@link sdbm} for large cache keys.
  * @param string - The input to hash.
  * @returns The hash as a positive `bigint` (unmasked; larger than 64 bits for
  * longer inputs).

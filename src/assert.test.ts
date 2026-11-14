@@ -80,12 +80,9 @@ describe("assertNever", () => {
 });
 
 describe("assertNotRawApplication", () => {
-  it("throws a readable TypeError for raw decoration contexts", () => {
+  it("throws a readable TypeError for raw decoration invocations", () => {
     expect(() =>
-        assertNotRawApplication(
-          { addInitializer() {}, kind: "method", name: "load" },
-          "decorateMethod",
-        )).toThrow(/decorateMethod: applied without parentheses — decorate with decorateMethod\(...options\) instead/);
+        assertNotRawApplication(() => undefined, "decorateMethod")).toThrow(/decorateMethod: applied without parentheses — decorate with decorateMethod\(...options\) instead/);
   });
 
   it("passes regular option bags", () => {
@@ -96,18 +93,18 @@ describe("assertNotRawApplication", () => {
 });
 
 describe("assertNotRawMemberApplication", () => {
-  it("throws for the (member, context) rest fingerprint", () => {
-    const wrap = (x: unknown): unknown => x;
-    expect(() => assertNotRawMemberApplication([wrap, { kind: "method" }], "decorateMethod")).toThrow(/decorateMethod: applied without parentheses/);
+  it("throws for the (target, key, descriptor) rest fingerprint", () => {
+    const descriptor = { value: () => undefined };
+    expect(() => assertNotRawMemberApplication([Object.prototype, "load", descriptor], "decorateMethod")).toThrow(/decorateMethod: applied without parentheses/);
   });
 
   it("passes legit option rests", () => {
     const wrap = (x: unknown): unknown => x;
     expect(() => assertNotRawMemberApplication([{}], "x")).not.toThrow();
     expect(() => assertNotRawMemberApplication([wrap], "x")).not.toThrow();
-    expect(() => assertNotRawMemberApplication([wrap, {}], "x")).not.toThrow();
-    expect(() => assertNotRawMemberApplication([{}, { kind: "method" }], "x"),).not.toThrow();
-    expect(() => assertNotRawMemberApplication([wrap, { kind: "method" }, 1], "x"),).not.toThrow();
+    expect(() => assertNotRawMemberApplication([wrap, "load", { value: 1 }], "x"),).not.toThrow();
+    expect(() => assertNotRawMemberApplication([Object.prototype, "load", {}], "x"),).not.toThrow();
+    expect(() => assertNotRawMemberApplication([Object.prototype, "load"], "x"),).not.toThrow();
   });
 });
 

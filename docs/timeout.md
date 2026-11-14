@@ -22,8 +22,8 @@ Behavior notes:
   default, or whatever reason was used to abort).
 - Losing the race does not stop the underlying work; the caller's promise
   simply rejects first.
-- A sync-throwing wrapped function propagates synchronously and may leak the
-  internal timer.
+- A sync-throwing wrapped function propagates synchronously after the timer
+  and abort listener are cleaned up.
 
 **Kind**: global constant  
 **Returns**: The wrapped function (typeof `fn`), or `fn` itself when neither a
