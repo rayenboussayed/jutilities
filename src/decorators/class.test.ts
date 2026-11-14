@@ -1,8 +1,8 @@
 /* eslint-disable sonarjs/void-use */
 import { describe, expect, it } from "vitest";
 
-import { withCacheAsync, withCacheSync } from "../cache.js";
-import { withLoggerAsync, withLoggerSync } from "../logger.js";
+import { withCacheAsync, withCacheSync } from "../hof/cache.js";
+import { withLoggerAsync, withLoggerSync } from "../hof/logger.js";
 import { decorateClass } from "./class.js";
 
 // Decorator grammar notes (already pinned in method.test.ts): TS rejects

@@ -2,7 +2,7 @@ import type { FlavorOf, HofFlavor, HofFn } from "../libs/create-hof.js";
 import type { AnyFunction } from "../types/type.js";
 import type { DecoratorGuard, GatedMember, HofOptionsOf } from "./hof.js";
 
-import { assertNotRawApplication } from "../assert.js";
+import { assertNotRawApplication } from "../hof/assert.js";
 import { memberEnhancer } from "./hof.js";
 
 /**

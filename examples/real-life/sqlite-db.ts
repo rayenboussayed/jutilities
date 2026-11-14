@@ -6,12 +6,12 @@ import {
   AssertError,
   assertNotNil,
   withAssertSync,
-} from "jutilities/assert";
-import { withCacheSync } from "jutilities/cache";
+} from "jutilities/hof/assert";
+import { withCacheSync } from "jutilities/hof/cache";
+import { withLoggerSync } from "jutilities/hof/logger";
+import { withRetrySync } from "jutilities/hof/retry";
 import { superjson } from "jutilities/json";
 import { lazy } from "jutilities/lazy";
-import { withLoggerSync } from "jutilities/logger";
-import { withRetrySync } from "jutilities/retry";
 /**
  * Real-life scenario: managing an SQLite database with `node:sqlite` — the
  * connection opens lazily, migrations retry through transient locks, hot

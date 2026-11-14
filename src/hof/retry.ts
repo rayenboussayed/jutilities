@@ -2,15 +2,15 @@ import type {
   AnyFunction,
   HandleAsyncFunction,
   MaybePromise,
-} from "./types/type.js";
+} from "../types/type.js";
 
-import { now } from "./libs/clock.js";
+import { now } from "../libs/clock.js";
 import {
   createHofAsync,
   createHofSync,
   type HofKind,
-} from "./libs/create-hof.js";
-import { sleepSync } from "./sleep.js";
+} from "../libs/create-hof.js";
+import { sleepSync } from "../sleep.js";
 
 /**
  * The default `onError` policy: exponential back-off (2^retries × the last

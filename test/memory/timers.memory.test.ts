@@ -1,9 +1,9 @@
 import { getEventListeners } from "node:events";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { withDelayAsync } from "../../src/delay.js";
+import { withDelayAsync } from "../../src/hof/delay.js";
+import { withTimeoutAsync } from "../../src/hof/timeout.js";
 import { sleepAsync } from "../../src/sleep.js";
-import { withTimeoutAsync } from "../../src/timeout.js";
 
 afterEach(() => {
   vi.useRealTimers();

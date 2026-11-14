@@ -1,12 +1,12 @@
-# `jutilities/timeout`
+# `jutilities/hof/timeout`
 
-<!-- This file is generated. Do not edit by hand — change the JSDoc in [`src/timeout.ts`](https://github.com/rayenboussayed/jutilities/blob/main/src/timeout.ts) and run `npm run docs:api` instead. -->
+<!-- This file is generated. Do not edit by hand — change the JSDoc in [`src/hof/timeout.ts`](https://github.com/rayenboussayed/jutilities/blob/main/src/hof/timeout.ts) and run `npm run build` instead. -->
 
-> Generated with [jsdoc-to-markdown](https://github.com/jsdoc2md/jsdoc-to-markdown/tree/master/docs/API.md) from the JSDoc in [`src/timeout.ts`](https://github.com/rayenboussayed/jutilities/blob/main/src/timeout.ts). Behavior contracts and quirks are pinned by the tests.
+> Generated with [jsdoc-to-markdown](https://github.com/jsdoc2md/jsdoc-to-markdown/tree/master/docs/API.md) from the JSDoc in [`src/hof/timeout.ts`](https://github.com/rayenboussayed/jutilities/blob/main/src/hof/timeout.ts). Behavior contracts and quirks are pinned by the tests.
 
 ```ts
-import { withTimeoutAsync } from "jutilities/timeout";
-import type { Options, TimeoutKind } from "jutilities/timeout";
+import { withTimeoutAsync } from "jutilities/hof/timeout";
+import type { Options, TimeoutKind } from "jutilities/hof/timeout";
 ```
 <a name="withTimeoutAsync"></a>
 

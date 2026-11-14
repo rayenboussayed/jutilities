@@ -1,6 +1,6 @@
 /* eslint-disable sonarjs/void-use */
 /* eslint-disable deslint/no-prod-console -- examples are demo scripts; printing is their purpose */
-import { withCacheAsync, withCacheSync } from "jutilities/cache";
+import { withCacheAsync, withCacheSync } from "jutilities/hof/cache";
 import { lazy } from "jutilities/lazy";
 
 

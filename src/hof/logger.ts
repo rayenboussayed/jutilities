@@ -1,11 +1,11 @@
-import type { AnyFunction } from "./types/type.js";
+import type { AnyFunction } from "../types/type.js";
 
-import { now } from "./libs/clock.js";
+import { now } from "../libs/clock.js";
 import {
   createHofAsync,
   createHofSync,
   type HofKind,
-} from "./libs/create-hof.js";
+} from "../libs/create-hof.js";
 
 /**
  * Sync and async higher-order loggers that trace a function's invocation and

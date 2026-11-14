@@ -1,8 +1,8 @@
 /* eslint-disable deslint/no-prod-console -- examples are demo scripts; printing is their purpose */
 
-import { withCacheAsync, withCacheSync } from "jutilities/cache";
 import { decorateClass } from "jutilities/decorators/class";
-import { withLoggerSync } from "jutilities/logger";
+import { withCacheAsync, withCacheSync } from "jutilities/hof/cache";
+import { withLoggerSync } from "jutilities/hof/logger";
 /**
  * Runnable demo for `decorateClass` (`jutilities/decorators/class`): apply a
  * fn-first HOF — or a `{ sync, async }` pair resolved per member — to every

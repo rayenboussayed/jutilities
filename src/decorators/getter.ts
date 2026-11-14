@@ -1,7 +1,7 @@
 import type { HofFlavor, HofFn } from "../libs/create-hof.js";
 import type { DecoratorGuard, HofOptionsOf } from "./hof.js";
 
-import { assertNotRawApplication } from "../assert.js";
+import { assertNotRawApplication } from "../hof/assert.js";
 import { memberEnhancer } from "./hof.js";
 
 /**
@@ -45,7 +45,7 @@ export function decorateGetter<
  * @example
  * ```ts
  * // Hoist the factory so each decoration applies it exactly once.
- * const report = decorateGetter(lazy);
+ * const report = decorateGetter(withLoggerSync);
  *
  * class Stats {
  *   @report()

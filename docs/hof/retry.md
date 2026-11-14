@@ -1,12 +1,12 @@
-# `jutilities/retry`
+# `jutilities/hof/retry`
 
-<!-- This file is generated. Do not edit by hand — change the JSDoc in [`src/retry.ts`](https://github.com/rayenboussayed/jutilities/blob/main/src/retry.ts) and run `npm run docs:api` instead. -->
+<!-- This file is generated. Do not edit by hand — change the JSDoc in [`src/hof/retry.ts`](https://github.com/rayenboussayed/jutilities/blob/main/src/hof/retry.ts) and run `npm run build` instead. -->
 
-> Generated with [jsdoc-to-markdown](https://github.com/jsdoc2md/jsdoc-to-markdown/tree/master/docs/API.md) from the JSDoc in [`src/retry.ts`](https://github.com/rayenboussayed/jutilities/blob/main/src/retry.ts). Behavior contracts and quirks are pinned by the tests.
+> Generated with [jsdoc-to-markdown](https://github.com/jsdoc2md/jsdoc-to-markdown/tree/master/docs/API.md) from the JSDoc in [`src/hof/retry.ts`](https://github.com/rayenboussayed/jutilities/blob/main/src/hof/retry.ts). Behavior contracts and quirks are pinned by the tests.
 
 ```ts
-import { defaultOnError, withRetryAsync, withRetrySync } from "jutilities/retry";
-import type { OnErrorFn, Options, RetryKind } from "jutilities/retry";
+import { defaultOnError, withRetryAsync, withRetrySync } from "jutilities/hof/retry";
+import type { OnErrorFn, Options, RetryKind } from "jutilities/hof/retry";
 ```
 ## Constants
 

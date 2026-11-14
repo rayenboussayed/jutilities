@@ -5,15 +5,15 @@ import {
   AssertError,
   assertNotNil,
   withAssertAsync,
-} from "jutilities/assert";
-import { withCacheAsync } from "jutilities/cache";
+} from "jutilities/hof/assert";
+import { withCacheAsync } from "jutilities/hof/cache";
+import { withLoggerAsync } from "jutilities/hof/logger";
+import { withRetryAsync } from "jutilities/hof/retry";
+import { withTimeoutAsync } from "jutilities/hof/timeout";
 import { isRecord } from "jutilities/is";
 import { superjson } from "jutilities/json";
-import { withLoggerAsync } from "jutilities/logger";
 import { stream2buffer } from "jutilities/node/stream/buffer";
-import { withRetryAsync } from "jutilities/retry";
 import { sleepAsync } from "jutilities/sleep";
-import { withTimeoutAsync } from "jutilities/timeout";
 /**
  * Real-life scenario: a miniature HTTP API on `node:http` whose handlers are
  * hardened with jutilities wrappers — result gating, per-route caching,

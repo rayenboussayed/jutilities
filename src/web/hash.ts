@@ -4,7 +4,7 @@ import type { ReadableStream as WebReadableStream } from "node:stream/web";
 
 import type { WithSignal } from "../types/with.js";
 
-import { withCacheAsync } from "../cache.js";
+import { withCacheAsync } from "../hof/cache.js";
 import { toUint8Array } from "../to.js";
 
 /**

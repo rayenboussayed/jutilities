@@ -1,12 +1,12 @@
-# `jutilities/delay`
+# `jutilities/hof/delay`
 
-<!-- This file is generated. Do not edit by hand — change the JSDoc in [`src/delay.ts`](https://github.com/rayenboussayed/jutilities/blob/main/src/delay.ts) and run `npm run docs:api` instead. -->
+<!-- This file is generated. Do not edit by hand — change the JSDoc in [`src/hof/delay.ts`](https://github.com/rayenboussayed/jutilities/blob/main/src/hof/delay.ts) and run `npm run build` instead. -->
 
-> Generated with [jsdoc-to-markdown](https://github.com/jsdoc2md/jsdoc-to-markdown/tree/master/docs/API.md) from the JSDoc in [`src/delay.ts`](https://github.com/rayenboussayed/jutilities/blob/main/src/delay.ts). Behavior contracts and quirks are pinned by the tests.
+> Generated with [jsdoc-to-markdown](https://github.com/jsdoc2md/jsdoc-to-markdown/tree/master/docs/API.md) from the JSDoc in [`src/hof/delay.ts`](https://github.com/rayenboussayed/jutilities/blob/main/src/hof/delay.ts). Behavior contracts and quirks are pinned by the tests.
 
 ```ts
-import { withDelayAsync, withDelaySync } from "jutilities/delay";
-import type { DelayKind, Options } from "jutilities/delay";
+import { withDelayAsync, withDelaySync } from "jutilities/hof/delay";
+import type { DelayKind, Options } from "jutilities/hof/delay";
 ```
 ## Constants
 

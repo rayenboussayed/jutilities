@@ -1,12 +1,12 @@
-import type { AnyFunction } from "./types/type.js";
-import type { WithSignal } from "./types/with.js";
+import type { AnyFunction } from "../types/type.js";
+import type { WithSignal } from "../types/with.js";
 
 import {
   createHofAsync,
   createHofSync,
   type HofKind,
-} from "./libs/create-hof.js";
-import { sleepAsync, sleepSync } from "./sleep.js";
+} from "../libs/create-hof.js";
+import { sleepAsync, sleepSync } from "../sleep.js";
 
 export interface DelayKind<T extends AnyFunction = AnyFunction> extends HofKind<T> {
   options: Options;

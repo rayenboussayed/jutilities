@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { withCacheAsync, withCacheSync } from "../cache.js";
+import { withCacheAsync, withCacheSync } from "../hof/cache.js";
 import {
   createHofAsync,
   createHofSync,

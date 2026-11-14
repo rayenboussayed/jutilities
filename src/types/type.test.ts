@@ -8,7 +8,7 @@ import type {
   HandleAsyncFunction,
 } from "./type.js";
 
-import { withCacheAsync, withCacheSync } from "../cache.js";
+import { withCacheAsync, withCacheSync } from "../hof/cache.js";
 import { lazy } from "../lazy.js";
 
 describe("HandleAsyncFunction", () => {

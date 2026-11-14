@@ -4,16 +4,16 @@ import type {
   AnyFunction,
   HandleAsyncFunction,
   MaybePromise,
-} from "./types/type.js";
+} from "../types/type.js";
 
-import { djb2 } from "./hash.js";
-import { isEmpty } from "./is.js";
-import { superjson } from "./json.js";
+import { djb2 } from "../hash.js";
+import { isEmpty } from "../is.js";
+import { superjson } from "../json.js";
 import {
   createHofAsync,
   createHofSync,
   type HofKind,
-} from "./libs/create-hof.js";
+} from "../libs/create-hof.js";
 
 export type Key = number | string;
 

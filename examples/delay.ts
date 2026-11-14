@@ -4,7 +4,7 @@
  * Demonstrates `withDelayAsync` / `withDelaySync`: the unwrap shortcut for
  * `delay <= 0`, delayed execution, and abort-mid-wait rejection.
  */
-import { withDelayAsync, withDelaySync } from "jutilities/delay";
+import { withDelayAsync, withDelaySync } from "jutilities/hof/delay";
 
 /**
  * Identity function used with the zero/negative-delay unwrap shortcut.

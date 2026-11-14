@@ -5,7 +5,7 @@
  * signal-driven rejection (with a custom `reason`), and work continuing after
  * losing the race.
  */
-import { withTimeoutAsync } from "jutilities/timeout";
+import { withTimeoutAsync } from "jutilities/hof/timeout";
 
 /**
  * Fast noop used to show the zero-overhead unwrap shortcut.

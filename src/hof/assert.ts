@@ -2,17 +2,17 @@ import type {
   AnyFunction,
   HandleAsyncFunction,
   MaybePromise,
-} from "./types/type.js";
+} from "../types/type.js";
 
 import {
   isNil,
   isRawMemberApplication,
-} from "./is.js";
+} from "../is.js";
 import {
   createHofAsync,
   createHofSync,
   type HofKind,
-} from "./libs/create-hof.js";
+} from "../libs/create-hof.js";
 
 export interface AssertKind<T extends AnyFunction = AnyFunction> extends HofKind<T> {
   options: Options<this["fn"]>;

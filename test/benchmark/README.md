@@ -4,7 +4,7 @@
 
 Performance work is split into two deliberately isolated suites:
 
-- **Micro-benchmarks** — [Tinybench](https://github.com/tinylibs/tinybench) through the Vitest 5 benchmark API: benchmarks are `test()` cases that consume a `bench` fixture (`benchmarks/**/*.bench.ts`). Opt-in via `npm run bench`; never part of `npm run check`.
+- **Micro-benchmarks** — [Tinybench](https://github.com/tinylibs/tinybench) through the Vitest 5 benchmark API: benchmarks are `test()` cases that consume a `bench` fixture (`test/benchmark/**/*.bench.ts`). Opt-in via `npm run bench`; never part of `npm run check`.
 - **Memory/leak tests** — `test/memory/**/*.memory.test.ts`, run with `--expose-gc` by `vitest.memory.config.ts`. `npm run test:memory` **is** part of `npm run check`.
 
 Both live outside `src/**/*.test.ts`, so the normal unit run (`npm test`) stays focused and fast.
@@ -15,8 +15,8 @@ Benchmarks measure the **built artifact** through the package self-link (`jutili
 
 | Command | What it does | In `check`? |
 | --- | --- | --- |
-| `npm run bench` | Rebuild, then run every `benchmarks/*.bench.ts` | No (opt-in) |
-| `npm run bench:json` | Rebuild, then dump the full JSON report (benchmark fields included) to `benchmarks/results/bench.json` | No |
+| `npm run bench` | Rebuild, then run every `test/benchmark/*.bench.ts` | No (opt-in) |
+| `npm run bench:json` | Rebuild, then dump the full JSON report (benchmark fields included) to `test/benchmark/results/bench.json` | No |
 | `npm run test:memory` | Memory/leak suite with `--expose-gc` | Yes |
 | `npm run test:heap` | Unit suite with per-test heap usage (`--logHeapUsage`) | No |
 | `npm run profile` | CPU + heap profiles of the whole suite via `vitest.profile.config.ts` | No |
@@ -27,7 +27,7 @@ Profiling runs can be kept small by passing a filter, e.g. `npm run profile -- s
 
 ## Layout
 
-- `benchmarks/hash.bench.ts`, `json.bench.ts`, `cache.bench.ts`, `streams.bench.ts`, `stream-cache.bench.ts`, `fs.bench.ts` — one file per module area.
+- `test/benchmark/hash.bench.ts`, `json.bench.ts`, `cache.bench.ts`, `streams.bench.ts`, `stream-cache.bench.ts`, `fs.bench.ts` — one file per module area.
 - `test/memory/*.memory.test.ts` — leak/resource tests for the cache, timers, abort listeners, streams and `StreamCache`.
 - `test/memory/gc.ts` — `forceGc()` and `isCollected(ref)` helpers (three forced GC passes, one per event-loop turn).
 - `vitest.profile.config.ts` — drives `npm run profile` with `--cpu-prof` + `--heap-prof` into `profiles/` (via top-level `execArgv`, `maxWorkers: 1`, `isolate: false`).
@@ -40,7 +40,7 @@ Profiling runs can be kept small by passing a filter, e.g. `npm run profile -- s
 - Module-level bindings (no getter overhead), pre-created fixtures.
 - Signature is `bench(name, fn).run(options?)` or `bench(name, fnOptions, fn)`; `fnOptions` are the tinybench lifecycle hooks, `run()` takes the tinybench engine options (`{ time: 1000 }` etc.).
 - Numbers are environment-specific — compare only against the same machine/runner, never against a hardcoded threshold, `bench` is NOT part of `npm run check`.
-- The Vitest 5 benchmark provider warns when a benchmark accesses module-export getters too often. Two of this repo's benches (`withCacheSync hit`, `lazy hit`) and two parse benches (`superjson.parse plain/rich`) still trip it because of **cross-module calls inside the library itself** (e.g. `dist/cache.js` → `dist/is.js`, `dist/lazy.js` → `dist/hash.js`) under the module runner. That is inherent to running library internals through Vite's module runner, not a benchmark bug — do not chase it by restructuring the library; the numbers are stable within a few percent on a quiet machine.
+- The Vitest 5 benchmark provider warns when a benchmark accesses module-export getters too often. Two of this repo's benches (`withCacheSync hit`, `lazy hit`) and two parse benches (`superjson.parse plain/rich`) still trip it because of **cross-module calls inside the library itself** (e.g. `dist/hof/cache.js` → `dist/is.js`, `dist/lazy.js` → `dist/hash.js`) under the module runner. That is inherent to running library internals through Vite's module runner, not a benchmark bug — do not chase it by restructuring the library; the numbers are stable within a few percent on a quiet machine.
 
 ## Reference run
 
@@ -95,7 +95,7 @@ No absolute heap thresholds (they flake). The suite runs inside `npm run check`.
 ## Known characteristics and gotchas
 
 - `fnv1a64` is O(n²) (result BigInt grows unboundedly): ~610k ops/s on short keys and only ~45–57 ops/s on a 4 KiB input. Prefer `djb2`/`sdbm` for large cache keys.
-- `lazy`'s memoization store is process-lifetime and unbounded: every distinct (function source, arguments) pair is retained until exit. Use it for stable, low-cardinality inputs.
+- `lazy`'s memoization store is process-lifetime, shared across all wrappers of the same initializer, and unbounded: every distinct (function source, arguments) pair is retained until exit. Use it for stable, low-cardinality inputs.
 - `globalCache` entries expire after the default TTL (5 minutes) and are removed lazily on access; there is no size cap. Pass a bounded `cacheStore` for high-cardinality work.
 - `StreamCache` writes are atomic (temp file + rename), so a failed `maxFileSize` write leaves no partial file — but rename/fsync costs make writes noisy.
 - Filesystem and stream-cache numbers vary wildly with disk, tmpfs, antivirus and CI load. Treat them as smoke signals, not targets.
@@ -104,7 +104,7 @@ No absolute heap thresholds (they flake). The suite runs inside `npm run check`.
 
 Vitest 5 removed the `--outputJson` / `--compare` flags. Stored baselines are now a per-bench option instead:
 
-1. `npm run bench:json` writes `benchmarks/results/bench.json`, a full JSON report with a `benchmarks` field per test case (useful for one-off archiving and diffs).
-2. For repeatable A/B comparisons, add `writeResult: "./benchmarks/results/<name>.json"` to the bench and replay it with `bench.from(name, path)` inside `bench.compare()` — see <https://vitest.dev/guide/benchmarking#storing-and-replaying-results>.
-3. `benchmarks/results/` is gitignored on purpose — numbers are machine-specific. On a pinned runner (same hardware/image), you may force-add an artifact with `git add -f benchmarks/results/…` if you want a committed reference; otherwise keep it local.
-4. Keep artifacts out of git — `benchmarks/results/`, `profiles/`, `*.cpuprofile` and `*.heapprofile` are already ignored.
+1. `npm run bench:json` writes `test/benchmark/results/bench.json`, a full JSON report with a `benchmarks` field per test case (useful for one-off archiving and diffs).
+2. For repeatable A/B comparisons, add `writeResult: "./test/benchmark/results/<name>.json"` to the bench and replay it with `bench.from(name, path)` inside `bench.compare()` — see <https://vitest.dev/guide/benchmarking#storing-and-replaying-results>.
+3. `test/benchmark/results/` is gitignored on purpose — numbers are machine-specific. On a pinned runner (same hardware/image), you may force-add an artifact with `git add -f test/benchmark/results/…` if you want a committed reference; otherwise keep it local.
+4. Keep artifacts out of git — `test/benchmark/results/`, `profiles/`, `*.cpuprofile` and `*.heapprofile` are already ignored.

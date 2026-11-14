@@ -1,7 +1,7 @@
 import { Readable } from "node:stream";
 import { describe, expect, it } from "vitest";
 
-import { globalCache } from "../cache.js";
+import { globalCache } from "../hof/cache.js";
 import {
   blake2b512,
   Hash,

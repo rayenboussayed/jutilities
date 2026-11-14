@@ -1,6 +1,6 @@
 # `jutilities/signal`
 
-<!-- This file is generated. Do not edit by hand — change the JSDoc in [`src/signal.ts`](https://github.com/rayenboussayed/jutilities/blob/main/src/signal.ts) and run `npm run docs:api` instead. -->
+<!-- This file is generated. Do not edit by hand — change the JSDoc in [`src/signal.ts`](https://github.com/rayenboussayed/jutilities/blob/main/src/signal.ts) and run `npm run build` instead. -->
 
 > Generated with [jsdoc-to-markdown](https://github.com/jsdoc2md/jsdoc-to-markdown/tree/master/docs/API.md) from the JSDoc in [`src/signal.ts`](https://github.com/rayenboussayed/jutilities/blob/main/src/signal.ts). Behavior contracts and quirks are pinned by the tests.
 

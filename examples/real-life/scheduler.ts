@@ -6,10 +6,10 @@
  * shared AbortSignal stops all loops gracefully (in-flight ticks included,
  * through per-loop relayed signals).
  */
-import { withLoggerAsync } from "jutilities/logger";
+import { withLoggerAsync } from "jutilities/hof/logger";
+import { withTimeoutAsync } from "jutilities/hof/timeout";
 import { abort } from "jutilities/signal";
 import { sleepAsync } from "jutilities/sleep";
-import { withTimeoutAsync } from "jutilities/timeout";
 
 /** A schedulable task: tick number plus the loop's cancellation signal. */
 type Task = (tick: number, signal: AbortSignal) => Promise<string>;

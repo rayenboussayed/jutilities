@@ -1,13 +1,12 @@
 /* eslint-disable sonarjs/void-use */
 import { describe, expect, it } from "vitest";
 
-import { withCacheAsync, withCacheSync } from "../cache.js";
-import { withDelayAsync } from "../delay.js";
-import { lazy } from "../lazy.js";
+import { withCacheAsync, withCacheSync } from "../hof/cache.js";
+import { withDelayAsync } from "../hof/delay.js";
+import { withLoggerAsync, withLoggerSync } from "../hof/logger.js";
+import { withRetryAsync } from "../hof/retry.js";
+import { withTimeoutAsync } from "../hof/timeout.js";
 import { withAsync } from "../libs/with.js";
-import { withLoggerAsync, withLoggerSync } from "../logger.js";
-import { withRetryAsync } from "../retry.js";
-import { withTimeoutAsync } from "../timeout.js";
 import { decorateMethod } from "./method.js";
 
 // Hoisted converters: TS rejects inline chained calls (`@f(h)(opts)`)
@@ -161,17 +160,17 @@ describe("decorateMethod", () => {
     expect(await pairs.slow()).toBe(2);
   });
 
-  it("works with option-less HOFs (lazy, withLoggerAsync)", async () => {
+  it("works with option-less HOFs (withLoggerSync, withLoggerAsync)", async () => {
     const originalDebug = console.debug;
     const lines: unknown[][] = [];
     console.debug = (...parts: unknown[]) => {
       lines.push(parts);
     };
     try {
-      const memoizeLazy = decorateMethod(lazy);
+      const loggedSync = decorateMethod(withLoggerSync);
       const logged = decorateMethod(withLoggerAsync);
       class Spread {
-        @memoizeLazy()
+        @loggedSync()
         syncValue() {
           return 42;
         }
@@ -225,7 +224,7 @@ describe("decorateMethod", () => {
   it("zero-option converters reject raw member application at runtime", () => {
     // Decorator syntax cannot express the paren-less zero-option shape
     // (tsc rejects it while parsing), so the invocation is synthesized:
-    const factory = decorateMethod(lazy) as (...args: any[]) => unknown;
+    const factory = decorateMethod(withLoggerSync) as (...args: any[]) => unknown;
     const descriptor = {
       configurable: true,
       enumerable: false,
@@ -288,22 +287,6 @@ describe("decorateMethod: kind-based conversion contract", () => {
       }
       return Pinned;
     });
-  });
-
-  it("accepts an async member under an any-flavor HOF (lazy)", async () => {
-    const memo = decorateMethod(lazy);
-    class Async {
-      calls = 0;
-      @memo()
-      async value() {
-        this.calls++;
-        return 42;
-      }
-    }
-    const instance = new Async();
-    expect(await instance.value()).toBe(42);
-    expect(await instance.value()).toBe(42);
-    expect(instance.calls).toBe(1);
   });
 
   it("forwards the option bag to the HOF as a single argument", () => {

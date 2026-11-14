@@ -149,52 +149,18 @@ describe("lazy", () => {
     expect(() => (fn as (x: unknown) => unknown)(10n)).toThrow();
   });
 
-  it("separate lazy instances do not share cache", () => {
+  it("wrappers of the same initializer share one process-wide cache", () => {
     let count = 0;
     const make = () =>
-      lazy((x: number) => {
+      lazy((value: number) => {
         count++;
-        return x * 2;
+        return value * 3;
       });
     const f1 = make();
     const f2 = make();
-    expect(f1(1)).toBe(2);
-    expect(f2(1)).toBe(2);
-    expect(count).toBe(2);
-  });
-
-  it("skipHof: true resolves to fn itself at wrap time", () => {
-    /**
-     * Named initializer reaching the bypass switch unenhanced.
-     * @returns Always `1`.
-     */
-    function initializer() {
-      return 1;
-    }
-    expect(lazy(initializer, { skipHof: true })).toBe(initializer);
-  });
-
-  it("per-call skipHof predicate evaluates fresh (no memo store involved)", () => {
-    let count = 0;
-    const fn = lazy((x: number) => {
-      count++;
-      return x * 2;
-    }, { skipHof: () => true });
-
-    expect(fn(2)).toBe(4);
-    expect(fn(2)).toBe(4);
-    expect(count).toBe(2);
-  });
-
-  it("per-call skipHof predicate false uses memoized enhanced", () => {
-    let count = 0;
-    const fn = lazy((x: number) => {
-      count++;
-      return x * 2;
-    }, { skipHof: () => false });
-
-    expect(fn(2)).toBe(4);
-    expect(fn(2)).toBe(4);
+    expect(f1(7)).toBe(21);
+    // The process-wide store means the second wrapper hits without recomputing.
+    expect(f2(7)).toBe(21);
     expect(count).toBe(1);
   });
 

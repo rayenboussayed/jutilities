@@ -5,7 +5,7 @@ import type {
 import type { AnyFunction } from "../types/type.js";
 import type { HofOptionsOf } from "./hof.js";
 
-import { assertNotRawApplication, assertNotRawMemberApplication } from "../assert.js";
+import { assertNotRawApplication, assertNotRawMemberApplication } from "../hof/assert.js";
 import { isAsyncFunction, isFunction } from "../is.js";
 
 /**

@@ -1,6 +1,6 @@
 # `jutilities/decorators/getter`
 
-<!-- This file is generated. Do not edit by hand — change the JSDoc in [`src/decorators/getter.ts`](https://github.com/rayenboussayed/jutilities/blob/main/src/decorators/getter.ts) and run `npm run docs:api` instead. -->
+<!-- This file is generated. Do not edit by hand — change the JSDoc in [`src/decorators/getter.ts`](https://github.com/rayenboussayed/jutilities/blob/main/src/decorators/getter.ts) and run `npm run build` instead. -->
 
 > Generated with [jsdoc-to-markdown](https://github.com/jsdoc2md/jsdoc-to-markdown/tree/master/docs/API.md) from the JSDoc in [`src/decorators/getter.ts`](https://github.com/rayenboussayed/jutilities/blob/main/src/decorators/getter.ts). Behavior contracts and quirks are pinned by the tests.
 
@@ -36,7 +36,7 @@ type-compatible only when the getter's return type is promise-like; the
 **Example**  
 ```ts
 // Hoist the factory so each decoration applies it exactly once.
-const report = decorateGetter(lazy);
+const report = decorateGetter(withLoggerSync);
 
 class Stats {
   

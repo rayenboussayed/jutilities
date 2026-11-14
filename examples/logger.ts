@@ -6,7 +6,7 @@
  * line skipped, `console.error` emitted, error rethrown), and the output
  * contract that mirrors the other Sync/Async wrapper pairs.
  */
-import { withLoggerAsync, withLoggerSync } from "jutilities/logger";
+import { withLoggerAsync, withLoggerSync } from "jutilities/hof/logger";
 
 /**
  * Sync adder logged under an explicit label.

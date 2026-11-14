@@ -1,15 +1,15 @@
 /* eslint-disable deslint/no-prod-console -- examples are demo scripts; printing is their purpose */
 
 import { decorateGetter } from "jutilities/decorators/getter";
-import { lazy } from "jutilities/lazy";
-import { withLoggerSync } from "jutilities/logger";
+import { withCacheSync } from "jutilities/hof/cache";
+import { withLoggerSync } from "jutilities/hof/logger";
 /**
  * Runnable demo for `decorateGetter` (`jutilities/decorators/getter`): the
  * getter's access function runs through the HOF once at class definition, and
  * every access calls the wrapped getter with the instance as `this`. Because
  * getters live on the prototype, the HOF's state is shared prototype-wide —
- * `lazy` here memoizes its value once for the whole class (across all
- * instances), while a logger wrapper keeps firing on every read.
+ * `withCacheSync` here memoizes its value once for the whole class (across
+ * all instances), while a logger wrapper keeps firing on every read.
  *
  * Legacy decorators (`experimentalDecorators`) need a transpile pass, so
  * this file is TypeScript and is executed through tsx alongside the flat
@@ -19,13 +19,14 @@ import { withLoggerSync } from "jutilities/logger";
 import assert from "node:assert/strict";
 
 // Hoist the factory so each decoration applies it exactly once.
-const report = decorateGetter(lazy);
+const report = decorateGetter(withCacheSync);
 const logged = decorateGetter(withLoggerSync);
+const cacheStore = new Map();
 
 let recomputes = 0;
 
 class Stats {
-  @report()
+  @report({ cacheStore, extraKeys: ["stats-heavy"] })
   get heavy(): string {
     recomputes++;
     return `snapshot@${recomputes}`;
@@ -40,7 +41,7 @@ class Stats {
 const stats = new Stats();
 
 console.log("heavy #1 :", stats.heavy);
-console.log("heavy #2 :", stats.heavy, "(memoized — lazy computed once)");
+console.log("heavy #2 :", stats.heavy, "(memoized — withCacheSync computed once)");
 console.log("cross    :", new Stats().heavy, "(prototype-wide: instances share the memo)");
 console.log("name     :", stats.name, ",", stats.name, "(logged on every read)");
 

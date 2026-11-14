@@ -41,6 +41,6 @@ Thumbs.db
 
 # ---- profiling & benchmark artifacts ----
 profiles/
-benchmarks/results/
+test/benchmark/results/
 *.cpuprofile
 *.heapprofile

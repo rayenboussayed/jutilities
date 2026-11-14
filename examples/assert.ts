@@ -14,7 +14,7 @@ import {
   assertNotRawMemberApplication,
   withAssertAsync,
   withAssertSync,
-} from "jutilities/assert";
+} from "jutilities/hof/assert";
 
 try {
   assert(false, "cache store must be provided", "withCache");

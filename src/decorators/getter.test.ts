@@ -1,9 +1,8 @@
 /* eslint-disable sonarjs/void-use */
 import { describe, expect, it } from "vitest";
 
-import { withCacheAsync, withCacheSync } from "../cache.js";
-import { lazy } from "../lazy.js";
-import { withLoggerSync } from "../logger.js";
+import { withCacheAsync, withCacheSync } from "../hof/cache.js";
+import { withLoggerSync } from "../hof/logger.js";
 import { decorateGetter } from "./getter.js";
 
 // Decorator grammar notes (already pinned in method.test.ts): converters are
@@ -51,17 +50,17 @@ describe("decorateGetter", () => {
     expect(stats.area).toBe(8);
   });
 
-  it("works with option-less HOFs (lazy) and logs through withLoggerSync", () => {
+  it("works with an option-less HOF (withLoggerSync) and logs each access", () => {
     const originalDebug = console.debug;
     const lines: unknown[][] = [];
     console.debug = (...parts: unknown[]) => {
       lines.push(parts);
     };
     try {
-      const lazed = decorateGetter(lazy);
+      const logged = decorateGetter(withLoggerSync);
       class Heavy {
         computes = 0;
-        @lazed()
+        @logged()
         get value() {
           this.computes++;
           return "heavy";
@@ -69,23 +68,13 @@ describe("decorateGetter", () => {
       }
       const heavy = new Heavy();
       expect(heavy.value).toBe("heavy");
-      // lazy memoizes the truthy getter result: the second access skips the
-      // getter body entirely.
+      // A sync HOF re-runs the getter body on every access.
       expect(heavy.value).toBe("heavy");
-      expect(heavy.computes).toBe(1);
-      // The same converter also works for the logger.
-      const logged = decorateGetter(withLoggerSync);
-      class Buzzer {
-        @logged()
-        get buzz() {
-          return "buzz";
-        }
-      }
-      expect(new Buzzer().buzz).toBe("buzz");
+      expect(heavy.computes).toBe(2);
     } finally {
       console.debug = originalDebug;
     }
-    expect(lines.some((parts) => /value|buzz/.test(String(parts[0])))).toBeTruthy();
+    expect(lines.some((parts) => /value/.test(String(parts[0])))).toBeTruthy();
   });
 
   it("guards pass under require: sync and throw under require: async", () => {

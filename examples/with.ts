@@ -1,14 +1,14 @@
 /* eslint-disable deslint/no-prod-console -- examples are demo scripts; printing is their purpose */
 
-import { withCacheAsync, withCacheSync } from "jutilities/cache";
+import { withCacheAsync, withCacheSync } from "jutilities/hof/cache";
 /**
  * Demonstrates `withAsync` / `withSync`: composing several fn-first HOFs into
  * one wrapper (the first HOF is the outermost layer), with one shared options
  * bag and one shared bypass for the whole stack.
  */
+import { withLoggerAsync } from "jutilities/hof/logger";
+import { withRetryAsync } from "jutilities/hof/retry";
 import { withAsync, withSync } from "jutilities/libs/with";
-import { withLoggerAsync } from "jutilities/logger";
-import { withRetryAsync } from "jutilities/retry";
 import { sleepAsync } from "jutilities/sleep";
 
 let sourceCalls = 0;

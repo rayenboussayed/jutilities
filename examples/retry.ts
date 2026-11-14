@@ -4,7 +4,7 @@
  * Demonstrates `withRetryAsync`: caller-owned retry policy, backoff via
  * `sleepAsync`, and verbatim multi-argument forwarding on both variants.
  */
-import { withRetryAsync, withRetrySync } from "jutilities/retry";
+import { withRetryAsync, withRetrySync } from "jutilities/hof/retry";
 import { sleepAsync } from "jutilities/sleep";
 
 let flakyAttempts = 0;

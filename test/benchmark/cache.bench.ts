@@ -3,7 +3,7 @@ import {
   globalCache,
   withCacheAsync,
   withCacheSync,
-} from "jutilities/cache";
+} from "jutilities/hof/cache";
 import { lazy } from "jutilities/lazy";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 

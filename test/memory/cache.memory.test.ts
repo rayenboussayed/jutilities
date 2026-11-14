@@ -2,7 +2,7 @@ import { ExpiredMap } from "expired-map";
 import { setImmediate as tick } from "node:timers/promises";
 import { afterAll, describe, expect, it } from "vitest";
 
-import { globalCache } from "../../src/cache.js";
+import { globalCache } from "../../src/hof/cache.js";
 import { isCollected } from "./gc.js";
 
 const LARGE_ARRAY_SIZE = 1024;

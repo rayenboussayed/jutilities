@@ -5,8 +5,8 @@
  * shared job queue, poisoned jobs exhaust their retries into a dead-letter
  * list, and shutdown is graceful through an AbortSignal.
  */
-import { withLoggerAsync } from "jutilities/logger";
-import { withRetryAsync } from "jutilities/retry";
+import { withLoggerAsync } from "jutilities/hof/logger";
+import { withRetryAsync } from "jutilities/hof/retry";
 import { abort } from "jutilities/signal";
 import { sleepAsync } from "jutilities/sleep";
 

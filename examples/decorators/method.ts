@@ -1,11 +1,11 @@
 /* eslint-disable deslint/no-prod-console -- examples are demo scripts; printing is their purpose */
 
-import { withCacheAsync, withCacheSync } from "jutilities/cache";
 import { decorateMethod } from "jutilities/decorators/method";
-import { withDelayAsync } from "jutilities/delay";
+import { withCacheAsync, withCacheSync } from "jutilities/hof/cache";
+import { withDelayAsync } from "jutilities/hof/delay";
+import { withLoggerSync } from "jutilities/hof/logger";
+import { withRetryAsync } from "jutilities/hof/retry";
 import { withAsync } from "jutilities/libs/with";
-import { withLoggerSync } from "jutilities/logger";
-import { withRetryAsync } from "jutilities/retry";
 /**
  * Runnable demo for `decorateMethod` (`jutilities/decorators/method`): any
  * fn-first HOF built by this package converts into a reusable method

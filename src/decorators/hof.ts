@@ -14,7 +14,7 @@ import type {
 import {
   assertGuardConsistency,
   assertNotRawMemberApplication,
-} from "../assert.js";
+} from "../hof/assert.js";
 import { isAsyncFunction } from "../is.js";
 
 /**

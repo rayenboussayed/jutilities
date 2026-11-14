@@ -1,11 +1,11 @@
 /* eslint-disable deslint/no-prod-console -- examples are demo scripts; printing is their purpose */
-import type { CacheStore, Key } from "jutilities/cache";
+import type { CacheStore, Key } from "jutilities/hof/cache";
 import type { AnyFunction } from "jutilities/types/type";
 
-import { withCacheAsync, withCacheSync } from "jutilities/cache";
 import { decorateMethod } from "jutilities/decorators/method";
+import { withCacheAsync, withCacheSync } from "jutilities/hof/cache";
+import { withRetryAsync } from "jutilities/hof/retry";
 import { lazy } from "jutilities/lazy";
-import { withRetryAsync } from "jutilities/retry";
 import assert from "node:assert/strict";
 
 

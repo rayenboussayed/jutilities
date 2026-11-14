@@ -50,5 +50,5 @@
   },
 
   // Project sources; tests and examples are type-checked too on purpose.
-  "include": ["src", "examples", "benchmarks", "test"]
+  "include": ["src", "examples", "test"]
 }

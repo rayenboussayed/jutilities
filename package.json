@@ -45,7 +45,7 @@
     "test:memory": "vitest run --config vitest.memory.config.ts",
     "test:heap": "vitest run --logHeapUsage",
     "bench": "npm run build && vitest bench",
-    "bench:json": "npm run build && vitest bench --reporter=json --outputFile=benchmarks/results/bench.json",
+    "bench:json": "npm run build && vitest bench --reporter=json --outputFile=test/benchmark/results/bench.json",
     "profile": "vitest run --config vitest.profile.config.ts",
     "typecheck": "tsc --noEmit",
     "lint": "eslint . --cache --max-warnings 0",

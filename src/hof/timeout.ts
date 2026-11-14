@@ -1,9 +1,9 @@
 /* eslint-disable promise/param-names */
-import type { AnyFunction } from "./types/type.js";
-import type { WithSignal } from "./types/with.js";
+import type { AnyFunction } from "../types/type.js";
+import type { WithSignal } from "../types/with.js";
 
-import { createHofAsync, type HofKind } from "./libs/create-hof.js";
-import { abort } from "./signal.js";
+import { createHofAsync, type HofKind } from "../libs/create-hof.js";
+import { abort } from "../signal.js";
 
 export type Options = WithSignal<{ timeoutMs?: number }>;
 

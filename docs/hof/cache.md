@@ -1,12 +1,12 @@
-# `jutilities/cache`
+# `jutilities/hof/cache`
 
-<!-- This file is generated. Do not edit by hand — change the JSDoc in [`src/cache.ts`](https://github.com/rayenboussayed/jutilities/blob/main/src/cache.ts) and run `npm run docs:api` instead. -->
+<!-- This file is generated. Do not edit by hand — change the JSDoc in [`src/hof/cache.ts`](https://github.com/rayenboussayed/jutilities/blob/main/src/hof/cache.ts) and run `npm run build` instead. -->
 
-> Generated with [jsdoc-to-markdown](https://github.com/jsdoc2md/jsdoc-to-markdown/tree/master/docs/API.md) from the JSDoc in [`src/cache.ts`](https://github.com/rayenboussayed/jutilities/blob/main/src/cache.ts). Behavior contracts and quirks are pinned by the tests.
+> Generated with [jsdoc-to-markdown](https://github.com/jsdoc2md/jsdoc-to-markdown/tree/master/docs/API.md) from the JSDoc in [`src/hof/cache.ts`](https://github.com/rayenboussayed/jutilities/blob/main/src/hof/cache.ts). Behavior contracts and quirks are pinned by the tests.
 
 ```ts
-import { globalCache, defaultGenerateCacheKey, withCacheSync, withCacheAsync } from "jutilities/cache";
-import type { Key, CacheKeyParams, CacheKind, CacheStore, Options, ShouldCacheParams } from "jutilities/cache";
+import { globalCache, defaultGenerateCacheKey, withCacheSync, withCacheAsync } from "jutilities/hof/cache";
+import type { Key, CacheKeyParams, CacheKind, CacheStore, Options, ShouldCacheParams } from "jutilities/hof/cache";
 ```
 ## Constants
 

@@ -5,7 +5,7 @@ export default defineConfig({
     environment: "node",
     globals: false,
     include: ["src/**/*.test.ts"],
-    benchmark: { include: ["benchmarks/**/*.bench.ts"] },
+    benchmark: { include: ["test/benchmark/**/*.bench.ts"] },
     pool: "forks",
     testTimeout: 30_000,
     hookTimeout: 30_000,

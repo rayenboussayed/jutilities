@@ -46,7 +46,5 @@ pnpm-debug.log*
 
 # ---- performance/memory tooling & artifacts (not published) ----
 test/
-benchmarks/
 profiles/
 vitest.*.config.ts
-benchmarks/results/

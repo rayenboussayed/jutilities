@@ -8,16 +8,19 @@ All notable changes to this project are documented here.
 - Standardized superjson handler keys to hyphenated forms: `invalid-date`, `number-object`, `string-object`, and `boolean-object`.
 - Restored function handler round-trip behavior using `new Function(\`return ${v}\`)()` and `v.toString()`.
 - Aligned docs and tests with the updated handler keys and function behavior.
-- Upgraded Vitest `^3.2.7` → `^5.1.0` and `@vitest/coverage-v8` to match. Benchmarks now use the Vitest 5 benchmark API (`test()` + `bench` fixture); `--outputJson`/`--compare` are gone — `bench:json` writes a full JSON report via `--reporter=json`, and stored-baseline comparisons use `writeResult`/`bench.from()` (see `benchmarks/README.md`). Coverage is now the AST-aware V8 remapping; the 100% branch/line/function/statement gate is re-earned against it.
+- Upgraded Vitest `^3.2.7` → `^5.1.0` and `@vitest/coverage-v8` to match. Benchmarks now use the Vitest 5 benchmark API (`test()` + `bench` fixture); `--outputJson`/`--compare` are gone — `bench:json` writes a full JSON report via `--reporter=json`, and stored-baseline comparisons use `writeResult`/`bench.from()` (see `test/benchmark/README.md`). Coverage is now the AST-aware V8 remapping; the 100% branch/line/function/statement gate is re-earned against it.
 - **Breaking:** the `decorators/<kind>` converters (`decorateMethod`, `decorateClass`, `decorateGetter`) now target TypeScript legacy decorators (`"experimentalDecorators": true`, added to `tsconfig.json`) because Vite 8 / Rolldown (oxc) cannot parse TC39 Stage 3 decorator syntax. The Stage 3 public API (`ClassDecoratorContext`-typed signatures, `isDecorationContext`) is discarded.
 - **Breaking:** `decorateProperty` is removed — legacy field decorators receive no initializer value, so function-valued field decoration is impossible. Plain fields are not supported; the decorators module covers methods, classes and getters only. The 15 `decorateProperty` tests and the `decorators/property` example are gone.
 - Paren-less-misfire guards now fingerprint legacy decorator invocations: `isRawMemberApplication` matches `(target, propertyKey, descriptor)` and `assertNotRawApplication` matches a function passed as the options bag.
+- **Breaking:** `lazy` is a plain memoizing function again — it no longer carries the `HofFn` brand. `LazyKind`/`LazyOptions` exports and the `skipHof` bypass are removed, and the internal `lazyFactory` indirection is gone. `decorateMethod`/`decorateGetter` cannot convert it; use a branded HOF there instead.
+- **Breaking:** the HOF modules moved to nested subpaths — `jutilities/cache` → `jutilities/hof/cache`, `jutilities/retry` → `jutilities/hof/retry`, `jutilities/timeout` → `jutilities/hof/timeout`, `jutilities/delay` → `jutilities/hof/delay`, `jutilities/logger` → `jutilities/hof/logger`, and `jutilities/assert` → `jutilities/hof/assert`. Sources and tests moved with them (`src/hof/*.ts`); the public surface (exports, docs, examples) follows the same paths. The `exports` map (`"./*": "./dist/*.js"`) already routes nested subpaths, so no manifest change was needed; deep imports of `jutilities/libs/*` and `jutilities/decorators/*` are unaffected.
+- README and AGENTS now point at the generated API reference in `docs/` (index `docs/README.md`) instead of the absent `docs/DOCUMENTATION.md` and `docs/api/`; docs regeneration is documented as part of `npm run build`, and the phantom `npm run docs:api` references in the generator templates (and thus in every generated header and the `docs/README.md` index) were removed in the same pass.
 
 ### Tests
 - Replaced `node:assert/strict` with Vitest `expect` assertions across all test suites.
 - Added function round-trip and invalid-syntax assertions for `SyntaxError`.
 - Benchmarks run against the built artifact (`jutilities/*` self-link) after a fresh `npm run build`.
-- Full `npm run check` is green on Vitest 5: typecheck, lint, 585 tests, build, 25 examples.
+- Full `npm run check` is green on Vitest 5: typecheck, lint, 581 tests, build, 25 examples.
 
 ## [1.2.0] - 2026-11-06
 
