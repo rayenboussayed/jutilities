@@ -26,7 +26,9 @@ const outRoot = path.join(root, "docs");
 
 const result = await run({ cwd: root, parallelism: false });
 for (const warning of result.warnings) console.warn(`note ${warning}`);
-for (const issue of result.issues) console.warn(`note ${issue.file}: ${issue.issue}`);
+for (const issue of result.issues) {
+  if (!issue.file.endsWith(".test.ts")) console.warn(`note ${issue.file}: ${issue.issue}`);
+}
 const nonTestFailures = result.failed.filter((failure) => !failure.file.endsWith(".test.ts"));
 if (nonTestFailures.length > 0) {
   for (const failure of nonTestFailures) console.error(`error ${failure.file}: ${failure.error}`);
