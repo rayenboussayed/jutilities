@@ -1,4 +1,4 @@
-/* eslint-disable security/detect-non-literal-fs-filename */
+/* eslint-disable security/detect-non-literal-fs-filename -- the script walks and rewrites documentation paths computed from the docs tree; paths are derived from in-repo constants, never user input */
 /**
  * Regenerates `docs/` after `tsc`: runs mdaics over `src/`, removes the test
  * pages mdaics writes there, and rebuilds `docs/README.md`.
@@ -38,8 +38,10 @@ console.log(
   `mdaics: ${result.written.length} doc(s) written, ${result.skipped.length} skipped, ` +
   `${result.failed.length} failed (${(result.durationMs / 1000).toFixed(2)}s)`,
 );
-if (result.failed.length > 0)
-  console.warn(`mdaics reported ${result.failed.length} failure line(s), all confined to test files; continuing.`);
+if (result.failed.length > 0) {
+  console.warn(`mdaics reported ${result.failed.length} failure(s), all confined to test files:`);
+  for (const failure of result.failed) console.warn(`  ${failure.file}: ${failure.error.split("\n")[0]}`);
+}
 
 /**
  * Recursively removes every `*.test.md` page below `dir`.
@@ -83,6 +85,7 @@ function firstSentence(text) {
  * @returns {string[]} Absolute page paths.
  */
 function listPages(dir) {
+  if (!fs.existsSync(dir)) return [];
   const entries = fs.readdirSync(dir, { withFileTypes: true });
   const pages = [];
   for (const entry of entries) {
@@ -130,6 +133,7 @@ const REPO_URL = "https://github.com/rayenboussayed/jutilities";
 const modules = listPages(outRoot)
   .map((page) => path.relative(outRoot, page).split(path.sep).join("/").replace(/\.md$/, ""))
   .sort();
+if (modules.length === 0) throw new Error("no module docs were generated; refusing to write an empty index");
 for (const modulePath of modules) {
   const srcPath = `src/${modulePath}.ts`;
   const repoLink = `${REPO_URL}/blob/main/${srcPath}`;
@@ -143,7 +147,9 @@ for (const modulePath of modules) {
     "",
   ].join("\n");
   const page = path.join(outRoot, `${modulePath}.md`);
-  fs.writeFileSync(page, header + fs.readFileSync(page, "utf8"));
+  const current = fs.readFileSync(page, "utf8");
+  if (!current.startsWith(`# \`jutilities/${modulePath}\``))
+    fs.writeFileSync(page, header + current);
 }
 
 const lines = [

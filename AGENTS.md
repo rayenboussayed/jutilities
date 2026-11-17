@@ -33,7 +33,7 @@ npm run check              # typecheck && lint && knip && test && test:memory &&
 
 ## Constraints and gotchas
 
-- Node `>=22.13.0` is required. Regenerating `docs/` requires Node `>=22.17.0` (mdaics).
+- Node `>=22.13.0` is required to consume the library. Developing this repo (`npm run check`, the pre-commit hook, publishing) requires Node `>=22.17.0` (mdaics renders docs in `npm run build`).
 - `src/runtime.ts` is isomorphic (browser bundles import it): no static `node:` imports. Node-only synchronous detection goes through the guarded `process.getBuiltinModule("node:worker_threads")` (Node ≥ 22.3), evaluated once at module load.
 - Environment-dependent branches read `isServer`/`isBrowser` at module import time. Tests that stub `window`/`self`/`process` must use `vi.stubGlobal` + `vi.resetModules()` + dynamic `import()` — per-test global mutation no longer flips the branch.
 - Examples are discovered at runtime by `readdirSync` + `spawn` (`examples/run-all.ts`), invisible to static analysis — `knip.json` declares `examples/**/*.ts` as entry. Keep example subfolders covered by that glob.
