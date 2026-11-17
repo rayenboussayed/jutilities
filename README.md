@@ -359,8 +359,12 @@ consumer of this repo.
 ## Documentation
 
 One page per module, generated from the JSDoc by `npm run build` (via
-`scripts/generate-api-docs.mjs`) — never edited by hand:
-[docs/README.md](./docs/README.md). Runtime caveats and quirks are in
+`scripts/generate-docs.mjs`, which renders with
+[mdaics](https://www.npmjs.com/package/mdaics)) — never edited by hand:
+[docs/README.md](./docs/README.md). Each symbol carries `src:` and `dist:`
+line pointers into the source and the build output. Regenerating `docs/`
+requires Node ≥ 22.17 (mdaics); the library itself still runs on Node ≥
+22.13. Runtime caveats and quirks are in
 [Known quirks](#known-quirks-documented-intentional); behavior contracts are the
 executable tests in `src/**/*.test.ts`; the runnable demos are in
 [examples/](./examples).

@@ -26,14 +26,14 @@ npm run check              # typecheck && lint && knip && test && test:memory &&
 ## Repository shape
 
 - ESM-only Node package, no barrel: import every module as `jutilities/<module>` (for example `jutilities/hof/cache`).
-- `src/` is the library. `examples/` are type-checked consumers. `docs/` is the generated API reference (entry point `docs/README.md`) — one page per module, produced by `scripts/generate-api-docs.mjs` as part of `npm run build`; change the JSDoc in `src/`, never the generated pages.
+- `src/` is the library. `examples/` are type-checked consumers. `docs/` is the generated API reference (entry point `docs/README.md`) — one page per module, produced by `scripts/generate-docs.mjs` (which renders with mdaics) as part of `npm run build`; change the JSDoc in `src/`, never the generated pages.
 - `src/**/*.test.ts` are tests; Vitest coverage thresholds are 100% for lines, statements, functions, and branches.
 - Coverage exclusions are only `src/types/type.ts` and `src/types/with.ts`.
 - Target centers: function-level HOFs in `src/libs/create-hof.ts` and `src/libs/with.ts`; sync-only runtime guarding is authoritative.
 
 ## Constraints and gotchas
 
-- Node `>=22.13.0` is required.
+- Node `>=22.13.0` is required. Regenerating `docs/` requires Node `>=22.17.0` (mdaics).
 - `src/runtime.ts` is isomorphic (browser bundles import it): no static `node:` imports. Node-only synchronous detection goes through the guarded `process.getBuiltinModule("node:worker_threads")` (Node ≥ 22.3), evaluated once at module load.
 - Environment-dependent branches read `isServer`/`isBrowser` at module import time. Tests that stub `window`/`self`/`process` must use `vi.stubGlobal` + `vi.resetModules()` + dynamic `import()` — per-test global mutation no longer flips the branch.
 - Examples are discovered at runtime by `readdirSync` + `spawn` (`examples/run-all.ts`), invisible to static analysis — `knip.json` declares `examples/**/*.ts` as entry. Keep example subfolders covered by that glob.
