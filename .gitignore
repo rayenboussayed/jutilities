@@ -44,3 +44,5 @@ profiles/
 test/benchmark/results/
 *.cpuprofile
 *.heapprofile
+# agent swarm working directory
+.agent-swarm/
