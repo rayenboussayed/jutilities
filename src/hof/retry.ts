@@ -73,6 +73,7 @@ export interface RetryKind<
  * @param error - The value the attempt threw.
  * @param retries - How many retries have run so far.
  * @returns The policy payload.
+ * @private
  */
 function attemptPayload(
   parameters: unknown[],

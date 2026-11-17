@@ -37,6 +37,7 @@ Thumbs.db
 *.key
 
 # ---- local state, lockfiles & debug logs ----
+.mdaicscache
 package-lock.json
 npm-debug.log*
 yarn-debug.log*

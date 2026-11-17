@@ -390,6 +390,7 @@ export async function* walkEntries({
  * @param root0 - Options object.
  * @param root0.directory - Directory to read.
  * @returns Sorted entries.
+ * @private
  */
 async function readEntries({ directory }: { directory: string }) {
   const entries = await fs.promises.readdir(directory, { withFileTypes: true });

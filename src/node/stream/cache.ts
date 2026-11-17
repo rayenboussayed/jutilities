@@ -236,6 +236,7 @@ export class StreamCache {
 /**
  * The shared `beforeExit` handler: removes every registered cache directory.
  * Runs only during the real process exit, so unit coverage cannot reach it.
+ * @private
  */
 function onBeforeExit() {
   for (const pending of exitDirectories) fs.rmSync(
@@ -253,6 +254,7 @@ function onBeforeExit() {
  * All instances share one `beforeExit` listener instead of registering one
  * per cache (many instances used to trip `MaxListenersExceededWarning`).
  * @param directory - Cache directory to remove at process exit.
+ * @private
  */
 function registerExitDirectory(directory: string) {
   exitDirectories.add(directory);

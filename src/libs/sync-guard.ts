@@ -4,6 +4,7 @@ import type { AnyFunction } from "../types/type.js";
  * Runtime guard for the sync HOF flavor. Type-level checks are structurally
  * larger tools for this but may not encode a polymorphic generic signature
  * without defeating inference, so the runtime is authoritative.
+ * @private
  */
 const violationTags: readonly string[] = [
   "[object Promise]",

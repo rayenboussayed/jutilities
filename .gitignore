@@ -46,3 +46,6 @@ test/benchmark/results/
 *.heapprofile
 # agent swarm working directory
 .agent-swarm/
+
+# ---- mdaics render cache (build artifact; never committed) ----
+.mdaicscache

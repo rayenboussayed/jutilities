@@ -54,6 +54,7 @@ type LoggerSink = NonNullable<Options["logger"]>;
  * @param fn - The wrapped function.
  * @param name - The explicit label, when given.
  * @returns The bracketed label used in every log line.
+ * @private
  */
 function labelOf(fn: AnyFunction, name?: string): string {
   return `[Function ${(name ?? fn.name) || "anonymous"}]`;
@@ -65,6 +66,7 @@ function labelOf(fn: AnyFunction, name?: string): string {
  * @param label - The wrapper's label.
  * @param startTime - The start timestamp of the measured call.
  * @param error - The thrown value.
+ * @private
  */
 function logError(
   logger: LoggerSink,
@@ -84,6 +86,7 @@ function logError(
  * @param label - The wrapper's label.
  * @param startTime - The start timestamp of the measured call.
  * @param result - The call's result.
+ * @private
  */
 function logResult(
   logger: LoggerSink,
@@ -103,6 +106,7 @@ function logResult(
  * @param label - The wrapper's label.
  * @param args - The call arguments.
  * @returns The start timestamp of the measured call.
+ * @private
  */
 function logStart(logger: LoggerSink, label: string, args: unknown[]): number {
   logger.debug(`[${new Date()}] ${label} Execution, Args:`, ...args);

@@ -35,6 +35,7 @@ export const isBrowserWorker =
  * synchronously — browsers, edge runtimes and bundled `process` shims. Loaded
  * via `process.getBuiltinModule` so importing this module never pulls Node
  * builtins into a browser bundle.
+ * @private
  */
 const nodeWorkerThreads =
   typeof process !== "undefined" && typeof process.getBuiltinModule === "function"
